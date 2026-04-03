@@ -1,9 +1,29 @@
 services:
   postgres:
     image: 'postgres:17-alpine'
+    container_name: logistics-company-db
+    restart: always
     environment:
-      - 'POSTGRES_DB=logistics_db'
-      - 'POSTGRES_USER=myuser'
-      - 'POSTGRES_PASSWORD=secret'
+      # We use Docker Compose variable substitution to read directly from your .env file!
+      # Ensure you have a .env file in the same directory as this compose.yaml
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     ports:
-      - '5432'
+      -  "5432:5432"
+    volumes:
+      # Maps the named volume to the internal PostgreSQL data directory.
+      # This ensures database data persists even if the container is destroyed/recreated.
+      - logistics-company_db_data:/var/lib/postgresql/data
+    networks:
+      # Attaches the container to a custom bridge network, allowing other services 
+      # (like an Angular frontend or another backend) to communicate with it securely by name.
+      - logistics-company_net
+
+volumes:
+  # Declares a named volume managed by Docker, storing data permanently on the host machine.
+  logistics-company_db_data:
+
+networks:
+  # Declares a custom bridge network for the application stack.
+  logistics-company_net:
