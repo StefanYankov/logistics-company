@@ -16,8 +16,17 @@ spring:
       ddl-auto: validate
     show-sql: true
 
-  liquibase:
-    change-log: classpath:db/changelog/db.changelog-master.yaml
+  # Enables Flyway on startup
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    # Tells Flyway where to find the SQL scripts. 
+    # This is the default location, but explicitly setting it is a good practice.
+    locations: classpath:db/migration
+
+  messages:
+    basename: messages
+    encoding: UTF-8
 
 logging:
   pattern:
