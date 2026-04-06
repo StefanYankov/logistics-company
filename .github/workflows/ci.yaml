@@ -2,9 +2,9 @@ name: Java & Angular CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   # --- Backend Job ---
@@ -19,6 +19,9 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: 'gradle'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
       - name: Run Backend Tests
         run: ./gradlew test
