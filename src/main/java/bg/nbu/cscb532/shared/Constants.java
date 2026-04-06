@@ -28,4 +28,14 @@ public final class Constants {
         public static final int MIN_PASSWORD_LENGTH = 8;
         public static final int MAX_PASSWORD_LENGTH = 128;
     }
+
+    /**
+     * Standardized internal error messages for developer logging and defense-in-depth assertions.
+     */
+    public static final class DeveloperErrors {
+        public static final String DTO_NULL = "Incoming DTO must not be null.";
+        public static final String ENTITY_ID_NULL = "Entity ID must not be null.";
+        public static final String PAGEABLE_NULL = "Pageable parameter must not be null.";
+        public static final String NAME_NULL = "Name must not be null.";
+    }
 }
