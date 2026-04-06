@@ -46,6 +46,6 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
-
+      # Using JSDOM environment, without the browser driver requirement for pure UI component testing
       - name: Run Angular Tests (Vitest)
-        run: npm test -- --watch=false --browsers=chrome_headless
+        run: npm test -- --watch=false
