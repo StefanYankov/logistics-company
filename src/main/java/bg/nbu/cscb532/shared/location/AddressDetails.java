@@ -37,4 +37,10 @@ public class AddressDetails {
 
     @Column(length = Constants.Validation.MAX_BUILDING_INFO_LENGTH)
     private String apartment;
+
+    @Column
+    private Double latitude;
+
+    @Column
+    private Double longitude;
 }
