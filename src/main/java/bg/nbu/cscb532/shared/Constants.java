@@ -12,7 +12,12 @@ public final class Constants {
 
     public static final class Validation {
         // Names (Cities, Offices, Users, etc.)
+        public static final int MIN_NAME_LENGTH = 2;
         public static final int MAX_NAME_LENGTH = 100;
+
+        // Postcode
+        public static final int MIN_POSTCODE_LENGTH = 4;
+        public static final int MAX_POSTCODE_LENGTH = 5;
         
         // Addresses
         public static final int MAX_STREET_LENGTH = 100;
