@@ -10,7 +10,6 @@ import lombok.*;
 
 /**
  * Represents a geographical city.
- * Extracted into a separate entity to normalize addresses and allow filtering by city.
  */
 @Entity
 @Getter
