@@ -29,9 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * WebMvcTest (Slice Test) for the CompanyController.
- * Proves that HTTP routing, JSON Serialization/Deserialization, JSR-380 Validation, 
- * and the GlobalExceptionHandler work flawlessly without booting the database or security.
+ * WebMvcTest for the CompanyController.
  */
 @WebMvcTest(controllers = {CompanyController.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
@@ -43,7 +41,6 @@ class CompanyControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    // Use MockitoBean (Spring Boot 3.4+) instead of the deprecated MockBean
     @MockitoBean
     private CompanyService companyService;
 

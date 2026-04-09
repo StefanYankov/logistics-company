@@ -10,7 +10,6 @@ import lombok.*;
 
 /**
  * Represents a geographical city.
- * Extracted into a separate entity to normalize addresses and allow filtering by city.
  */
 @Entity
 @Getter
@@ -20,8 +19,8 @@ import lombok.*;
 @AllArgsConstructor
 @Table(name = "cities", uniqueConstraints = {
         @UniqueConstraint(
-                name = "uk_city_name_postcode",
-                columnNames = {"name", "postcode"}
+                name = "uk_city_postcode",
+                columnNames = {"postcode"}
         )
 })
 public class City extends BaseEntity {
