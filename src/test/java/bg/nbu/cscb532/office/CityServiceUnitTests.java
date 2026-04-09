@@ -66,7 +66,7 @@ public class CityServiceUnitTests {
             var createDto = createValidCityDto();
             var savedEntity = createValidCityEntity(1L);
 
-            given(cityRepository.findByNameAndPostcode("Troyan", "5600")).willReturn(Optional.empty());
+            given(cityRepository.findByPostcode("5600")).willReturn(Optional.empty());
             given(cityRepository.save(any(City.class))).willReturn(savedEntity);
 
             // Act
@@ -78,18 +78,18 @@ public class CityServiceUnitTests {
             assertThat(result.name()).isEqualTo("Troyan");
             assertThat(result.postcode()).isEqualTo("5600");
 
-            verify(cityRepository).findByNameAndPostcode("Troyan", "5600");
+            verify(cityRepository).findByPostcode("5600");
             verify(cityRepository).save(any(City.class));
         }
 
         @Test
-        @DisplayName("Should throw BusinessException when creating a city with an exact existing name and postcode")
+        @DisplayName("Should throw BusinessException when creating a city with an exact existing postcode")
         void shouldThrowDuplicateException_ErrorCase(){
             // Arrange
             var createDto = createValidCityDto();
 
-            // Simulate the database already having this exact combination
-            given(cityRepository.findByNameAndPostcode(anyString(), anyString()))
+            // Simulate the database already having this postcode
+            given(cityRepository.findByPostcode(anyString()))
                     .willReturn(Optional.of(createValidCityEntity(1L)));
 
             // Act & Assert
@@ -99,7 +99,7 @@ public class CityServiceUnitTests {
                     .extracting(ex -> ((BusinessException) ex).getErrorCode())
                     .isEqualTo(ErrorCode.CITY_DUPLICATE);
 
-            verify(cityRepository).findByNameAndPostcode("Troyan", "5600");
+            verify(cityRepository).findByPostcode("5600");
             verifyNoMoreInteractions(cityRepository); 
         }
 
