@@ -21,9 +21,8 @@ public enum ErrorCode {
     COMPANY_NAME_DUPLICATE("E1003", "A company with this name already exists.", HttpStatus.CONFLICT),
 
     // --- Office/City Domain (E2000 - E2999) ---
-    CITY_DUPLICATE("E2001", "A city with this postcode already exists.", HttpStatus.CONFLICT),
-    CITY_NOT_FOUND("E2002", "City not found.", HttpStatus.NOT_FOUND),
-    OFFICE_NOT_FOUND("E2003", "Office not found.", HttpStatus.NOT_FOUND);
+    CITY_DUPLICATE("E2001", "A city with this name and postcode already exists.", HttpStatus.CONFLICT),
+    CITY_NOT_FOUND("E2002", "City not found.", HttpStatus.NOT_FOUND);
 
     // --- User Domain (E3000 - E3999) ---
     // USER_NOT_FOUND("E3001", ...
