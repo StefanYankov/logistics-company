@@ -39,8 +39,8 @@ public class CityServiceImpl implements CityService {
         String normalizedName = dto.name().trim();
         String normalizedPostcode = dto.postcode().trim();
 
-        if (cityRepository.findByNameAndPostcode(normalizedName, normalizedPostcode).isPresent()) {
-            log.warn("City creation failed. City [{}] with postcode [{}] already exists.", normalizedName, normalizedPostcode);
+        if (cityRepository.findByPostcode(normalizedPostcode).isPresent()) {
+            log.warn("City creation failed. Postcode [{}] is already assigned to a city.", normalizedPostcode);
             throw new BusinessException(ErrorCode.CITY_DUPLICATE);
         }
 
@@ -72,16 +72,15 @@ public class CityServiceImpl implements CityService {
         var newNormalizedName = dto.name().trim();
         var newNormalizedPostcode = dto.postcode().trim();
 
-        boolean isNameChanged = !city.getName().equals(newNormalizedName);
         boolean isPostcodeChanged = !city.getPostcode().equals(newNormalizedPostcode);
 
-        // Proactive duplicate check due to unique constraint
-        if (isNameChanged || isPostcodeChanged) {
-            cityRepository.findByNameAndPostcode(newNormalizedName, newNormalizedPostcode)
+        // Proactive duplicate check due to unique constraint on postcode
+        if (isPostcodeChanged) {
+            cityRepository.findByPostcode(newNormalizedPostcode)
                     .ifPresent(existingCity -> {
                         if (!existingCity.getId().equals(id)) {
-                            log.warn("City update failed. Combination of [{}] and [{}] already in use by City ID: {}",
-                                    newNormalizedName, newNormalizedPostcode, existingCity.getId());
+                            log.warn("City update failed. Postcode [{}] is already in use by City ID: {}",
+                                    newNormalizedPostcode, existingCity.getId());
                             throw new BusinessException(ErrorCode.CITY_DUPLICATE);
                         }
                     });

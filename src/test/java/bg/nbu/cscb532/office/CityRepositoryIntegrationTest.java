@@ -39,11 +39,11 @@ class CityRepositoryIntegrationTest {
     private CityRepository cityRepository;
 
     @Nested
-    @DisplayName("findByNameAndPostcode(String, String) Tests")
-    class FindByNameAndPostcodeTests {
+    @DisplayName("findByPostcode(String) Tests")
+    class FindByPostcodeTests {
 
         @Test
-        @DisplayName("Happy Path: Should find city when exact name and postcode match exists")
+        @DisplayName("Happy Path: Should find city when exact postcode match exists")
         void shouldFindCityWhenExactMatchExists() {
 
             // Arrange:
@@ -54,7 +54,7 @@ class CityRepositoryIntegrationTest {
             cityRepository.save(city);
 
             // Act:
-            var result = cityRepository.findByNameAndPostcode("Troyan", "5600");
+            Optional<City> result = cityRepository.findByPostcode("5600");
 
             // Assert:
             assertThat(result).isPresent();
@@ -63,8 +63,8 @@ class CityRepositoryIntegrationTest {
         }
 
         @Test
-        @DisplayName("Error Case: Should return empty when only name matches but postcode is different")
-        void shouldReturnEmptyWhenOnlyNameMatches() {
+        @DisplayName("Error Case: Should return empty when postcode does not exist")
+        void shouldReturnEmptyWhenPostcodeNotFound() {
 
             // Arrange:
             var city = City.builder()
@@ -74,25 +74,7 @@ class CityRepositoryIntegrationTest {
             cityRepository.save(city);
 
             // Act:
-            var result = cityRepository.findByNameAndPostcode("Troyan", "6491");
-
-            // Assert:
-            assertThat(result).isEmpty();
-        }
-        
-        @Test
-        @DisplayName("Edge Case: Should return empty when case does not match exactly")
-        void shouldReturnEmptyWhenCaseDiffers() {
-
-            // Arrange:
-            var city = City.builder()
-                    .name("Sofia")
-                    .postcode("1000")
-                    .build();
-            cityRepository.save(city);
-
-            // Act
-            var result = cityRepository.findByNameAndPostcode("sofia", "1000");
+            Optional<City> result = cityRepository.findByPostcode("6491");
 
             // Assert:
             assertThat(result).isEmpty();
@@ -160,16 +142,18 @@ class CityRepositoryIntegrationTest {
         }
 
         @Test
-        @DisplayName("Error Case: Should throw Exception when inserting exact duplicate name and postcode")
-        void shouldThrowExceptionOnExactDuplicate() {
+        @DisplayName("Error Case: Should throw Exception when inserting duplicate postcode even if name differs")
+        void shouldThrowExceptionOnDuplicatePostcode() {
 
             // Arrange
-            City city1 = City.builder().name("Sofia").postcode("1000").build();
+            City city1 = City.builder().name("Lovech").postcode("5600").build();
             cityRepository.saveAndFlush(city1);
 
-            City city2 = City.builder().name("Sofia").postcode("1000").build();
+            City city2 = City.builder().name("Troyan").postcode("5600").build();
 
             // Act & Assert:
+            // Proves that uk_city_postcode is actively enforced by PostgreSQL, 
+            // blocking two different cities from claiming the same postcode!
             assertThatThrownBy(() -> cityRepository.saveAndFlush(city2))
                     .isInstanceOf(DataIntegrityViolationException.class)
                     .hasMessageContaining("duplicate key value violates unique constraint");

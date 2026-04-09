@@ -10,10 +10,10 @@ import java.util.Optional;
 public interface CityRepository extends JpaRepository<City, Long> {
 
     /**
-     * Finds a city by its exact name and postcode combination.
-     * This query is backed by the uk_city_name_postcode database constraint.
+     * Finds a city by its exact postcode.
+     * This query is backed by the uk_city_postcode database unique constraint.
      */
-    Optional<City> findByNameAndPostcode(String name, String postcode);
+    Optional<City> findByPostcode(String postcode);
 
     /**
      * Finds all cities with the exact given name.
