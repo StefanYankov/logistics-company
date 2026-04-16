@@ -33,10 +33,13 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
     // Security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
     // OpenAPI / Swagger
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
-
 
     // Docker
     developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
@@ -68,7 +71,10 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers:2.0.4'
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.4'
     testImplementation 'org.testcontainers:testcontainers-postgresql:2.0.4'
+    testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+
 }
 
 tasks.named('test') {

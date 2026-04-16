@@ -1,4 +1,4 @@
-package bg.nbu.cscb532.user;
+package bg.nbu.cscb532.employee;
 import bg.nbu.cscb532.office.Office;
 import jakarta.persistence.*;
 import lombok.Getter;
