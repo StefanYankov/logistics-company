@@ -23,10 +23,12 @@ public enum ErrorCode {
     // --- Office/City Domain (E2000 - E2999) ---
     CITY_DUPLICATE("E2001", "A city with this postcode already exists.", HttpStatus.CONFLICT),
     CITY_NOT_FOUND("E2002", "City not found.", HttpStatus.NOT_FOUND),
-    OFFICE_NOT_FOUND("E2003", "Office not found.", HttpStatus.NOT_FOUND);
+    OFFICE_NOT_FOUND("E2003", "Office not found.", HttpStatus.NOT_FOUND),
 
-    // --- User Domain (E3000 - E3999) ---
-    // USER_NOT_FOUND("E3001", ...
+    // --- User / Client Domain (E3000 - E3999) ---
+    USERNAME_DUPLICATE("E3001", "This username is already taken.", HttpStatus.CONFLICT),
+    EMAIL_DUPLICATE("E3002", "This email is already registered.", HttpStatus.CONFLICT);
+
 
     private final String code;
     private final String defaultMessage;

@@ -5,6 +5,7 @@ import bg.nbu.cscb532.company.dto.CompanyViewDto;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
+import bg.nbu.cscb532.user.JwtService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -43,6 +45,12 @@ class CompanyControllerTest {
 
     @MockitoBean
     private CompanyService companyService;
+
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private UserDetailsService userDetailsService;
 
     @Nested
     @DisplayName("POST /api/companies")

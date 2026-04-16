@@ -1,6 +1,7 @@
-package bg.nbu.cscb532.user;
+package bg.nbu.cscb532.client;
 
 import bg.nbu.cscb532.shared.Constants;
+import bg.nbu.cscb532.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
