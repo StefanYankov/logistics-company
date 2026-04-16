@@ -8,6 +8,7 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
 import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
+import bg.nbu.cscb532.user.JwtService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -57,6 +59,12 @@ public class OfficeControllerTest {
 
     @MockitoBean
     private OfficeService officeService;
+
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private UserDetailsService userDetailsService;
 
     // --- TEST DATA FACTORY METHODS ---
 

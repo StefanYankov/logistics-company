@@ -20,8 +20,8 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
-                // TODO: change to the actual domain of the frontend app in production
+        registry.addMapping("/api/**") // Apply this CORS policy to all API endpoints under /api/
+                .allowedOrigins("http://localhost:4200")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("Authorization", "Content-Type")
                 .allowCredentials(true);
