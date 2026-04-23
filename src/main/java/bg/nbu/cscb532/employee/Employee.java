@@ -1,4 +1,5 @@
 package bg.nbu.cscb532.employee;
+
 import bg.nbu.cscb532.shared.Constants;
 import bg.nbu.cscb532.user.User;
 import jakarta.persistence.*;

@@ -27,8 +27,12 @@ public enum ErrorCode {
 
     // --- User / Client Domain (E3000 - E3999) ---
     USERNAME_DUPLICATE("E3001", "This username is already taken.", HttpStatus.CONFLICT),
-    EMAIL_DUPLICATE("E3002", "This email is already registered.", HttpStatus.CONFLICT);
+    EMAIL_DUPLICATE("E3002", "This email is already registered.", HttpStatus.CONFLICT),
 
+    // --- Employee Domain (E4000 - E4999) ---
+    EMPLOYEE_NUMBER_DUPLICATE("E4001", "This employee number is already assigned.", HttpStatus.CONFLICT),
+    EMPLOYEE_NOT_FOUND("E4002", "Employee not found.", HttpStatus.NOT_FOUND),
+    INVALID_EMPLOYEE_ROLE("E4003", "Invalid role specified for employee creation.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String defaultMessage;
