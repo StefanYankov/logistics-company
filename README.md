@@ -17,6 +17,8 @@ The **Logistics Company System** is a Java-based web application developed as a 
 ## Table of Contents
 - [Architecture & Technologies](#architecture-and-technologies)
 - [Installation & Setup](#installation-and-setup)
+- [Implemented Features](#implemented-features)
+- [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
@@ -26,46 +28,66 @@ The **Logistics Company System** is a Java-based web application developed as a 
 - **Backend**: Spring Boot 4.0 / Java 25 (utilizing Virtual Threads)
 - **Frontend**: Angular 19+ (Standalone Architecture)
 - **Database**: PostgreSQL 17
-- **Migrations**: Liquibase
+- **Migrations**: Flyway
 - **Containerization**: Docker & Docker Compose
+- **Security**: Stateless JWT Authentication with Spring Security 7
 - **API Pattern**: RESTful with DTO/Entity separation
-- **Testing**: JUnit 5, Testcontainers
+- **Testing**: JUnit 5, Testcontainers, Mockito, AssertJ
+
+## Implemented Features
+
+The project is being developed using a strict **Domain-Driven Design (DDD)** approach, organized into vertical slices:
+
+*   **System Foundation**:
+    *   Centralized RFC 9457 ProblemDetail exception handling (`GlobalExceptionHandler`).
+    *   JSR-380 input validation.
+    *   Automated Flyway database migrations.
+*   **Company Domain**:
+    *   CRUD operations for the core `Company` entity.
+    *   Data integrity checks (Unique registration numbers).
+*   **Office & City Domain**:
+    *   Hierarchical office management (Cities -> Offices).
+    *   Geospatial integration (Latitude/Longitude on addresses).
+*   **Identity & Access Management (IAM)**:
+    *   Full Spring Security integration.
+    *   Stateless JWT (JSON Web Token) generation and validation.
+    *   Role-based access control (`CLIENT`, `COURIER`, `CLERK`, `ADMIN`).
+*   **Client Domain**:
+    *   Public self-registration endpoint for new customers.
+    *   Secure password hashing (BCrypt).
+    *   Proactive duplication checks (username, email).
+*   **Employee Domain (In Progress)**:
+    *   Polymorphic user types (`OfficeClerk` assigned to an office, mobile `Courier`).
+    *   Admin-only management endpoints.
 
 ## Project Structure
+The project follows a **Package-by-Feature** (Modular Monolith) structure to ensure high cohesion and prepare for potential future microservice extraction.
+
 LogisticsCompany/
 ├── 📂 .github/                   # GitHub Actions (CI/CD workflows)
 ├── 📂 frontend/                  # Angular 19+ Application Root
-│   ├── 📂 src/
-│   │   ├── 📂 app/               # Components, Services, Models
-│   │   └── 📂 environments/      # API URL configurations
-│   ├── 📄 angular.json           # Angular build settings
-│   ├── 📄 package.json           # Node.js dependencies
-│   └── 📄 proxy.conf.json        # Bridges Frontend (4200) to Backend (8080)
-│
+│   └── ...
 ├── 📂 src/                       # Spring Boot 4.0 Application Root
 │   ├── 📂 main/
 │   │   ├── 📂 java/bg/nbu/cscb532/
 │   │   │   ├── 📜 LogisticsCompanyApplication.java
-│   │   │   ├── 📂 web/           # API Layer
-│   │   │   │   ├── 📂 controller/
-│   │   │   │   └── 📂 dto/       # Request/Response Objects
-│   │   │   ├── 📂 service/       # Business Logic Layer
-│   │   │   └── 📂 data/          # Persistence Layer
-│   │   │       ├── 📂 entity/    # DB Table Mappings
-│   │   │       └── 📂 repository/# DB Access Interfaces
-│   │   │
+│   │   │   ├── 📂 client/        # Client registration & management
+│   │   │   ├── 📂 company/       # Core logistics company details
+│   │   │   ├── 📂 employee/      # Staff (Couriers, Clerks) management
+│   │   │   ├── 📂 office/        # Physical locations and cities
+│   │   │   ├── 📂 shared/        # Cross-cutting concerns (Security, Exceptions, Config)
+│   │   │   ├── 📂 shipment/      # Core logistics process (Pending)
+│   │   │   └── 📂 user/          # IAM, Authentication, JWT logic
 │   │   └── 📂 resources/
-│   │       ├── 📂 db/changelog/  # Liquibase migration files
-│   │       ├── 📂 static/        # Where Angular 'dist' will be built
+│   │       ├── 📂 db/migration/  # Flyway SQL scripts
 │   │       └── 📄 application.yaml # Backend Configuration
 │   │
-│   └── 📂 test/                  # JUnit 5 & Testcontainers
+│   └── 📂 test/                  # Comprehensive Test Suite
+│       └── 📂 java/bg/nbu/cscb532/
+│           └── ...               # Unit, Web Slice, and Data Slice tests per domain
 │
-├── 📂 logs/                      # Application log files (Ignored by Git)
-├── 📄 .env                       # Local secrets (DB_PASSWORD, etc.)
-├── 📄 .gitignore                 # Essential: Keeps your repo clean
 ├── 📄 build.gradle               # Backend build script
-├── 📄 compose.yaml                # Docker Compose (Postgres setup)
+├── 📄 compose.yaml               # Docker Compose (Postgres setup)
 └── 📄 README.md                  # Project instructions & documentation
 
 ## Installation and Setup

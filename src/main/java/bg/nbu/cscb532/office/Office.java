@@ -32,6 +32,7 @@ public class Office extends BaseEntity {
     @Builder.Default
     private Set<OperatingHour> operatingHours = new HashSet<>();
 
+    // TODO: Refactor this to use Strict DDD approach (store companyId instead of Company object)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
