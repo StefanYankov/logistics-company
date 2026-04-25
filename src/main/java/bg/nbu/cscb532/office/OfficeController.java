@@ -1,5 +1,6 @@
 package bg.nbu.cscb532.office;
 
+import bg.nbu.cscb532.employee.dto.EmployeeViewDto;
 import bg.nbu.cscb532.office.dto.OfficeDto;
 import bg.nbu.cscb532.office.dto.OfficeViewDto;
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
@@ -12,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -39,7 +41,7 @@ public class OfficeController {
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., invalid data or Operating Hours logic)")
     @ApiResponse(responseCode = "404", description = "Referenced Company or City not found")
     @PostMapping
-    // TODO: @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OfficeViewDto> createOffice(@Valid @RequestBody OfficeDto dto) {
         log.info("API POST request to create a new office for Company ID: {} in City ID: {}", dto.companyId(), dto.address().cityId());
 
@@ -64,7 +66,7 @@ public class OfficeController {
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., invalid data or Operating Hours logic)")
     @ApiResponse(responseCode = "404", description = "Office, Company, or City not found")
     @PutMapping("/{id}")
-    // TODO: @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OfficeViewDto> updateOffice(
             @PathVariable Long id,
             @Valid @RequestBody OfficeDto dto
@@ -83,7 +85,7 @@ public class OfficeController {
     @ApiResponse(responseCode = "204", description = "Office deleted successfully")
     @ApiResponse(responseCode = "404", description = "Office not found")
     @DeleteMapping("/{id}")
-    // TODO: @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteOffice(@PathVariable Long id) {
         log.info("API DELETE request to delete office with ID: {}", id);
 
@@ -99,7 +101,7 @@ public class OfficeController {
     @ApiResponse(responseCode = "200", description = "Successfully retrieved the office")
     @ApiResponse(responseCode = "404", description = "Office not found")
     @GetMapping("/{id}")
-    // TODO: @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<OfficeViewDto> getOfficeById(@PathVariable Long id) {
         log.info("API GET request for office ID: {}", id);
 
@@ -114,7 +116,7 @@ public class OfficeController {
     )
     @ApiResponse(responseCode = "200", description = "Successfully retrieved the list of offices")
     @GetMapping
-    // TODO: @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<OfficeViewDto>> getAllOffices(Pageable pageable) {
         log.info("API GET requests for all offices. Pageable: {}", pageable);
 
@@ -129,7 +131,7 @@ public class OfficeController {
     )
     @ApiResponse(responseCode = "200", description = "Successfully retrieved the list of offices")
     @GetMapping("/city/{cityId}")
-    // TODO: @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<OfficeViewDto>> getOfficesByCityId(@PathVariable Long cityId) {
         log.info("API GET request for offices in City ID: {}", cityId);
 
@@ -145,7 +147,7 @@ public class OfficeController {
     @ApiResponse(responseCode = "200", description = "Successfully retrieved the nearest offices")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., invalid GPS coordinates)")
     @GetMapping("/nearest")
-    // TODO: @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<OfficeViewDto>> getNearestOffices(
             @RequestParam double lat,
             @RequestParam double lon,
@@ -156,5 +158,23 @@ public class OfficeController {
         var offices = officeService.getNearestOffices(lat, lon, radiusKm);
 
         return ResponseEntity.ok(offices);
+    }
+
+    @Operation(
+            summary = "Get clerks for an office",
+            description = "Retrieves a paginated list of OfficeClerk employees assigned to a specific office."
+    )
+    @ApiResponse(responseCode = "200", description = "Successfully retrieved the list of clerks")
+    @ApiResponse(responseCode = "404", description = "Office not found")
+    @GetMapping("/{id}/clerks")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<EmployeeViewDto>> getClerksForOffice(
+            @PathVariable Long id, 
+            Pageable pageable) {
+        log.info("API GET request for clerks in Office ID: {}", id);
+
+        Page<EmployeeViewDto> clerks = officeService.getClerksByOfficeId(id, pageable);
+
+        return ResponseEntity.ok(clerks);
     }
 }
