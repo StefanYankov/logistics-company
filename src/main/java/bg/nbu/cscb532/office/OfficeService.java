@@ -1,5 +1,6 @@
 package bg.nbu.cscb532.office;
 
+import bg.nbu.cscb532.employee.dto.EmployeeViewDto;
 import bg.nbu.cscb532.office.dto.OfficeDto;
 import bg.nbu.cscb532.office.dto.OfficeViewDto;
 import bg.nbu.cscb532.shared.exception.BusinessException;
@@ -80,4 +81,15 @@ public interface OfficeService {
      * @throws BusinessException if the provided coordinates or radius are mathematically invalid (ErrorCode.VALIDATION_FAILED)
      */
     List<OfficeViewDto> getNearestOffices(double lat, double lon, double radiusKm);
+
+    /**
+     * Retrieves a paginated list of all OfficeClerks assigned to a specific office.
+     * This is a cross-aggregate query orchestrated by the OfficeService.
+     *
+     * @param officeId The physical office location ID.
+     * @param pageable The pagination criteria.
+     * @return A paginated list of Employee DTOs representing the staff.
+     * @throws BusinessException if the office ID is not found (ErrorCode.OFFICE_NOT_FOUND)
+     */
+    Page<EmployeeViewDto> getClerksByOfficeId(Long officeId, Pageable pageable);
 }

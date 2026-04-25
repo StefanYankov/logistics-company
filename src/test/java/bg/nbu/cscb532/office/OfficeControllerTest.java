@@ -1,5 +1,6 @@
 package bg.nbu.cscb532.office;
 
+import bg.nbu.cscb532.employee.dto.EmployeeViewDto;
 import bg.nbu.cscb532.office.dto.OfficeDto;
 import bg.nbu.cscb532.office.dto.OfficeViewDto;
 import bg.nbu.cscb532.office.dto.OperatingHourDto;
@@ -8,14 +9,18 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
 import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
+import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.JwtService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
@@ -24,10 +29,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -44,6 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(controllers = {OfficeController.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
+@AutoConfigureMockMvc(addFilters = false)
 public class OfficeControllerTest {
 
     private static final String BASE_URL = "/api/offices";
@@ -97,6 +106,22 @@ public class OfficeControllerTest {
                 "Vitosha Blvd, Mladost, bl. 10, ent. A, fl. 5, ap. 12, Sofia 1000",
                 Set.of(createValidOperatingHourViewDto())
         );
+    }
+
+    private EmployeeViewDto createValidEmployeeViewDto() {
+        return EmployeeViewDto.builder()
+                .id(UUID.randomUUID())
+                .username("janedoe")
+                .email("jane@example.com")
+                .firstName("Jane")
+                .lastName("Doe")
+                .employeeNumber("EMP-123")
+                .hireDate(LocalDate.now())
+                .salary(BigDecimal.valueOf(2500))
+                .applicationRole(ApplicationRole.CLERK)
+                .isActive(true)
+                .officeId(VALID_OFFICE_ID)
+                .build();
     }
 
     @Nested
@@ -634,6 +659,51 @@ public class OfficeControllerTest {
                     .andExpect(jsonPath("$.detail").value(ErrorCode.VALIDATION_FAILED.getDefaultMessage()));
 
             verify(officeService).getNearestOffices(invalidLat, 23.32, 10.0);
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/offices/{id}/clerks")
+    class GetClerksForOfficeTests {
+
+        @Test
+        @DisplayName("Happy Path: Should return 200 OK with paginated list of clerks")
+        void shouldReturn200WithPaginatedClerks() throws Exception {
+            // Arrange
+            EmployeeViewDto employee = createValidEmployeeViewDto();
+            Page<EmployeeViewDto> pagedResponse = new PageImpl<>(List.of(employee), PageRequest.of(0, 10), 1);
+
+            given(officeService.getClerksByOfficeId(eq(VALID_OFFICE_ID), any(Pageable.class)))
+                    .willReturn(pagedResponse);
+
+            // Act & Assert
+            mockMvc.perform(get(BASE_URL + "/{id}/clerks", VALID_OFFICE_ID)
+                            .param("page", "0")
+                            .param("size", "10")
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalElements").value(1))
+                    .andExpect(jsonPath("$.content[0].id").value(employee.id().toString()))
+                    .andExpect(jsonPath("$.content[0].applicationRole").value("CLERK"));
+
+            verify(officeService).getClerksByOfficeId(eq(VALID_OFFICE_ID), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("Error Case: Should return 404 Not Found when office does not exist")
+        void shouldReturn404WhenOfficeNotFound() throws Exception {
+            // Arrange
+            Long invalidId = 999L;
+            given(officeService.getClerksByOfficeId(eq(invalidId), any(Pageable.class)))
+                    .willThrow(new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
+
+            // Act & Assert
+            mockMvc.perform(get(BASE_URL + "/{id}/clerks", invalidId)
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.OFFICE_NOT_FOUND.getCode()));
+
+            verify(officeService).getClerksByOfficeId(eq(invalidId), any(Pageable.class));
         }
     }
 }
