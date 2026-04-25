@@ -2,6 +2,9 @@ package bg.nbu.cscb532.office;
 
 import bg.nbu.cscb532.company.Company;
 import bg.nbu.cscb532.company.CompanyRepository;
+import bg.nbu.cscb532.employee.OfficeClerk;
+import bg.nbu.cscb532.employee.OfficeClerkRepository;
+import bg.nbu.cscb532.employee.dto.EmployeeViewDto;
 import bg.nbu.cscb532.office.dto.OfficeDto;
 import bg.nbu.cscb532.office.dto.OfficeViewDto;
 import bg.nbu.cscb532.office.dto.OperatingHourViewDto;
@@ -34,6 +37,7 @@ public class OfficeServiceImpl implements OfficeService {
     private final OfficeRepository officeRepository;
     private final CityRepository cityRepository;
     private final CompanyRepository companyRepository;
+    private final OfficeClerkRepository officeClerkRepository;
 
     /**
      * {@inheritDoc}
@@ -236,6 +240,25 @@ public class OfficeServiceImpl implements OfficeService {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Page<EmployeeViewDto> getClerksByOfficeId(Long officeId, Pageable pageable) {
+        log.debug("Fetching paginated clerks for Office ID: {}", officeId);
+        Objects.requireNonNull(officeId, Constants.DeveloperErrors.ENTITY_ID_NULL);
+
+        // First verify the office exists. We don't want to return an empty list if the office is invalid.
+        Office office = findOfficeOrThrow(officeId);
+
+        // Execute cross-domain query
+        Page<OfficeClerk> clerksPage = officeClerkRepository.findOfficeClerksByOfficeId(office.getId(), pageable);
+
+        // Translate the employee entity to the employee view DTO locally
+        return clerksPage.map(this::mapClerkToEmployeeViewDto);
+    }
+
+    /**
      * Centralized lookup and exception logic to DRY up the service methods.
      */
     private Office findOfficeOrThrow(Long id) {
@@ -279,6 +302,29 @@ public class OfficeServiceImpl implements OfficeService {
 
         // 4. Return the temporary entity
         return viewDto;
+    }
+
+    /**
+     * Translates an OfficeClerk entity from the Employee domain into an EmployeeViewDto.
+     */
+    private EmployeeViewDto mapClerkToEmployeeViewDto(OfficeClerk clerk) {
+        if (clerk == null) return null;
+
+        Long officeId = clerk.getOffice() != null ? clerk.getOffice().getId() : null;
+
+        return EmployeeViewDto.builder()
+                .id(clerk.getId())
+                .username(clerk.getUsername())
+                .email(clerk.getEmail())
+                .firstName(clerk.getFirstName())
+                .lastName(clerk.getLastName())
+                .employeeNumber(clerk.getEmployeeNumber())
+                .hireDate(clerk.getHireDate())
+                .salary(clerk.getSalary())
+                .applicationRole(clerk.getApplicationRole())
+                .isActive(clerk.isActive())
+                .officeId(officeId)
+                .build();
     }
 
     /**

@@ -14,6 +14,8 @@ import java.util.UUID;
 @Repository
 public interface OfficeClerkRepository extends JpaRepository<OfficeClerk, UUID> {
 
+
+    // TODO: refactor to underscore Traversal to resolve any future refactoring ambiguity
     /**
      * Retrieves a paginated list of office clerks associated with a specific office.
      *

@@ -2,6 +2,9 @@ package bg.nbu.cscb532.office;
 
 import bg.nbu.cscb532.company.Company;
 import bg.nbu.cscb532.company.CompanyRepository;
+import bg.nbu.cscb532.employee.OfficeClerk;
+import bg.nbu.cscb532.employee.OfficeClerkRepository;
+import bg.nbu.cscb532.employee.dto.EmployeeViewDto;
 import bg.nbu.cscb532.office.dto.OfficeDto;
 import bg.nbu.cscb532.office.dto.OfficeViewDto;
 import bg.nbu.cscb532.office.dto.OperatingHourDto;
@@ -10,6 +13,7 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
+import bg.nbu.cscb532.user.ApplicationRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,12 +27,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,6 +55,9 @@ public class OfficeServiceUnitTests {
 
     @Mock
     private CompanyRepository companyRepository;
+
+    @Mock
+    private OfficeClerkRepository officeClerkRepository;
 
     @InjectMocks
     private OfficeServiceImpl officeService;
@@ -120,7 +130,93 @@ public class OfficeServiceUnitTests {
 
     // --- TESTS ---
 
-    // TODO (Security): Add SecurityTests once JWT and @PreAuthorize are added to the service methods
+    @Nested
+    @DisplayName("getClerksByOfficeId(Long, Pageable) Tests")
+    class GetClerksByOfficeIdTests {
+
+        @Test
+        @DisplayName("Happy Path: Should return mapped paginated list of clerks")
+        void shouldReturnMappedClerks_HappyPath() {
+            // Arrange
+            Long officeId = 1L;
+            PageRequest pageable = PageRequest.of(0, 10);
+
+            Office mockOffice = createValidOfficeEntity(officeId, 10L, 20L);
+
+            OfficeClerk clerk = new OfficeClerk();
+            clerk.setId(UUID.randomUUID());
+            clerk.setUsername("janedoe");
+            clerk.setFirstName("Jane");
+            clerk.setLastName("Doe");
+            clerk.setEmail("jane@test.com");
+            clerk.setApplicationRole(ApplicationRole.CLERK);
+            clerk.setEmployeeNumber("EMP-001");
+            clerk.setSalary(BigDecimal.valueOf(3000));
+            clerk.setHireDate(LocalDate.now());
+            clerk.setOffice(mockOffice);
+
+            Page<OfficeClerk> pagedResponse = new PageImpl<>(List.of(clerk), pageable, 1);
+
+            given(officeRepository.findById(officeId)).willReturn(Optional.of(mockOffice));
+            given(officeClerkRepository.findOfficeClerksByOfficeId(officeId, pageable)).willReturn(pagedResponse);
+
+            // Act
+            Page<EmployeeViewDto> result = officeService.getClerksByOfficeId(officeId, pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isEqualTo(1);
+            assertThat(result.getContent()).hasSize(1);
+            
+            EmployeeViewDto viewDto = result.getContent().getFirst();
+            assertThat(viewDto.username()).isEqualTo("janedoe");
+            assertThat(viewDto.officeId()).isEqualTo(officeId);
+
+            verify(officeRepository).findById(officeId);
+            verify(officeClerkRepository).findOfficeClerksByOfficeId(officeId, pageable);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw BusinessException when office is not found")
+        void shouldThrowExceptionWhenOfficeNotFound_ErrorCase() {
+            // Arrange
+            Long invalidOfficeId = 999L;
+            PageRequest pageable = PageRequest.of(0, 10);
+
+            given(officeRepository.findById(invalidOfficeId)).willReturn(Optional.empty());
+
+            // Act & Assert
+            assertThatThrownBy(() -> officeService.getClerksByOfficeId(invalidOfficeId, pageable))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.OFFICE_NOT_FOUND);
+
+            verify(officeRepository).findById(invalidOfficeId);
+            verifyNoInteractions(officeClerkRepository);
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should handle empty page mapping correctly")
+        void shouldReturnEmptyPageWhenNoClerksExist_EdgeCase() {
+            // Arrange
+            Long officeId = 1L;
+            PageRequest pageable = PageRequest.of(0, 10);
+
+            Office mockOffice = createValidOfficeEntity(officeId, 10L, 20L);
+            Page<OfficeClerk> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+            given(officeRepository.findById(officeId)).willReturn(Optional.of(mockOffice));
+            given(officeClerkRepository.findOfficeClerksByOfficeId(officeId, pageable)).willReturn(emptyPage);
+
+            // Act
+            Page<EmployeeViewDto> result = officeService.getClerksByOfficeId(officeId, pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.isEmpty()).isTrue();
+            assertThat(result.getTotalElements()).isZero();
+        }
+    }
 
     @Nested
     @DisplayName("Create Tests")
