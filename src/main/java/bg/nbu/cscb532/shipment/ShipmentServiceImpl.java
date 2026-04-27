@@ -54,7 +54,6 @@ public class ShipmentServiceImpl implements ShipmentService {
         Objects.requireNonNull(request, Constants.DeveloperErrors.DTO_NULL);
         Objects.requireNonNull(registeredById, Constants.DeveloperErrors.ENTITY_ID_NULL);
 
-        // 1. Fetch and validate all participants
         Client sender = clientRepository.findById(request.senderId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         
@@ -64,7 +63,6 @@ public class ShipmentServiceImpl implements ShipmentService {
         Employee registeredBy = employeeRepository.findById(registeredById)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
 
-        // 2. Validate and resolve destination
         Office deliveryOffice = null;
         AddressDetails deliveryAddressSnapshot = null;
 
@@ -79,13 +77,10 @@ public class ShipmentServiceImpl implements ShipmentService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
 
-        // 3. Calculate Price using the Strategy Pattern
         BigDecimal totalPrice = pricingService.calculatePrice(request);
 
-        // 4. Generate Tracking Number (Simple UUID segment for this project)
         String trackingNumber = "TRK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-        // 5. Build and save the Shipment entity
         Shipment shipment = Shipment.builder()
                 .trackingNumber(trackingNumber)
                 .sender(sender)
@@ -104,7 +99,6 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         Shipment savedShipment = shipmentRepository.save(shipment);
 
-        // 6. Log the initial history event
         ShipmentStatusHistory initialHistory = ShipmentStatusHistory.builder()
                 .shipment(savedShipment)
                 .status(ShipmentStatus.REGISTERED)
@@ -124,11 +118,9 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment shipment = shipmentRepository.findById(shipmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
-        // Visibility Rule: Clients can only see their own shipments
         if (role == ApplicationRole.CLIENT) {
             if (!shipment.getSender().getId().equals(requestingUserId) &&
                 !shipment.getReceiver().getId().equals(requestingUserId)) {
-                // Return 404 instead of 403 to prevent ID enumeration by malicious clients
                 throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
             }
         }
@@ -236,7 +228,9 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     private String formatAddress(AddressDetails address) {
-        if (address == null) return "";
+        if (address == null) {
+            return "";
+        }
 
         return Stream.of(
                         address.getStreet(),

@@ -32,7 +32,7 @@ public class CustomUserDetailsServiceImpl implements UserDetailsService {
      * Security `UserDetails` object, including their assigned role and active status.
      *
      * @param username the username identifying the user whose data is required.
-     * @return a fully populated user record (never {@code null})
+     * @return a fully populated custom user record containing the UUID (never {@code null})
      * @throws UsernameNotFoundException if the user could not be found or the user has no GrantedAuthority
      */
     @Override
@@ -45,16 +45,14 @@ public class CustomUserDetailsServiceImpl implements UserDetailsService {
                     return new UsernameNotFoundException("User not found: " + username);
                 });
 
-
         SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + userEntity.getApplicationRole().name());
 
-        return new org.springframework.security.core.userdetails.User(
+        return new CustomUserDetails(
+                userEntity.getId(),
                 userEntity.getUsername(),
                 userEntity.getPassword(),
+                userEntity.getApplicationRole(),
                 userEntity.isActive(),
-                true,
-                true,
-                true,
                 Collections.singletonList(authority)
         );
     }
