@@ -13,12 +13,16 @@ import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
+import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
+import bg.nbu.cscb532.user.CustomUserDetails;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InjectMocks;
@@ -28,9 +32,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -113,12 +120,228 @@ class ShipmentServiceUnitTests {
         return office;
     }
 
+    private CustomUserDetails createMockAuthUser(UUID id, ApplicationRole role) {
+        return new CustomUserDetails(
+                id,
+                "testUser",
+                "password",
+                role,
+                true,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.name()))
+        );
+    }
+
     private ShipmentCreationDto.ShipmentCreationDtoBuilder baseCreationDtoBuilder(UUID senderId, UUID receiverId) {
         return ShipmentCreationDto.builder()
                 .senderId(senderId)
                 .receiverId(receiverId)
                 .type(ShipmentType.PARCEL)
                 .weight(BigDecimal.valueOf(2.5));
+    }
+
+    @Nested
+    @DisplayName("updateShipmentStatus(UUID, ShipmentStatusUpdateDto, CustomUserDetails) Tests")
+    class UpdateShipmentStatusTests {
+
+        @Test
+        @DisplayName("Happy Path: Should transition from REGISTERED to IN_TRANSIT and log history")
+        void shouldTransitionRegisteredToInTransit() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
+                    .newStatus(ShipmentStatus.IN_TRANSIT)
+                    .notes("Departed Sofia Hub")
+                    .build();
+
+            Shipment existingShipment = new Shipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.REGISTERED);
+            existingShipment.setSender(createMockClient(UUID.randomUUID(), "A", "A"));
+            existingShipment.setReceiver(createMockClient(UUID.randomUUID(), "B", "B"));
+            existingShipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "C", "C"));
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
+
+            // Act
+            ShipmentViewDto result = shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
+
+            // Assert
+            assertThat(result.status()).isEqualTo(ShipmentStatus.IN_TRANSIT);
+
+            verify(shipmentRepository).save(shipmentCaptor.capture());
+            assertThat(shipmentCaptor.getValue().getStatus()).isEqualTo(ShipmentStatus.IN_TRANSIT);
+
+            verify(historyRepository).save(historyCaptor.capture());
+            ShipmentStatusHistory history = historyCaptor.getValue();
+            assertThat(history.getStatus()).isEqualTo(ShipmentStatus.IN_TRANSIT);
+            assertThat(history.getNotes()).isEqualTo("Departed Sofia Hub");
+            assertThat(history.getLocation()).isNull();
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should transition to AT_DELIVERY_OFFICE and record office location")
+        void shouldTransitionToDeliveryOfficeAndRecordLocation() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            Long officeId = 99L;
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
+                    .newStatus(ShipmentStatus.AT_DELIVERY_OFFICE)
+                    .locationOfficeId(officeId)
+                    .build();
+
+            Shipment existingShipment = new Shipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT);
+            existingShipment.setSender(createMockClient(UUID.randomUUID(), "A", "A"));
+            existingShipment.setReceiver(createMockClient(UUID.randomUUID(), "B", "B"));
+            existingShipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "C", "C"));
+
+            Office locationOffice = createMockOffice(officeId, createMockCity(1L, "Varna", "9000"));
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+            given(officeRepository.findById(officeId)).willReturn(Optional.of(locationOffice));
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
+
+            // Act
+            shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
+
+            // Assert
+            verify(historyRepository).save(historyCaptor.capture());
+            ShipmentStatusHistory history = historyCaptor.getValue();
+            assertThat(history.getLocation().getId()).isEqualTo(officeId);
+        }
+
+        @Test
+        @DisplayName("Happy Path: Courier should be assigned as deliveredBy when marking as DELIVERED")
+        void courierShouldBeAssignedWhenDelivered() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(courierId, ApplicationRole.COURIER);
+            
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
+                    .newStatus(ShipmentStatus.DELIVERED)
+                    .build();
+
+            Shipment existingShipment = new Shipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.OUT_FOR_DELIVERY);
+            existingShipment.setSender(createMockClient(UUID.randomUUID(), "A", "A"));
+            existingShipment.setReceiver(createMockClient(UUID.randomUUID(), "B", "B"));
+            existingShipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "C", "C"));
+
+            Courier courierEntity = createMockEmployee(courierId, "John", "Courier");
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+            given(employeeRepository.findById(courierId)).willReturn(Optional.of(courierEntity));
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
+
+            // Act
+            shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
+
+            // Assert
+            verify(shipmentRepository).save(shipmentCaptor.capture());
+            Shipment savedShipment = shipmentCaptor.getValue();
+            assertThat(savedShipment.getDeliveredBy()).isNotNull();
+            assertThat(savedShipment.getDeliveredBy().getId()).isEqualTo(courierId);
+        }
+
+        @ParameterizedTest(name = "Current Status: {0} -> Target Status: {1}")
+        @CsvSource({
+                "REGISTERED, AT_DELIVERY_OFFICE", // Skipping IN_TRANSIT
+                "REGISTERED, DELIVERED",          // Skipping everything
+                "IN_TRANSIT, DELIVERED",          // Must go to AT_OFFICE or OUT_FOR_DELIVERY first
+                "DELIVERED, IN_TRANSIT",          // Cannot go backwards
+                "AT_DELIVERY_OFFICE, REGISTERED"  // Cannot go backwards
+        })
+        @DisplayName("Business Rule: Should reject invalid state machine transitions")
+        void shouldRejectInvalidTransitions(ShipmentStatus currentStatus, ShipmentStatus newStatus) {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+            
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder().newStatus(newStatus).build();
+
+            Shipment existingShipment = new Shipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(currentStatus);
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+
+            // Act & Assert
+            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(shipmentId, dto, authUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+
+            verify(shipmentRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Security: Should throw VALIDATION_FAILED if a non-courier attempts to mark as OUT_FOR_DELIVERY")
+        void shouldRejectNonCourierOutForDelivery() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder().newStatus(ShipmentStatus.OUT_FOR_DELIVERY).build();
+
+            Shipment existingShipment = new Shipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.AT_DELIVERY_OFFICE);
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+
+            // Act & Assert
+            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(shipmentId, dto, clerkUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+
+            verify(shipmentRepository, never()).save(any());
+        }
+        
+        @Test
+        @DisplayName("Error Case: Should throw OFFICE_NOT_FOUND if invalid locationOfficeId provided")
+        void shouldThrowIfInvalidOfficeProvided() {
+            UUID shipmentId = UUID.randomUUID();
+            Long invalidOfficeId = 999L;
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
+                    .newStatus(ShipmentStatus.AT_DELIVERY_OFFICE)
+                    .locationOfficeId(invalidOfficeId)
+                    .build();
+
+            Shipment existingShipment = new Shipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT);
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+            given(officeRepository.findById(invalidOfficeId)).willReturn(Optional.empty());
+
+            // Act & Assert
+            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(shipmentId, dto, authUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.OFFICE_NOT_FOUND);
+                    
+            verify(historyRepository, never()).save(any());
+        }
+        
+        @Test
+        @DisplayName("Error Case: Defense in depth - should throw NullPointerException if DTO is null")
+        void shouldFailFastIfDtoNull() {
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+            
+            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(UUID.randomUUID(), null, authUser))
+                    .isInstanceOf(NullPointerException.class);
+        }
     }
 
     @SuppressWarnings("DataFlowIssue")
@@ -329,7 +552,7 @@ class ShipmentServiceUnitTests {
 
             ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
                     .deliveryOfficeId(10L)
-                    .deliveryAddress(addressDto)
+                    .deliveryAddress(addressDto) // BOTH!
                     .build();
 
             given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));

@@ -1,8 +1,10 @@
 package bg.nbu.cscb532.shipment;
 
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
+import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
+import bg.nbu.cscb532.user.CustomUserDetails;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -25,6 +27,19 @@ public interface ShipmentService {
      *                                                           or if the destination (Office) is invalid.
      */
     ShipmentViewDto registerShipment(ShipmentCreationDto request, UUID registeredById);
+
+    /**
+     * Updates the lifecycle status of an existing shipment.
+     * Enforces directional state machine rules to prevent invalid transitions (e.g., REGISTERED directly to DELIVERED).
+     * Records the status change in the ShipmentStatusHistory.
+     *
+     * @param shipmentId The UUID of the shipment to update.
+     * @param request The DTO containing the new status, optional location office, and optional notes.
+     * @param userDetails The authenticated user performing the update. Used for role-based authorization and assigning the delivery courier.
+     * @return The updated shipment view DTO.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if the transition is invalid, the shipment is not found, or the location office is invalid.
+     */
+    ShipmentViewDto updateShipmentStatus(UUID shipmentId, ShipmentStatusUpdateDto request, CustomUserDetails userDetails);
 
     /**
      * Retrieves a specific shipment by its UUID.

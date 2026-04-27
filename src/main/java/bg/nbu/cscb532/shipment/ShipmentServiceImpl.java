@@ -2,6 +2,7 @@ package bg.nbu.cscb532.shipment;
 
 import bg.nbu.cscb532.client.Client;
 import bg.nbu.cscb532.client.ClientRepository;
+import bg.nbu.cscb532.employee.Courier;
 import bg.nbu.cscb532.employee.Employee;
 import bg.nbu.cscb532.employee.EmployeeRepository;
 import bg.nbu.cscb532.office.City;
@@ -14,8 +15,10 @@ import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
+import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
+import bg.nbu.cscb532.user.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -113,6 +116,53 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     @Override
+    @Transactional
+    public ShipmentViewDto updateShipmentStatus(UUID shipmentId, ShipmentStatusUpdateDto request, CustomUserDetails userDetails) {
+        log.debug("User {} attempting to update status for shipment {}", userDetails.getId(), shipmentId);
+
+        Objects.requireNonNull(request, Constants.DeveloperErrors.DTO_NULL);
+        Objects.requireNonNull(userDetails, Constants.DeveloperErrors.DTO_NULL);
+
+        Shipment shipment = shipmentRepository.findById(shipmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        validateStatusTransition(shipment.getStatus(), request.newStatus());
+
+        if (request.newStatus() == ShipmentStatus.DELIVERED || request.newStatus() == ShipmentStatus.OUT_FOR_DELIVERY) {
+            if (userDetails.getApplicationRole() != ApplicationRole.COURIER) {
+                log.warn("Non-courier user {} attempted to mark shipment {} as {}", userDetails.getId(), shipmentId, request.newStatus());
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+            }
+            if (request.newStatus() == ShipmentStatus.DELIVERED) {
+                Employee employee = employeeRepository.findById(userDetails.getId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
+                shipment.setDeliveredBy((Courier) employee);
+            }
+        }
+
+        Office locationOffice = null;
+        if (request.locationOfficeId() != null) {
+            locationOffice = officeRepository.findById(request.locationOfficeId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
+        }
+
+        shipment.setStatus(request.newStatus());
+        Shipment updatedShipment = shipmentRepository.save(shipment);
+
+        ShipmentStatusHistory history = ShipmentStatusHistory.builder()
+                .shipment(updatedShipment)
+                .status(request.newStatus())
+                .location(locationOffice)
+                .notes(request.notes())
+                .build();
+        historyRepository.save(history);
+
+        log.info("Shipment {} successfully updated to status {}", shipmentId, request.newStatus());
+
+        return mapToViewDto(updatedShipment);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ShipmentViewDto getShipmentById(UUID shipmentId, UUID requestingUserId, ApplicationRole role) {
         Shipment shipment = shipmentRepository.findById(shipmentId)
@@ -164,6 +214,21 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     // --- Private Helper Methods ---
+
+    private void validateStatusTransition(ShipmentStatus currentStatus, ShipmentStatus newStatus) {
+        boolean isValid = switch (currentStatus) {
+            case REGISTERED -> newStatus == ShipmentStatus.IN_TRANSIT;
+            case IN_TRANSIT -> newStatus == ShipmentStatus.AT_DELIVERY_OFFICE || newStatus == ShipmentStatus.OUT_FOR_DELIVERY;
+            case AT_DELIVERY_OFFICE -> newStatus == ShipmentStatus.OUT_FOR_DELIVERY || newStatus == ShipmentStatus.DELIVERED;
+            case OUT_FOR_DELIVERY -> newStatus == ShipmentStatus.DELIVERED || newStatus == ShipmentStatus.AT_DELIVERY_OFFICE;
+            case DELIVERED -> false;
+        };
+
+        if (!isValid) {
+            log.warn("Invalid status transition attempted: {} -> {}", currentStatus, newStatus);
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+    }
 
     private AddressDetails buildAddressDetails(AddressDetailsDto dto) {
         City city = cityRepository.findById(dto.cityId())
