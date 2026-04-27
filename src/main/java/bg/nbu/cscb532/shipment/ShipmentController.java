@@ -1,0 +1,149 @@
+package bg.nbu.cscb532.shipment;
+
+import bg.nbu.cscb532.shared.web.ApiStandardResponses;
+import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
+import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
+import bg.nbu.cscb532.user.CustomUserDetails;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.net.URI;
+import java.util.UUID;
+
+/**
+ * REST Controller for managing the creation and retrieval of logistics shipments.
+ */
+@Slf4j
+@RestController
+@RequestMapping("/api/shipments")
+@ApiStandardResponses
+@RequiredArgsConstructor
+@Tag(name = "Shipment API", description = "Endpoints for creating and tracking shipments.")
+public class ShipmentController {
+
+    private final ShipmentService shipmentService;
+
+    @Operation(
+            summary = "Register a new shipment",
+            description = "Creates a new shipment, calculates the price, and logs the initial REGISTERED status. Restricted to staff roles."
+    )
+    @ApiResponse(responseCode = "201", description = "Shipment registered successfully")
+    @ApiResponse(responseCode = "400", description = "Validation failed (e.g., negative weight, mutually exclusive destination error)")
+    @ApiResponse(responseCode = "404", description = "Sender, Receiver, or delivery Office not found")
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    public ResponseEntity<ShipmentViewDto> registerShipment(
+            @Valid @RequestBody ShipmentCreationDto request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        
+        log.info("API POST request to register a new shipment from user ID: {}", userDetails.getId());
+
+        ShipmentViewDto createdShipment = shipmentService.registerShipment(request, userDetails.getId());
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(createdShipment.id())
+                .toUri();
+
+        return ResponseEntity
+                .created(location)
+                .body(createdShipment);
+    }
+
+    @Operation(
+            summary = "Get shipment by ID",
+            description = "Retrieves a specific shipment. Clients can only view shipments where they are the sender or receiver."
+    )
+    @ApiResponse(responseCode = "200", description = "Shipment found and authorized")
+    @ApiResponse(responseCode = "404", description = "Shipment not found or access denied")
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ShipmentViewDto> getShipmentById(
+            @Parameter(description = "The UUID of the shipment") @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        
+        log.info("API GET request for shipment ID: {} from user ID: {}", id, userDetails.getId());
+        
+        ShipmentViewDto shipment = shipmentService.getShipmentById(id, userDetails.getId(), userDetails.getApplicationRole());
+        return ResponseEntity.ok(shipment);
+    }
+
+    @Operation(
+            summary = "Get all shipments",
+            description = "Retrieves a paginated list of all shipments in the system. Restricted to staff roles."
+    )
+    @ApiResponse(responseCode = "200", description = "Successful retrieval")
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    public ResponseEntity<Page<ShipmentViewDto>> getAllShipments(Pageable pageable) {
+        log.info("API GET request for all shipments. Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        return ResponseEntity.ok(shipmentService.getAllShipments(pageable));
+    }
+
+    @Operation(
+            summary = "Get shipments sent by a client",
+            description = "Retrieves a paginated list of shipments where the specified client is the sender. Restricted to staff roles."
+    )
+    @ApiResponse(responseCode = "200", description = "Successful retrieval")
+    @GetMapping("/sender/{senderId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    public ResponseEntity<Page<ShipmentViewDto>> getShipmentsBySender(
+            @Parameter(description = "The UUID of the sending client") @PathVariable UUID senderId,
+            Pageable pageable) {
+        log.info("API GET request for shipments sent by client ID: {}", senderId);
+        return ResponseEntity.ok(shipmentService.getShipmentsBySender(senderId, pageable));
+    }
+
+    @Operation(
+            summary = "Get shipments received by a client",
+            description = "Retrieves a paginated list of shipments where the specified client is the receiver. Restricted to staff roles."
+    )
+    @ApiResponse(responseCode = "200", description = "Successful retrieval")
+    @GetMapping("/receiver/{receiverId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    public ResponseEntity<Page<ShipmentViewDto>> getShipmentsByReceiver(
+            @Parameter(description = "The UUID of the receiving client") @PathVariable UUID receiverId,
+            Pageable pageable) {
+        log.info("API GET request for shipments received by client ID: {}", receiverId);
+        return ResponseEntity.ok(shipmentService.getShipmentsByReceiver(receiverId, pageable));
+    }
+
+    @Operation(
+            summary = "Get pending shipments",
+            description = "Retrieves a paginated list of all shipments that are not yet DELIVERED. Restricted to staff roles."
+    )
+    @ApiResponse(responseCode = "200", description = "Successful retrieval")
+    @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    public ResponseEntity<Page<ShipmentViewDto>> getPendingShipments(Pageable pageable) {
+        log.info("API GET request for pending shipments.");
+        return ResponseEntity.ok(shipmentService.getPendingShipments(pageable));
+    }
+
+    @Operation(
+            summary = "Get shipments registered by an employee",
+            description = "Retrieves a paginated list of shipments registered by a specific employee. Restricted to staff roles."
+    )
+    @ApiResponse(responseCode = "200", description = "Successful retrieval")
+    @GetMapping("/registered-by/{employeeId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    public ResponseEntity<Page<ShipmentViewDto>> getShipmentsRegisteredByEmployee(
+            @Parameter(description = "The UUID of the employee") @PathVariable UUID employeeId,
+            Pageable pageable) {
+        log.info("API GET request for shipments registered by employee ID: {}", employeeId);
+        return ResponseEntity.ok(shipmentService.getShipmentsRegisteredByEmployee(employeeId, pageable));
+    }
+}

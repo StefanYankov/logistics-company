@@ -1,0 +1,92 @@
+package bg.nbu.cscb532.shipment;
+
+import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
+import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
+import bg.nbu.cscb532.user.ApplicationRole;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import java.util.UUID;
+
+/**
+ * Core service contract orchestrating the lifecycle, validation, and retrieval of logistics shipments.
+ */
+public interface ShipmentService {
+
+    /**
+     * Registers a new shipment into the system.
+     * Calculates pricing based on the current active configuration and destination type.
+     * Generates a unique tracking number and logs the initial REGISTERED status history.
+     *
+     * @param request The data transfer object containing sender, receiver, dimensions, and destination.
+     * @param registeredById The UUID of the currently authenticated employee (Clerk or Courier) registering the shipment.
+     * @return The fully populated view DTO of the new shipment.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if any participant (Sender, Receiver, Employee) is not found,
+     *                                                           or if the destination (Office) is invalid.
+     */
+    ShipmentViewDto registerShipment(ShipmentCreationDto request, UUID registeredById);
+
+    /**
+     * Retrieves a specific shipment by its UUID.
+     * Enforces strict visibility rules:
+     * - Admins, Clerks, and Couriers can view any shipment.
+     * - Clients can only view the shipment if they are explicitly the Sender or Receiver.
+     *
+     * @param shipmentId The UUID of the shipment to retrieve.
+     * @param requestingUserId The UUID of the authenticated user requesting the data.
+     * @param role The role of the authenticated user to evaluate access logic.
+     * @return The view DTO of the shipment.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if the shipment is not found, or if the user is a Client
+     *                                                           attempting to access another client's shipment (returns 404 to prevent enumeration).
+     */
+    ShipmentViewDto getShipmentById(UUID shipmentId, UUID requestingUserId, ApplicationRole role);
+
+    /**
+     * Retrieves a paginated list of all shipments sent by a specific client.
+     * (Satisfies Requirement 5.f)
+     *
+     * @param senderId The UUID of the sending client.
+     * @param pageable Pagination and sorting criteria.
+     * @return A page of shipment view DTOs.
+     */
+    Page<ShipmentViewDto> getShipmentsBySender(UUID senderId, Pageable pageable);
+
+    /**
+     * Retrieves a paginated list of all shipments received by a specific client.
+     * (Satisfies Requirement 5.g)
+     *
+     * @param receiverId The UUID of the receiving client.
+     * @param pageable Pagination and sorting criteria.
+     * @return A page of shipment view DTOs.
+     */
+    Page<ShipmentViewDto> getShipmentsByReceiver(UUID receiverId, Pageable pageable);
+
+    /**
+     * Retrieves a paginated list of all shipments registered into the system by a specific employee.
+     * (Satisfies Requirement 5.d)
+     *
+     * @param employeeId The UUID of the employee (Clerk or Courier).
+     * @param pageable Pagination and sorting criteria.
+     * @return A page of shipment view DTOs.
+     */
+    Page<ShipmentViewDto> getShipmentsRegisteredByEmployee(UUID employeeId, Pageable pageable);
+
+    /**
+     * Retrieves a paginated list of all shipments that are currently not in a DELIVERED state.
+     * (Satisfies Requirement 5.e: Shipments sent but not received)
+     *
+     * @param pageable Pagination and sorting criteria.
+     * @return A page of shipment view DTOs.
+     */
+    Page<ShipmentViewDto> getPendingShipments(Pageable pageable);
+
+    /**
+     * Retrieves a paginated list of all shipments in the system.
+     * Intended strictly for administrative and staff overview reporting.
+     * (Satisfies Requirement 5.c)
+     *
+     * @param pageable Pagination and sorting criteria.
+     * @return A page of shipment view DTOs.
+     */
+    Page<ShipmentViewDto> getAllShipments(Pageable pageable);
+}

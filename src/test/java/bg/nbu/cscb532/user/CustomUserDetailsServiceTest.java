@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,8 +32,9 @@ class CustomUserDetailsServiceTest {
     private CustomUserDetailsServiceImpl userDetailsService;
 
     // --- TEST DATA FACTORY ---
-    private Client createTestUser(String username, boolean isActive, ApplicationRole role) {
+    private Client createTestUser(UUID id, String username, boolean isActive, ApplicationRole role) {
         Client user = new Client();
+        user.setId(id);
         user.setUsername(username);
         user.setPassword("hashed-password");
         user.setActive(isActive);
@@ -49,23 +51,30 @@ class CustomUserDetailsServiceTest {
     class LoadUserByUsernameTests {
 
         @Test
-        @DisplayName("Happy Path: Should return UserDetails when user is found and active")
+        @DisplayName("Happy Path: Should return CustomUserDetails when user is found and active")
         void shouldReturnUserDetails_WhenUserIsFoundAndActive() {
 
             // Arrange
             String username = "activeuser";
-            Client userEntity = createTestUser(username, true, ApplicationRole.CLIENT);
+            UUID userId = UUID.randomUUID();
+            Client userEntity = createTestUser(userId, username, true, ApplicationRole.CLIENT);
             given(userRepository.findByUsername(username)).willReturn(Optional.of(userEntity));
 
             // Act
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            UserDetails result = userDetailsService.loadUserByUsername(username);
 
             // Assert
-            assertThat(userDetails).isNotNull();
-            assertThat(userDetails.getUsername()).isEqualTo(username);
-            assertThat(userDetails.getPassword()).isEqualTo("hashed-password");
-            assertThat(userDetails.isEnabled()).isTrue();
-            assertThat(userDetails.getAuthorities())
+            assertThat(result).isNotNull();
+            assertThat(result).isInstanceOf(CustomUserDetails.class);
+            
+            CustomUserDetails customUserDetails = (CustomUserDetails) result;
+            assertThat(customUserDetails.getId()).isEqualTo(userId);
+            assertThat(customUserDetails.getApplicationRole()).isEqualTo(ApplicationRole.CLIENT);
+            
+            assertThat(customUserDetails.getUsername()).isEqualTo(username);
+            assertThat(customUserDetails.getPassword()).isEqualTo("hashed-password");
+            assertThat(customUserDetails.isEnabled()).isTrue();
+            assertThat(customUserDetails.getAuthorities())
                     .extracting(GrantedAuthority::getAuthority)
                     .containsExactly("ROLE_CLIENT");
 
@@ -90,22 +99,29 @@ class CustomUserDetailsServiceTest {
         }
 
         @Test
-        @DisplayName("Edge Case: Should return UserDetails with isEnabled=false when user is inactive")
+        @DisplayName("Edge Case: Should return CustomUserDetails with isEnabled=false when user is inactive")
         void shouldReturnDisabledUserDetails_WhenUserIsInactive() {
 
             // Arrange
             String username = "inactiveuser";
-            Client userEntity = createTestUser(username, false, ApplicationRole.ADMIN);
+            UUID userId = UUID.randomUUID();
+            Client userEntity = createTestUser(userId, username, false, ApplicationRole.ADMIN);
             given(userRepository.findByUsername(username)).willReturn(Optional.of(userEntity));
 
             // Act
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            UserDetails result = userDetailsService.loadUserByUsername(username);
 
             // Assert
-            assertThat(userDetails).isNotNull();
-            assertThat(userDetails.getUsername()).isEqualTo(username);
-            assertThat(userDetails.isEnabled()).isFalse();
-            assertThat(userDetails.getAuthorities())
+            assertThat(result).isNotNull();
+            assertThat(result).isInstanceOf(CustomUserDetails.class);
+            
+            CustomUserDetails customUserDetails = (CustomUserDetails) result;
+            assertThat(customUserDetails.getId()).isEqualTo(userId);
+            assertThat(customUserDetails.getApplicationRole()).isEqualTo(ApplicationRole.ADMIN);
+
+            assertThat(customUserDetails.getUsername()).isEqualTo(username);
+            assertThat(customUserDetails.isEnabled()).isFalse();
+            assertThat(customUserDetails.getAuthorities())
                     .extracting(GrantedAuthority::getAuthority)
                     .containsExactly("ROLE_ADMIN");
 
