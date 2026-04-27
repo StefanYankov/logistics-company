@@ -2,6 +2,7 @@ package bg.nbu.cscb532.shipment;
 
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
+import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -61,6 +62,27 @@ public class ShipmentController {
         return ResponseEntity
                 .created(location)
                 .body(createdShipment);
+    }
+
+    @Operation(
+            summary = "Update shipment status",
+            description = "Transitions a shipment through its lifecycle state machine. Automatically assigns delivery couriers and records location history."
+    )
+    @ApiResponse(responseCode = "200", description = "Shipment status updated successfully")
+    @ApiResponse(responseCode = "400", description = "Validation failed (e.g., invalid state machine transition)")
+    @ApiResponse(responseCode = "404", description = "Shipment or location office not found")
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    public ResponseEntity<ShipmentViewDto> updateShipmentStatus(
+            @Parameter(description = "The UUID of the shipment") @PathVariable UUID id,
+            @Valid @RequestBody ShipmentStatusUpdateDto request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        log.info("API PATCH request to update status for shipment ID: {} from user ID: {}", id, userDetails.getId());
+
+        ShipmentViewDto updatedShipment = shipmentService.updateShipmentStatus(id, request, userDetails);
+
+        return ResponseEntity.ok(updatedShipment);
     }
 
     @Operation(

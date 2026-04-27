@@ -5,6 +5,7 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
+import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
@@ -12,6 +13,8 @@ import bg.nbu.cscb532.user.JwtService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -27,6 +30,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collections;
@@ -36,10 +40,10 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -86,6 +90,16 @@ class ShipmentControllerTest {
                 .receiverId(UUID.randomUUID())
                 .type(ShipmentType.PARCEL)
                 .weight(BigDecimal.valueOf(2.5))
+                .deliveryOfficeId(10L)
+                .build();
+    }
+
+    private ShipmentCreationDto createCreationDtoWithWeight(BigDecimal weight) {
+        return ShipmentCreationDto.builder()
+                .senderId(UUID.randomUUID())
+                .receiverId(UUID.randomUUID())
+                .type(ShipmentType.PARCEL)
+                .weight(weight)
                 .deliveryOfficeId(10L)
                 .build();
     }
@@ -401,6 +415,101 @@ class ShipmentControllerTest {
                             .with(user(authUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalElements").value(1));
+        }
+    }
+
+    @Nested
+    @DisplayName("PATCH /api/shipments/{id}/status")
+    class UpdateStatusTests {
+
+        @Test
+        @DisplayName("Happy Path: Should successfully update status and return 200 OK")
+        void shouldUpdateStatusSuccessfully() throws Exception {
+            // Arrange
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.COURIER);
+            UUID id = UUID.randomUUID();
+            ShipmentStatusUpdateDto request = new ShipmentStatusUpdateDto(ShipmentStatus.DELIVERED, 5L, "lorem ipsum");
+            ShipmentViewDto response = createValidViewDto(id);
+
+            given(shipmentService.updateShipmentStatus(eq(id), any(), any())).willReturn(response);
+
+            // Act & Assert
+            mockMvc.perform(patch(BASE_URL + "/{id}/status", id)
+                            .with(user(authUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(id.toString()));
+
+            verify(shipmentService).updateShipmentStatus(eq(id), any(), any());
+        }
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when Client attempts to PATCH status")
+        void shouldReturn403WhenClientAttemptsToPatch() throws Exception {
+            // Arrange
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
+            UUID shipmentId = UUID.randomUUID();
+
+            ShipmentStatusUpdateDto validDto = new ShipmentStatusUpdateDto(ShipmentStatus.DELIVERED, 10L, "Lorem ipsum");
+
+            // Act & Assert
+            mockMvc.perform(patch(BASE_URL + "/{id}/status", shipmentId)
+                            .with(user(authUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validDto)))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @Test
+        @DisplayName("Defense in Depth: Should return 400 when Request Body is missing")
+        void shouldFailFastOnMissingBody() throws Exception {
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            mockMvc.perform(post(BASE_URL)
+                            .with(user(authUser))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @ParameterizedTest
+        @DisplayName("Boundary Testing: Invalid weights should return 400")
+        @CsvSource({
+                "-0.01",
+                "-100.0",
+                "0.0" // Assuming weight must be > 0
+        })
+        void shouldReturn400ForInvalidWeights(BigDecimal invalidWeight) throws Exception {
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            ShipmentCreationDto dto = createCreationDtoWithWeight(invalidWeight);
+
+            mockMvc.perform(post(BASE_URL)
+                            .with(user(authUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().isBadRequest());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @Test
+        @DisplayName("Verification: Should stop processing after Resource Not Found")
+        void shouldStopProcessingOnException() throws Exception {
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+            UUID id = UUID.randomUUID();
+
+            given(shipmentService.getShipmentById(any(), any(), any()))
+                    .willThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+            mockMvc.perform(get(BASE_URL + "/{id}", id).with(user(authUser)))
+                    .andExpect(status().isNotFound());
+
+            verify(shipmentService).getShipmentById(eq(id), any(), any());
+            verifyNoMoreInteractions(shipmentService);
         }
     }
 }
