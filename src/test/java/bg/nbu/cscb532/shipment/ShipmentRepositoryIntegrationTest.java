@@ -9,6 +9,7 @@ import bg.nbu.cscb532.office.CityRepository;
 import bg.nbu.cscb532.shared.config.JpaConfig;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.user.ApplicationRole;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -27,8 +28,11 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,6 +59,9 @@ class ShipmentRepositoryIntegrationTest {
 
     @Autowired
     private CityRepository cityRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     // --- TEST DATA FACTORY ---
 
@@ -110,6 +117,37 @@ class ShipmentRepositoryIntegrationTest {
                 .deliveryAddressSnapshot(deliveryAddress)
                 .build();
         shipmentRepository.saveAndFlush(shipment);
+    }
+
+    private void createAndSaveShipmentWithDate(String trackingNumber, Client sender, Client receiver, Courier employee, BigDecimal price, Instant createdAt, City city) {
+        // Bypassing JPA Auditing and Repository save() entirely to forcefully set the historical date
+        UUID newId = UUID.randomUUID();
+        
+        String nativeQuery = """
+            INSERT INTO shipments (
+                id, version, created_at, updated_at,
+                sender_id, receiver_id, registered_by_id, 
+                tracking_number, shipment_type, weight, total_price, status,
+                city_id, delivery_street
+            ) VALUES (
+                :id, 0, :createdAt, :updatedAt,
+                :senderId, :receiverId, :employeeId,
+                :trackingNumber, 'PARCEL', 2.500, :price, 'REGISTERED',
+                :cityId, 'Delivery Street'
+            )
+        """;
+
+        entityManager.createNativeQuery(nativeQuery)
+                .setParameter("id", newId)
+                .setParameter("createdAt", createdAt)
+                .setParameter("updatedAt", createdAt)
+                .setParameter("senderId", sender.getId())
+                .setParameter("receiverId", receiver.getId())
+                .setParameter("employeeId", employee.getId())
+                .setParameter("trackingNumber", trackingNumber)
+                .setParameter("price", price)
+                .setParameter("cityId", city.getId())
+                .executeUpdate();
     }
 
     @Nested
@@ -230,6 +268,87 @@ class ShipmentRepositoryIntegrationTest {
             assertThat(resultPage.getTotalElements()).isEqualTo(2);
             assertThat(resultPage.getContent()).extracting(Shipment::getTrackingNumber).containsExactlyInAnyOrder("TR-31", "TR-32");
         }
+
+        @Test
+        @DisplayName("calculateTotalRevenue: Should sum total prices within the strict time boundaries")
+        void shouldCalculateRevenueInTimeWindow() {
+            City city = createAndSaveCity("Vidin", "5000");
+            Client sender = createAndSaveClient("senderRev", "sendRev@test.com");
+            Client receiver = createAndSaveClient("receiverRev", "recvRev@test.com");
+            Courier employee = createAndSaveCourier("employeeRev", "employeeRev@test.com", "EMP-REV");
+
+            Instant now = Instant.now();
+            Instant twoDaysAgo = now.minus(2, ChronoUnit.DAYS);
+            Instant fourDaysAgo = now.minus(4, ChronoUnit.DAYS);
+
+            // Expected in query window
+            createAndSaveShipmentWithDate("REV-1", sender, receiver, employee, BigDecimal.valueOf(10.00), now, city);
+            createAndSaveShipmentWithDate("REV-2", sender, receiver, employee, BigDecimal.valueOf(15.50), twoDaysAgo, city);
+
+            // Expected outside query window
+            createAndSaveShipmentWithDate("REV-3", sender, receiver, employee, BigDecimal.valueOf(100.00), fourDaysAgo, city);
+
+            // The window is from 3 days ago up to right now
+            Instant startDate = now.minus(3, ChronoUnit.DAYS);
+            Instant endDate = now.plus(1, ChronoUnit.MINUTES); // padding to ensure 'now' is caught
+
+            BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
+
+            // Expecting 10.00 + 15.50 = 25.50
+            assertThat(revenue).isEqualByComparingTo(BigDecimal.valueOf(25.50));
+        }
+
+        @Test
+        @DisplayName("calculateTotalRevenue: Edge Case: Should be fully inclusive of the exact boundary seconds")
+        void shouldBeInclusiveOfBoundaryDates() {
+            City city = createAndSaveCity("Silistra", "3000");
+            Client sender = createAndSaveClient("senderB", "sendB@test.com");
+            Client receiver = createAndSaveClient("receiverB", "recvB@test.com");
+            Courier employee = createAndSaveCourier("employeeB", "employeeB@test.com", "EMP-B");
+
+            Instant startDate = Instant.parse("2026-01-01T00:00:00Z");
+            Instant endDate = Instant.parse("2026-01-31T23:59:59Z");
+
+            // Exactly on the boundary
+            createAndSaveShipmentWithDate("BOUND-1", sender, receiver, employee, BigDecimal.valueOf(50.00), startDate, city);
+            createAndSaveShipmentWithDate("BOUND-2", sender, receiver, employee, BigDecimal.valueOf(20.00), endDate, city);
+
+            BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
+
+            assertThat(revenue).isEqualByComparingTo(BigDecimal.valueOf(70.00));
+        }
+
+        @Test
+        @DisplayName("calculateTotalRevenue: Edge Case: Should return null when no shipments found in window")
+        void shouldReturnNullWhenNoRevenueInWindow() {
+            Instant startDate = Instant.now().minus(10, ChronoUnit.DAYS);
+            Instant endDate = Instant.now().minus(9, ChronoUnit.DAYS);
+
+            // DB has shipments, but none in this specific 1-day window
+            BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
+
+            // The SQL SUM() function natively returns NULL if no rows are found
+            assertThat(revenue).isNull();
+        }
+        
+        @Test
+        @DisplayName("calculateTotalRevenue: Error Case: Should return null when startDate is after endDate")
+        void shouldHandleImpossibleDateRanges() {
+            City city = createAndSaveCity("Shumen", "7000");
+            Client sender = createAndSaveClient("senderImp", "sendImp@test.com");
+            Client receiver = createAndSaveClient("receiverImp", "recvImp@test.com");
+            Courier employee = createAndSaveCourier("employeeImp", "employeeImp@test.com", "EMP-IMP");
+
+            Instant now = Instant.now();
+            createAndSaveShipmentWithDate("IMP-1", sender, receiver, employee, BigDecimal.valueOf(10.00), now, city);
+
+            Instant startDate = now.plus(1, ChronoUnit.DAYS);
+            Instant endDate = now.minus(1, ChronoUnit.DAYS);
+
+            BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
+
+            assertThat(revenue).isNull();
+        }
     }
 
     @Nested
@@ -266,13 +385,13 @@ class ShipmentRepositoryIntegrationTest {
                     .isInstanceOf(DataIntegrityViolationException.class)
                     .hasMessageContaining("tracking_number");
         }
-        
+
         @Test
         @DisplayName("Error Case: Should throw Exception when sender is missing")
         void shouldThrowOnMissingSender() {
             City city = createAndSaveCity("Stara Zagora", "5000");
-            Client receiver = createAndSaveClient("receiverSZ", "recvSZ@test.com");
-            Courier employee = createAndSaveCourier("empSZ", "empSZ@test.com", "EMP-SZ");
+            Client receiver = createAndSaveClient("receiver SZ", "recvSZ@test.com");
+            Courier employee = createAndSaveCourier("employee SZ", "empSZ@test.com", "EMP-SZ");
 
             AddressDetails deliveryAddress = new AddressDetails();
             deliveryAddress.setCity(city);
@@ -293,14 +412,14 @@ class ShipmentRepositoryIntegrationTest {
             assertThatThrownBy(() -> shipmentRepository.saveAndFlush(invalidShipment))
                     .isInstanceOf(Exception.class);
         }
-        
+
         @Test
         @DisplayName("Error Case: Should throw Exception when missing tracking number")
         void shouldThrowOnMissingTrackingNumber() {
             City city = createAndSaveCity("Veliko Tarnovo", "7000");
-            Client sender = createAndSaveClient("senderVT", "senderVT@test.com");
-            Client receiver = createAndSaveClient("receiverVT", "recvVT@test.com");
-            Courier employee = createAndSaveCourier("empVT", "empVT@test.com", "EMP-VT");
+            Client sender = createAndSaveClient("sender VT", "senderVT@test.com");
+            Client receiver = createAndSaveClient("receiver VT", "recvVT@test.com");
+            Courier employee = createAndSaveCourier("employee VT", "empVT@test.com", "EMP-VT");
 
             AddressDetails deliveryAddress = new AddressDetails();
             deliveryAddress.setCity(city);
