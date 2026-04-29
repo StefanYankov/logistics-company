@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
@@ -47,7 +46,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = {ClientController.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
-@AutoConfigureMockMvc(addFilters = false) // Bypass the custom JWT filter for these unit tests
 @Import(SecurityConfig.class)
 class ClientControllerTest {
 
@@ -135,7 +133,7 @@ class ClientControllerTest {
 
             given(clientService.getAllClients(any(Pageable.class))).willReturn(pagedResponse);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get(BASE_URL)
                             .with(user(adminUser))
                             .param("page", "0")
@@ -157,7 +155,7 @@ class ClientControllerTest {
 
             given(clientService.getAllClients(any(Pageable.class))).willReturn(emptyPage);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get(BASE_URL)
                             .with(user(adminUser))
                             .accept(MediaType.APPLICATION_JSON))
@@ -183,7 +181,7 @@ class ClientControllerTest {
 
             given(clientService.register(any(ClientRegistrationDto.class))).willReturn(responseDto);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
@@ -202,7 +200,7 @@ class ClientControllerTest {
             // Arrange
             ClientRegistrationDto invalidDto = new ClientRegistrationDto(invalidUsername, "client@example.com", "password123", "John", "Doe", "123456");
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidDto)))
@@ -219,7 +217,7 @@ class ClientControllerTest {
             // Arrange
             ClientRegistrationDto invalidDto = new ClientRegistrationDto("newClient", "client@example.com", invalidPassword, "John", "Doe", "123456");
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidDto)))
@@ -236,7 +234,7 @@ class ClientControllerTest {
             // Arrange
             ClientRegistrationDto invalidDto = new ClientRegistrationDto("newClient", invalidEmail, "password123", "John", "Doe", "123456");
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidDto)))
@@ -255,7 +253,7 @@ class ClientControllerTest {
             given(clientService.register(any(ClientRegistrationDto.class)))
                     .willThrow(new BusinessException(ErrorCode.USERNAME_DUPLICATE));
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
@@ -274,7 +272,7 @@ class ClientControllerTest {
             given(clientService.register(any(ClientRegistrationDto.class)))
                     .willThrow(new BusinessException(ErrorCode.EMAIL_DUPLICATE));
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
