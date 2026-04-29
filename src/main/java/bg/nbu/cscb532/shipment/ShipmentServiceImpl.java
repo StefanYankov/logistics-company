@@ -184,6 +184,28 @@ public class ShipmentServiceImpl implements ShipmentService {
 
     @Override
     @Transactional(readOnly = true)
+    public ShipmentViewDto getShipmentByTrackingNumber(String trackingNumber, UUID requestingUserId, ApplicationRole role) {
+        log.debug("Looking up shipment by tracking number: {}", trackingNumber);
+
+        if (trackingNumber == null || trackingNumber.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        Shipment shipment = shipmentRepository.findByTrackingNumber(trackingNumber)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        if (role == ApplicationRole.CLIENT) {
+            if (!shipment.getSender().getId().equals(requestingUserId) &&
+                !shipment.getReceiver().getId().equals(requestingUserId)) {
+                throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+            }
+        }
+
+        return mapToViewDto(shipment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<ShipmentViewDto> getShipmentsBySender(UUID senderId, Pageable pageable) {
         return shipmentRepository.findBySender_Id(senderId, pageable)
                 .map(this::mapToViewDto);
