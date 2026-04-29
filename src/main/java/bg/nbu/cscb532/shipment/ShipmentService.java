@@ -1,5 +1,6 @@
 package bg.nbu.cscb532.shipment;
 
+import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
@@ -8,6 +9,7 @@ import bg.nbu.cscb532.user.CustomUserDetails;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -104,4 +106,18 @@ public interface ShipmentService {
      * @return A page of shipment view DTOs.
      */
     Page<ShipmentViewDto> getAllShipments(Pageable pageable);
+
+    /**
+     * Calculates the total revenue of the company for a specific date range.
+     * Evaluates all registered shipments whose creation date falls within the boundaries.
+     * (Satisfies Requirement 5.h)
+     *
+     * @param startDate The inclusive start date of the reporting period.
+     * @param endDate The inclusive end date of the reporting period.
+     * @return A report DTO containing the dates and the calculated total sum in BGN.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if startDate is strictly after endDate.
+     */
+    RevenueReportDto getCompanyRevenue(LocalDate startDate, LocalDate endDate);
+
+    // TODO: [Feature] Implement tracking number lookup to satisfy Requirement 5.b
 }

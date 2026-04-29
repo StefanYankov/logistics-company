@@ -12,6 +12,7 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
+import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
@@ -36,6 +37,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -953,6 +955,76 @@ class ShipmentServiceUnitTests {
             // Assert
             assertThat(result.getContent()).hasSize(1);
             verify(shipmentRepository).findAll(pageable);
+        }
+    }
+
+    @Nested
+    @DisplayName("Revenue Reporting Tests")
+    class RevenueReportingTests {
+
+        @Test
+        @DisplayName("Happy Path: Should return correctly formatted RevenueReportDto")
+        void shouldReturnRevenueReport() {
+            // Arrange
+            LocalDate startDate = LocalDate.of(2026, 4, 1);
+            LocalDate endDate = LocalDate.of(2026, 4, 30);
+            BigDecimal mockRevenue = BigDecimal.valueOf(1250.50);
+
+            given(shipmentRepository.calculateTotalRevenue(any(), any())).willReturn(mockRevenue);
+
+            // Act
+            RevenueReportDto result = shipmentService.getCompanyRevenue(startDate, endDate);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.totalRevenue()).isEqualByComparingTo(mockRevenue);
+            assertThat(result.startDate()).isEqualTo(startDate);
+            assertThat(result.endDate()).isEqualTo(endDate);
+
+            verify(shipmentRepository).calculateTotalRevenue(any(), any());
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should map null DB result to BigDecimal.ZERO")
+        void shouldMapNullRevenueToZero() {
+            // Arrange
+            LocalDate startDate = LocalDate.of(2026, 4, 1);
+            LocalDate endDate = LocalDate.of(2026, 4, 30);
+
+            given(shipmentRepository.calculateTotalRevenue(any(), any())).willReturn(null);
+
+            // Act
+            RevenueReportDto result = shipmentService.getCompanyRevenue(startDate, endDate);
+
+            // Assert
+            assertThat(result.totalRevenue()).isEqualByComparingTo(BigDecimal.ZERO);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw VALIDATION_FAILED when start date is after end date")
+        void shouldThrowWhenDatesInvalid() {
+            // Arrange
+            LocalDate startDate = LocalDate.of(2026, 4, 30);
+            LocalDate endDate = LocalDate.of(2026, 4, 1);
+
+            // Act and Assert
+            assertThatThrownBy(() -> shipmentService.getCompanyRevenue(startDate, endDate))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+
+            verifyNoInteractions(shipmentRepository);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw VALIDATION_FAILED when dates are null")
+        void shouldThrowWhenDatesNull() {
+            assertThatThrownBy(() -> shipmentService.getCompanyRevenue(null, LocalDate.now()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+                    
+            verifyNoInteractions(shipmentRepository);
         }
     }
 }

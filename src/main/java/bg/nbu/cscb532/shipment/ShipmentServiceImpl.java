@@ -14,6 +14,7 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
+import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
@@ -27,6 +28,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -211,6 +215,35 @@ public class ShipmentServiceImpl implements ShipmentService {
     public Page<ShipmentViewDto> getAllShipments(Pageable pageable) {
         return shipmentRepository.findAll(pageable)
                 .map(this::mapToViewDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RevenueReportDto getCompanyRevenue(LocalDate startDate, LocalDate endDate) {
+        log.debug("Calculating total revenue from {} to {}", startDate, endDate);
+
+        if (startDate == null || endDate == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        if (startDate.isAfter(endDate)) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        // Convert Calendar dates to precise Universal Time boundaries (UTC)
+        Instant startInstant = startDate.atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant endInstant = endDate.atTime(23, 59, 59, 999999999).toInstant(ZoneOffset.UTC);
+
+        BigDecimal rawRevenue = shipmentRepository.calculateTotalRevenue(startInstant, endInstant);
+
+        // Standard SQL SUM() on an empty result set returns null. Default it to Zero.
+        BigDecimal totalRevenue = rawRevenue != null ? rawRevenue : BigDecimal.ZERO;
+
+        return RevenueReportDto.builder()
+                .totalRevenue(totalRevenue)
+                .startDate(startDate)
+                .endDate(endDate)
+                .build();
     }
 
     // --- Private Helper Methods ---
