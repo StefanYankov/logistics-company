@@ -9,7 +9,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,5 +57,20 @@ public class ClientController {
         return ResponseEntity
                 .created(location)
                 .body(createdClient);
+    }
+
+    @Operation(
+            summary = "Get all clients",
+            description = "Retrieves a paginated list of all registered clients. Restricted to administrators."
+    )
+    @ApiResponse(responseCode = "200", description = "Successful retrieval")
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<ClientViewDto>> getAllClients(Pageable pageable) {
+        log.info("API GET request for all clients. Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        
+        Page<ClientViewDto> clients = clientService.getAllClients(pageable);
+        
+        return ResponseEntity.ok(clients);
     }
 }

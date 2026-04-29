@@ -16,8 +16,13 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -52,7 +57,7 @@ class ClientServiceUnitTests {
     // --- TEST DATA FACTORY ---
     private ClientRegistrationDto createValidRegistrationDto() {
         return ClientRegistrationDto.builder()
-                .username("newclient")
+                .username("newCLient")
                 .email("client@example.com")
                 .password("rawPassword123")
                 .firstName("John")
@@ -64,7 +69,7 @@ class ClientServiceUnitTests {
     private Client createMockSavedClient() {
         Client client = new Client();
         client.setId(UUID.randomUUID());
-        client.setUsername("newclient");
+        client.setUsername("newCLient");
         client.setEmail("client@example.com");
         client.setPassword("hashedPassword123");
         client.setFirstName("John");
@@ -192,6 +197,66 @@ class ClientServiceUnitTests {
             assertThat(capturedClient.getFirstName()).isEqualTo("John");
             assertThat(capturedClient.getLastName()).isEqualTo("Doe");
             assertThat(capturedClient.getPhoneNumber()).isEqualTo("0888123456");
+        }
+    }
+
+    @Nested
+    @DisplayName("getAllClients(Pageable) Tests")
+    class GetAllClientsTests {
+
+        @Test
+        @DisplayName("Happy Path: Should retrieve paginated list of all clients")
+        void shouldGetAllClientsSuccessfully() {
+            // Arrange
+            Pageable pageable = PageRequest.of(0, 10);
+            Client mockClient = createMockSavedClient();
+            Page<Client> pagedResponse = new PageImpl<>(List.of(mockClient), pageable, 1);
+
+            given(clientRepository.findAll(pageable)).willReturn(pagedResponse);
+
+            // Act
+            Page<ClientViewDto> result = clientService.getAllClients(pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isEqualTo(1);
+            assertThat(result.getContent()).hasSize(1);
+            
+            ClientViewDto dto = result.getContent().getFirst();
+            assertThat(dto.id()).isEqualTo(mockClient.getId());
+            assertThat(dto.username()).isEqualTo("newCLient");
+            assertThat(dto.isActive()).isTrue();
+
+            verify(clientRepository).findAll(pageable);
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should return empty page if no clients exist")
+        void shouldReturnEmptyPageWhenNoClients() {
+            // Arrange
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<Client> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+            given(clientRepository.findAll(pageable)).willReturn(emptyPage);
+
+            // Act
+            Page<ClientViewDto> result = clientService.getAllClients(pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.isEmpty()).isTrue();
+            assertThat(result.getTotalElements()).isZero();
+
+            verify(clientRepository).findAll(pageable);
+        }
+
+        @Test
+        @DisplayName("Error Case: Defense in depth - should throw NullPointerException if Pageable is null")
+        void shouldFailFastIfPageableNull() {
+            assertThatThrownBy(() -> clientService.getAllClients(null))
+                    .isInstanceOf(NullPointerException.class);
+
+            verifyNoInteractions(clientRepository);
         }
     }
 }

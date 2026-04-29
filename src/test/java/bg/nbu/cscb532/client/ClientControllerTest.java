@@ -2,9 +2,12 @@ package bg.nbu.cscb532.client;
 
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
+import bg.nbu.cscb532.shared.config.SecurityConfig;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
+import bg.nbu.cscb532.user.ApplicationRole;
+import bg.nbu.cscb532.user.CustomUserDetails;
 import bg.nbu.cscb532.user.JwtService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -13,19 +16,29 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,6 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = {ClientController.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
+@Import(SecurityConfig.class)
 class ClientControllerTest {
 
     private static final String BASE_URL = "/api/clients";
@@ -53,9 +67,21 @@ class ClientControllerTest {
     private UserDetailsService userDetailsService;
 
     // --- TEST DATA FACTORY ---
+    
+    private CustomUserDetails createMockAuthUser(UUID id, ApplicationRole role) {
+        return new CustomUserDetails(
+                id,
+                "testUser",
+                "password",
+                role,
+                true,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.name()))
+        );
+    }
+    
     private ClientRegistrationDto createValidRegistrationDto() {
         return new ClientRegistrationDto(
-                "newclient",
+                "newClient",
                 "client@example.com",
                 "rawPassword123",
                 "John",
@@ -67,12 +93,78 @@ class ClientControllerTest {
     private ClientViewDto createValidViewDto(UUID id) {
         return new ClientViewDto(
                 id,
-                "newclient",
+                "newClient",
                 "client@example.com",
                 "John",
                 "Doe",
-                "0888123456"
+                "0888123456",
+                true
         );
+    }
+
+    @Nested
+    @DisplayName("Authorization Constraints")
+    class AuthorizationTests {
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when Non-Admin attempts to GET clients")
+        void shouldReturn403WhenNonAdminAttemptsToGetClients() throws Exception {
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            mockMvc.perform(get(BASE_URL)
+                            .with(user(clerkUser)))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(clientService);
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/clients")
+    class GetAllClientsTests {
+
+        @Test
+        @DisplayName("Happy Path: Admin should successfully retrieve paginated list of clients")
+        void adminShouldRetrieveClientsSuccessfully() throws Exception {
+            // Arrange
+            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+            ClientViewDto clientDto = createValidViewDto(UUID.randomUUID());
+            Page<ClientViewDto> pagedResponse = new PageImpl<>(List.of(clientDto), PageRequest.of(0, 10), 1);
+
+            given(clientService.getAllClients(any(Pageable.class))).willReturn(pagedResponse);
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL)
+                            .with(user(adminUser))
+                            .param("page", "0")
+                            .param("size", "10")
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalElements").value(1))
+                    .andExpect(jsonPath("$.content[0].username").value("newClient"));
+
+            verify(clientService).getAllClients(any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should return empty page when no clients exist")
+        void shouldReturnEmptyPageWhenNoClients() throws Exception {
+            // Arrange
+            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+            Page<ClientViewDto> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+
+            given(clientService.getAllClients(any(Pageable.class))).willReturn(emptyPage);
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL)
+                            .with(user(adminUser))
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalElements").value(0))
+                    .andExpect(jsonPath("$.content").isEmpty());
+
+            verify(clientService).getAllClients(any(Pageable.class));
+        }
     }
 
     @Nested
@@ -89,14 +181,14 @@ class ClientControllerTest {
 
             given(clientService.register(any(ClientRegistrationDto.class))).willReturn(responseDto);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isCreated())
                     .andExpect(header().string("Location", "http://localhost/api/clients/" + newClientId))
                     .andExpect(jsonPath("$.id").value(newClientId.toString()))
-                    .andExpect(jsonPath("$.username").value("newclient"));
+                    .andExpect(jsonPath("$.username").value("newClient"));
 
             verify(clientService).register(any(ClientRegistrationDto.class));
         }
@@ -108,7 +200,7 @@ class ClientControllerTest {
             // Arrange
             ClientRegistrationDto invalidDto = new ClientRegistrationDto(invalidUsername, "client@example.com", "password123", "John", "Doe", "123456");
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidDto)))
@@ -123,9 +215,9 @@ class ClientControllerTest {
         @DisplayName("Validation Error: Should return 400 when password is invalid")
         void shouldReturn400_WhenPasswordIsInvalid(String invalidPassword) throws Exception {
             // Arrange
-            ClientRegistrationDto invalidDto = new ClientRegistrationDto("newclient", "client@example.com", invalidPassword, "John", "Doe", "123456");
+            ClientRegistrationDto invalidDto = new ClientRegistrationDto("newClient", "client@example.com", invalidPassword, "John", "Doe", "123456");
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidDto)))
@@ -136,13 +228,13 @@ class ClientControllerTest {
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"", "   ", "plainaddress", "@no-local-part.com"})
+        @ValueSource(strings = {"", "   ", "plainAddress", "@no-local-part.com"})
         @DisplayName("Validation Error: Should return 400 when email is invalid")
         void shouldReturn400_WhenEmailIsInvalid(String invalidEmail) throws Exception {
             // Arrange
-            ClientRegistrationDto invalidDto = new ClientRegistrationDto("newclient", invalidEmail, "password123", "John", "Doe", "123456");
+            ClientRegistrationDto invalidDto = new ClientRegistrationDto("newClient", invalidEmail, "password123", "John", "Doe", "123456");
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidDto)))
@@ -161,7 +253,7 @@ class ClientControllerTest {
             given(clientService.register(any(ClientRegistrationDto.class)))
                     .willThrow(new BusinessException(ErrorCode.USERNAME_DUPLICATE));
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
@@ -180,7 +272,7 @@ class ClientControllerTest {
             given(clientService.register(any(ClientRegistrationDto.class)))
                     .willThrow(new BusinessException(ErrorCode.EMAIL_DUPLICATE));
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL + "/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
