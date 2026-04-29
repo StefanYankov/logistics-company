@@ -1,6 +1,7 @@
 package bg.nbu.cscb532.shipment;
 
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
+import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -83,6 +86,27 @@ public class ShipmentController {
         ShipmentViewDto updatedShipment = shipmentService.updateShipmentStatus(id, request, userDetails);
 
         return ResponseEntity.ok(updatedShipment);
+    }
+
+    @Operation(
+            summary = "Get company revenue",
+            description = "Calculates the total aggregate revenue across all shipments registered within a specified date range. Restricted to administrators."
+    )
+    @ApiResponse(responseCode = "200", description = "Revenue calculated successfully")
+    @ApiResponse(responseCode = "400", description = "Invalid date range provided")
+    @GetMapping("/revenue")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<RevenueReportDto> getCompanyRevenue(
+            @Parameter(description = "The start date (inclusive) in YYYY-MM-DD format") 
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @Parameter(description = "The end date (inclusive) in YYYY-MM-DD format") 
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        log.info("API GET request for company revenue from {} to {}", startDate, endDate);
+        
+        RevenueReportDto report = shipmentService.getCompanyRevenue(startDate, endDate);
+        
+        return ResponseEntity.ok(report);
     }
 
     @Operation(

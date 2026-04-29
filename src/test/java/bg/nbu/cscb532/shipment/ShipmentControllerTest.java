@@ -7,6 +7,7 @@ import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
+import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import bg.nbu.cscb532.user.JwtService;
@@ -30,12 +31,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDate;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -122,6 +123,14 @@ class ShipmentControllerTest {
                 .deliveryOfficeName("Office 1")
                 .registeredById(UUID.randomUUID())
                 .registeredByName("Employee 1")
+                .build();
+    }
+
+    private RevenueReportDto createValidRevenueReport(LocalDate start, LocalDate end, BigDecimal revenue) {
+        return RevenueReportDto.builder()
+                .startDate(start)
+                .endDate(end)
+                .totalRevenue(revenue)
                 .build();
     }
 
@@ -222,7 +231,7 @@ class ShipmentControllerTest {
             given(shipmentService.registerShipment(any(ShipmentCreationDto.class), eq(authUser.getId())))
                     .willReturn(responseDto);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL)
                             .with(user(authUser))
                             .contentType(MediaType.APPLICATION_JSON)
@@ -248,7 +257,7 @@ class ShipmentControllerTest {
                     .deliveryOfficeId(10L)
                     .build();
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post(BASE_URL)
                             .with(user(authUser))
                             .contentType(MediaType.APPLICATION_JSON)
@@ -292,7 +301,7 @@ class ShipmentControllerTest {
             given(shipmentService.getShipmentById(shipmentId, authUser.getId(), authUser.getApplicationRole()))
                     .willReturn(responseDto);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get(BASE_URL + "/{id}", shipmentId)
                             .with(user(authUser)))
                     .andExpect(status().isOk())
@@ -433,7 +442,7 @@ class ShipmentControllerTest {
 
             given(shipmentService.updateShipmentStatus(eq(id), any(), any())).willReturn(response);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(patch(BASE_URL + "/{id}/status", id)
                             .with(user(authUser))
                             .contentType(MediaType.APPLICATION_JSON)
@@ -453,7 +462,7 @@ class ShipmentControllerTest {
 
             ShipmentStatusUpdateDto validDto = new ShipmentStatusUpdateDto(ShipmentStatus.DELIVERED, 10L, "Lorem ipsum");
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(patch(BASE_URL + "/{id}/status", shipmentId)
                             .with(user(authUser))
                             .contentType(MediaType.APPLICATION_JSON)
@@ -512,4 +521,108 @@ class ShipmentControllerTest {
             verifyNoMoreInteractions(shipmentService);
         }
     }
+
+    @Nested
+    @DisplayName("GET /api/shipments/revenue")
+    class RevenueReportTests {
+
+        @Test
+        @DisplayName("Happy Path: Should return 200 OK and revenue data when requested by ADMIN")
+        void shouldReturnRevenueForAdmin() throws Exception {
+            // Arrange
+            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+            LocalDate start = LocalDate.of(2026, 1, 1);
+            LocalDate end = LocalDate.of(2026, 1, 31);
+            RevenueReportDto expectedReport = createValidRevenueReport(start, end, BigDecimal.valueOf(5000.00));
+
+            given(shipmentService.getCompanyRevenue(start, end)).willReturn(expectedReport);
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/revenue")
+                            .with(user(adminUser))
+                            .param("startDate", "2026-01-01")
+                            .param("endDate", "2026-01-31"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalRevenue").value(5000.00))
+                    .andExpect(jsonPath("$.startDate").value("2026-01-01"))
+                    .andExpect(jsonPath("$.endDate").value("2026-01-31"));
+
+            verify(shipmentService).getCompanyRevenue(start, end);
+        }
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when CLERK attempts to access revenue")
+        void shouldReturn403WhenClerkAccessesRevenue() throws Exception {
+            // Arrange
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/revenue")
+                            .with(user(clerkUser))
+                            .param("startDate", "2026-01-01")
+                            .param("endDate", "2026-01-31"))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @Test
+        @DisplayName("Defense in Depth: Should return 400 Bad Request when required date parameters are missing")
+        void shouldReturn400WhenParametersMissing() throws Exception {
+            // Arrange
+            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/revenue")
+                            .with(user(adminUser)))
+                    .andExpect(status().isBadRequest());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @ParameterizedTest
+        @DisplayName("Boundary Testing: Should return 400 for malformed date strings")
+        @CsvSource({
+                "2026-13-01, 2026-01-31", // Invalid month
+                "2026-01-01, not-a-date",  // Malformed string
+                "01-01-2026, 31-01-2026"  // Non-ISO format (DD-MM-YYYY)
+        })
+        void shouldReturn400ForInvalidDateFormats(String startStr, String endStr) throws Exception {
+            // Arrange
+            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/revenue")
+                            .with(user(adminUser))
+                            .param("startDate", startStr)
+                            .param("endDate", endStr))
+                    .andExpect(status().isBadRequest());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should handle BusinessException when startDate is after endDate")
+        void shouldHandleChronologicalValidationError() throws Exception {
+            // Arrange
+            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+            LocalDate start = LocalDate.of(2026, 12, 31);
+            LocalDate end = LocalDate.of(2026, 1, 1);
+
+            given(shipmentService.getCompanyRevenue(start, end))
+                    .willThrow(new BusinessException(ErrorCode.VALIDATION_FAILED));
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/revenue")
+                            .with(user(adminUser))
+                            .param("startDate", "2026-12-31")
+                            .param("endDate", "2026-01-01"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_FAILED.getCode()));
+
+            verify(shipmentService).getCompanyRevenue(start, end);
+            verifyNoMoreInteractions(shipmentService);
+        }
+    }
+
 }

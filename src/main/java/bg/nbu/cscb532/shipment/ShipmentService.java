@@ -118,4 +118,6 @@ public interface ShipmentService {
      * @throws bg.nbu.cscb532.shared.exception.BusinessException if startDate is strictly after endDate.
      */
     RevenueReportDto getCompanyRevenue(LocalDate startDate, LocalDate endDate);
+
+    // TODO: [Feature] Implement tracking number lookup to satisfy Requirement 5.b
 }
