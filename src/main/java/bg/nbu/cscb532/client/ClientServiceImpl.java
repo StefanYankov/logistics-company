@@ -9,6 +9,8 @@ import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +72,20 @@ public class ClientServiceImpl implements ClientService {
         return mapToViewDto(savedClient);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ClientViewDto> getAllClients(Pageable pageable) {
+        log.debug("Fetching paginated list of all clients");
+
+        Objects.requireNonNull(pageable, Constants.DeveloperErrors.PAGEABLE_NULL);
+
+        return clientRepository.findAll(pageable)
+                .map(this::mapToViewDto);
+    }
+
     private ClientViewDto mapToViewDto(Client client) {
         if (client == null) {
             return null;
@@ -81,6 +97,7 @@ public class ClientServiceImpl implements ClientService {
                 .firstName(client.getFirstName())
                 .lastName(client.getLastName())
                 .phoneNumber(client.getPhoneNumber())
+                .isActive(client.isActive())
                 .build();
     }
 }
