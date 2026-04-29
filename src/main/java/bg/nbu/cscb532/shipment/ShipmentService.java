@@ -59,6 +59,18 @@ public interface ShipmentService {
     ShipmentViewDto getShipmentById(UUID shipmentId, UUID requestingUserId, ApplicationRole role);
 
     /**
+     * Retrieves a specific shipment by its public tracking number.
+     * Enforces strict visibility rules identical to UUID-based retrieval to prevent tracking number enumeration by malicious clients.
+     *
+     * @param trackingNumber The public alphanumeric tracking identifier.
+     * @param requestingUserId The UUID of the authenticated user requesting the data.
+     * @param role The role of the authenticated user to evaluate access logic.
+     * @return The view DTO of the shipment.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if the shipment is not found or access is unauthorized.
+     */
+    ShipmentViewDto getShipmentByTrackingNumber(String trackingNumber, UUID requestingUserId, ApplicationRole role);
+
+    /**
      * Retrieves a paginated list of all shipments sent by a specific client.
      * (Satisfies Requirement 5.f)
      *
@@ -118,6 +130,4 @@ public interface ShipmentService {
      * @throws bg.nbu.cscb532.shared.exception.BusinessException if startDate is strictly after endDate.
      */
     RevenueReportDto getCompanyRevenue(LocalDate startDate, LocalDate endDate);
-
-    // TODO: [Feature] Implement tracking number lookup
 }

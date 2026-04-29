@@ -128,6 +128,25 @@ public class ShipmentController {
     }
 
     @Operation(
+            summary = "Get shipment by tracking number",
+            description = "Retrieves a specific shipment using its public tracking number. Clients can only view shipments where they are the sender or receiver."
+    )
+    @ApiResponse(responseCode = "200", description = "Shipment found and authorized")
+    @ApiResponse(responseCode = "400", description = "Validation failed (e.g., tracking number is blank)")
+    @ApiResponse(responseCode = "404", description = "Shipment not found or access denied")
+    @GetMapping("/track/{trackingNumber}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ShipmentViewDto> getShipmentByTrackingNumber(
+            @Parameter(description = "The alphanumeric tracking number of the shipment") @PathVariable String trackingNumber,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        
+        log.info("API GET request for shipment tracking number: {} from user ID: {}", trackingNumber, userDetails.getId());
+        
+        ShipmentViewDto shipment = shipmentService.getShipmentByTrackingNumber(trackingNumber, userDetails.getId(), userDetails.getApplicationRole());
+        return ResponseEntity.ok(shipment);
+    }
+
+    @Operation(
             summary = "Get all shipments",
             description = "Retrieves a paginated list of all shipments in the system. Restricted to staff roles."
     )

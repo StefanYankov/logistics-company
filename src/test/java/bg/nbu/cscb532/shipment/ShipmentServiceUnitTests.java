@@ -159,7 +159,7 @@ class ShipmentServiceUnitTests {
 
             Shipment existingShipment = new Shipment();
             existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.REGISTERED);
+            existingShipment.setStatus(ShipmentStatus.REGISTERED); // Current Status
             existingShipment.setSender(createMockClient(UUID.randomUUID(), "A", "A"));
             existingShipment.setReceiver(createMockClient(UUID.randomUUID(), "B", "B"));
             existingShipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "C", "C"));
@@ -193,12 +193,12 @@ class ShipmentServiceUnitTests {
             
             ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
                     .newStatus(ShipmentStatus.AT_DELIVERY_OFFICE)
-                    .locationOfficeId(officeId)
+                    .locationOfficeId(officeId) // Scan location provided
                     .build();
 
             Shipment existingShipment = new Shipment();
             existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT);
+            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT); // Valid previous state
             existingShipment.setSender(createMockClient(UUID.randomUUID(), "A", "A"));
             existingShipment.setReceiver(createMockClient(UUID.randomUUID(), "B", "B"));
             existingShipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "C", "C"));
@@ -224,7 +224,7 @@ class ShipmentServiceUnitTests {
             // Arrange
             UUID shipmentId = UUID.randomUUID();
             UUID courierId = UUID.randomUUID();
-            CustomUserDetails authUser = createMockAuthUser(courierId, ApplicationRole.COURIER);
+            CustomUserDetails authUser = createMockAuthUser(courierId, ApplicationRole.COURIER); // Role is COURIER
             
             ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
                     .newStatus(ShipmentStatus.DELIVERED)
@@ -232,7 +232,7 @@ class ShipmentServiceUnitTests {
 
             Shipment existingShipment = new Shipment();
             existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.OUT_FOR_DELIVERY);
+            existingShipment.setStatus(ShipmentStatus.OUT_FOR_DELIVERY); // Valid previous state
             existingShipment.setSender(createMockClient(UUID.randomUUID(), "A", "A"));
             existingShipment.setReceiver(createMockClient(UUID.randomUUID(), "B", "B"));
             existingShipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "C", "C"));
@@ -289,6 +289,7 @@ class ShipmentServiceUnitTests {
         void shouldRejectNonCourierOutForDelivery() {
             // Arrange
             UUID shipmentId = UUID.randomUUID();
+            // User is a CLERK, not a COURIER
             CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
             
             ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder().newStatus(ShipmentStatus.OUT_FOR_DELIVERY).build();
@@ -801,6 +802,95 @@ class ShipmentServiceUnitTests {
             given(shipmentRepository.findById(shipmentId)).willReturn(Optional.empty());
             // Act and Assert
             assertThatThrownBy(() -> shipmentService.getShipmentById(shipmentId, UUID.randomUUID(), ApplicationRole.ADMIN))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("getShipmentByTrackingNumber(String, UUID, ApplicationRole) Access Control Tests")
+    class GetShipmentByTrackingNumberTests {
+
+        @Test
+        @DisplayName("Happy Path: Admin should retrieve any shipment by tracking number")
+        void adminShouldRetrieveAnyShipmentByTracking() {
+            String tracking = "TRK-123";
+            UUID adminId = UUID.randomUUID();
+            Shipment shipment = new Shipment();
+            shipment.setId(UUID.randomUUID());
+            shipment.setTrackingNumber(tracking);
+            shipment.setSender(createMockClient(UUID.randomUUID(), "S", "S"));
+            shipment.setReceiver(createMockClient(UUID.randomUUID(), "R", "R"));
+            shipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "E", "E"));
+
+            given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.of(shipment));
+
+            ShipmentViewDto result = shipmentService.getShipmentByTrackingNumber(tracking, adminId, ApplicationRole.ADMIN);
+
+            assertThat(result).isNotNull();
+            assertThat(result.trackingNumber()).isEqualTo(tracking);
+        }
+
+        @Test
+        @DisplayName("Happy Path: Client should retrieve shipment they sent by tracking number")
+        void senderShouldRetrieveShipmentByTracking() {
+            String tracking = "TRK-456";
+            UUID clientId = UUID.randomUUID();
+            Shipment shipment = new Shipment();
+            shipment.setId(UUID.randomUUID());
+            shipment.setTrackingNumber(tracking);
+            shipment.setSender(createMockClient(clientId, "S", "S"));
+            shipment.setReceiver(createMockClient(UUID.randomUUID(), "R", "R"));
+            shipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "E", "E"));
+
+            given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.of(shipment));
+
+            ShipmentViewDto result = shipmentService.getShipmentByTrackingNumber(tracking, clientId, ApplicationRole.CLIENT);
+
+            assertThat(result).isNotNull();
+            assertThat(result.trackingNumber()).isEqualTo(tracking);
+        }
+
+        @Test
+        @DisplayName("Error Case: Client requesting someone else's shipment by tracking number should get 404 (Security)")
+        void clientShouldNotRetrieveOtherShipmentByTracking() {
+            String tracking = "TRK-789";
+            UUID maliciousClientId = UUID.randomUUID();
+
+            Shipment shipment = new Shipment();
+            shipment.setId(UUID.randomUUID());
+            shipment.setTrackingNumber(tracking);
+            shipment.setSender(createMockClient(UUID.randomUUID(), "S", "S"));
+            shipment.setReceiver(createMockClient(UUID.randomUUID(), "R", "R"));
+            shipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "E", "E"));
+
+            given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.of(shipment));
+
+            assertThatThrownBy(() -> shipmentService.getShipmentByTrackingNumber(tracking, maliciousClientId, ApplicationRole.CLIENT))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw VALIDATION_FAILED when tracking number is null or blank")
+        void shouldThrowIfTrackingNumberBlank() {
+            assertThatThrownBy(() -> shipmentService.getShipmentByTrackingNumber("   ", UUID.randomUUID(), ApplicationRole.ADMIN))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+                    
+            verifyNoInteractions(shipmentRepository);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw 404 when tracking number does not exist")
+        void shouldThrowIfShipmentDoesNotExist() {
+            String tracking = "INVALID";
+            given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> shipmentService.getShipmentByTrackingNumber(tracking, UUID.randomUUID(), ApplicationRole.ADMIN))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
