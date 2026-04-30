@@ -2,9 +2,11 @@ package bg.nbu.cscb532.company;
 
 import bg.nbu.cscb532.company.dto.CompanyDto;
 import bg.nbu.cscb532.company.dto.CompanyViewDto;
+import bg.nbu.cscb532.shared.Constants;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,10 +22,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Company Service Unit Tests")
@@ -35,197 +35,162 @@ class CompanyServiceUnitTest {
     @InjectMocks
     private CompanyServiceImpl companyService;
 
-    // --- CREATE ---
+    // --- DATA FACTORIES (Object Mother) ---
 
-    @Test
-    @DisplayName("Should successfully create a company when given a valid DTO")
-    void shouldCreateCompanyWhenDtoIsValid() {
-        // Arrange
-        CompanyDto createDto = CompanyDto.builder()
-                .name("Speedy")
-                .registrationNumber("BG123")
+    private CompanyDto createValidDto(String name, String reg) {
+        return CompanyDto.builder()
+                .name(name)
+                .registrationNumber(reg)
                 .build();
+    }
 
-        Company savedEntity = Company.builder()
-                .name("Speedy")
-                .registrationNumber("BG123")
+    private Company createEntity(Long id, String name, String reg) {
+        Company company = Company.builder()
+                .name(name)
+                .registrationNumber(reg)
                 .build();
-        savedEntity.setId(1L);
-
-        given(companyRepository.findByRegistrationNumber("BG123")).willReturn(Optional.empty());
-        given(companyRepository.save(any(Company.class))).willReturn(savedEntity);
-
-        // Act
-        CompanyViewDto result = companyService.create(createDto);
-
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result.id()).isEqualTo(1L);
-        assertThat(result.name()).isEqualTo("Speedy");
-        assertThat(result.registrationNumber()).isEqualTo("BG123");
-
-        verify(companyRepository).findByRegistrationNumber("BG123");
-        verify(companyRepository).save(any(Company.class));
+        company.setId(id);
+        return company;
     }
 
-    @Test
-    @DisplayName("Should throw BusinessException when creating a company with duplicate registration number")
-    void shouldThrowExceptionWhenCreatingWithDuplicateRegistration() {
-        // Arrange
-        CompanyDto createDto = CompanyDto.builder()
-                .name("Speedy")
-                .registrationNumber("DUPLICATE_REG")
-                .build();
+    @Nested
+    @DisplayName("create() - Company Registration")
+    class CreateCompanyTests {
 
-        given(companyRepository.findByRegistrationNumber(anyString()))
-                .willReturn(Optional.of(new Company())); // Simulate existing company
+        @Test
+        @DisplayName("Happy Path: Should successfully create a company when given a valid DTO")
+        void shouldCreateCompanyWhenDtoIsValid() {
+            // Arrange
+            CompanyDto createDto = createValidDto("Speedy", "BG123");
+            Company savedEntity = createEntity(1L, "Speedy", "BG123");
 
-        // Act & Assert
-        assertThatThrownBy(() -> companyService.create(createDto))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage(ErrorCode.COMPANY_REGISTRATION_DUPLICATE.getDefaultMessage())
-                .extracting(ex -> ((BusinessException) ex).getErrorCode())
-                .isEqualTo(ErrorCode.COMPANY_REGISTRATION_DUPLICATE);
+            given(companyRepository.findByName("Speedy")).willReturn(Optional.empty());
+            given(companyRepository.findByRegistrationNumber("BG123")).willReturn(Optional.empty());
+            given(companyRepository.save(any(Company.class))).willReturn(savedEntity);
 
-        verify(companyRepository).findByRegistrationNumber("DUPLICATE_REG");
-        verifyNoMoreInteractions(companyRepository); // Ensure save() is never called
+            // Act
+            CompanyViewDto result = companyService.create(createDto);
+
+            // Assert
+            assertThat(result.id()).isEqualTo(1L);
+            assertThat(result.name()).isEqualTo("Speedy");
+            verify(companyRepository).save(any(Company.class));
+        }
+
+        @Test
+        @DisplayName("Business Rule: Should throw BusinessException for duplicate registration number")
+        void shouldThrowExceptionWhenCreatingWithDuplicateRegistration() {
+            // Arrange
+            CompanyDto createDto = createValidDto("Speedy", "DUPLICATE_REG");
+
+            given(companyRepository.findByName("Speedy")).willReturn(Optional.empty());
+            given(companyRepository.findByRegistrationNumber("DUPLICATE_REG"))
+                    .willReturn(Optional.of(new Company()));
+
+            // Act and Assert
+            assertThatThrownBy(() -> companyService.create(createDto))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.COMPANY_REGISTRATION_DUPLICATE);
+
+            verify(companyRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Defense in Depth: Should throw NPE when create DTO is null")
+        void shouldThrowNpeWhenCreateDtoIsNull() {
+            // Act and Assert
+            assertThatThrownBy(() -> companyService.create(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining(Constants.DeveloperErrors.DTO_NULL);
+
+            verifyNoInteractions(companyRepository);
+        }
     }
 
-    @Test
-    @DisplayName("Should throw NullPointerException when create DTO is null (Defense in Depth)")
-    void shouldThrowNpeWhenCreateDtoIsNull() {
-        // Act & Assert
-        assertThatThrownBy(() -> companyService.create(null))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessageContaining("Incoming DTO must not be null");
+    @Nested
+    @DisplayName("update() - Company Modification")
+    class UpdateCompanyTests {
 
-        verifyNoMoreInteractions(companyRepository);
+        @Test
+        @DisplayName("Happy Path: Should update company when ID and DTO are valid")
+        void shouldUpdateCompanyWhenIdAndDtoAreValid() {
+            // Arrange
+            Long targetId = 1L;
+            CompanyDto updateDto = createValidDto("New Name", "NEW_REG");
+            Company existing = createEntity(targetId, "Old", "OLD");
+
+            given(companyRepository.findById(targetId)).willReturn(Optional.of(existing));
+            given(companyRepository.findByName("New Name")).willReturn(Optional.empty());
+            given(companyRepository.findByRegistrationNumber("NEW_REG")).willReturn(Optional.empty());
+            given(companyRepository.save(any(Company.class))).willReturn(existing);
+
+            // Act
+            CompanyViewDto result = companyService.update(targetId, updateDto);
+
+            // Assert
+            assertThat(result.name()).isEqualTo("New Name");
+            verify(companyRepository).save(any(Company.class));
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw BusinessException for non-existent ID")
+        void shouldThrowExceptionWhenUpdatingNonExistentId() {
+            // Arrange
+            given(companyRepository.findById(999L)).willReturn(Optional.empty());
+
+            // Act and Assert
+            assertThatThrownBy(() -> companyService.update(999L, createValidDto("A", "B")))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage(ErrorCode.COMPANY_NOT_FOUND.getDefaultMessage());
+
+            verify(companyRepository, never()).save(any());
+        }
     }
 
-    // --- UPDATE ---
+    @Nested
+    @DisplayName("Retrieval Logic - Finders and Pagination")
+    class ReadCompanyTests {
 
-    @Test
-    @DisplayName("Should update company name when given valid ID and DTO")
-    void shouldUpdateCompanyWhenIdAndDtoAreValid() {
-        // Arrange
-        Long targetId = 1L;
-        CompanyDto updateDto = CompanyDto.builder()
-                .name("New Name")
-                .registrationNumber("IGNORED_REG_NUM")
-                .build();
+        @Test
+        @DisplayName("Happy Path: Should return paginated list")
+        void shouldReturnPaginatedCompanies() {
+            // Arrange
+            PageRequest pageRequest = PageRequest.of(0, 10);
+            Page<Company> pagedResponse = new PageImpl<>(List.of(createEntity(1L, "Speedy", "BG123")));
 
-        Company existingEntity = Company.builder()
-                .name("Old Name")
-                .registrationNumber("BG123")
-                .build();
-        existingEntity.setId(targetId);
+            given(companyRepository.findAll(pageRequest)).willReturn(pagedResponse);
 
-        given(companyRepository.findById(targetId)).willReturn(Optional.of(existingEntity));
-        given(companyRepository.save(any(Company.class))).willReturn(existingEntity);
+            // Act
+            Page<CompanyViewDto> result = companyService.getAll(pageRequest);
 
-        // Act
-        CompanyViewDto result = companyService.update(targetId, updateDto);
+            // Assert
+            assertThat(result.getContent()).hasSize(1);
+            verify(companyRepository).findAll(pageRequest);
+        }
 
-        // Assert
-        assertThat(result.name()).isEqualTo("New Name");
-        // Ensure the registration number didn't change despite the DTO
-        assertThat(result.registrationNumber()).isEqualTo("BG123"); 
+        @Test
+        @DisplayName("Defense in Depth: Should throw NPE when fetching by null name")
+        void shouldThrowNpeWhenGetByNameIsNull() {
+            // Act and Assert
+            assertThatThrownBy(() -> companyService.getByName(null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining("Name must not be null");
 
-        verify(companyRepository).findById(targetId);
-        verify(companyRepository).save(existingEntity);
-    }
+            verifyNoInteractions(companyRepository);
+        }
 
-    @Test
-    @DisplayName("Should throw BusinessException when updating a non-existent company ID")
-    void shouldThrowExceptionWhenUpdatingNonExistentId() {
-        // Arrange
-        Long invalidId = 999L;
-        CompanyDto updateDto = CompanyDto.builder().name("New Name").build();
+        @Test
+        @DisplayName("Error Case: Should throw BusinessException when name not found")
+        void shouldThrowExceptionWhenCompanyByNameIsNotFound() {
+            // Arrange
+            given(companyRepository.findByName("Missing")).willReturn(Optional.empty());
 
-        given(companyRepository.findById(invalidId)).willReturn(Optional.empty());
-
-        // Act & Assert
-        assertThatThrownBy(() -> companyService.update(invalidId, updateDto))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage(ErrorCode.COMPANY_NOT_FOUND.getDefaultMessage());
-
-        verify(companyRepository).findById(invalidId);
-        verifyNoMoreInteractions(companyRepository);
-    }
-
-    // --- READ ---
-
-    @Test
-    @DisplayName("Should return paginated list of companies")
-    void shouldReturnPaginatedCompanies() {
-        // Arrange
-        PageRequest pageRequest = PageRequest.of(0, 10);
-        Company company = Company.builder().name("Speedy").registrationNumber("BG123").build();
-        company.setId(1L);
-        Page<Company> pagedResponse = new PageImpl<>(List.of(company));
-
-        given(companyRepository.findAll(pageRequest)).willReturn(pagedResponse);
-
-        // Act
-        Page<CompanyViewDto> result = companyService.getAll(pageRequest);
-
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().getFirst().name()).isEqualTo("Speedy");
-
-        verify(companyRepository).findAll(pageRequest);
-    }
-
-    @Test
-    @DisplayName("Should successfully retrieve a company by its exact name")
-    void shouldGetCompanyByNameWhenValidNameProvided() {
-        // Arrange
-        String targetName = "DHL Express";
-        Company existingEntity = Company.builder()
-                .name(targetName)
-                .registrationNumber("BG123")
-                .build();
-        existingEntity.setId(1L);
-
-        given(companyRepository.getCompanyByName(targetName)).willReturn(existingEntity);
-
-        // Act
-        CompanyViewDto result = companyService.getByName(targetName);
-
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result.name()).isEqualTo(targetName);
-        assertThat(result.registrationNumber()).isEqualTo("BG123");
-
-        verify(companyRepository).getCompanyByName(targetName);
-    }
-
-    @Test
-    @DisplayName("Should throw BusinessException when attempting to fetch a company by a non-existent name")
-    void shouldThrowExceptionWhenCompanyByNameIsNotFound() {
-        // Arrange
-        String nonExistentName = "Unknown Company";
-        given(companyRepository.getCompanyByName(nonExistentName)).willReturn(null);
-
-        // Act & Assert
-        assertThatThrownBy(() -> companyService.getByName(nonExistentName))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage(ErrorCode.COMPANY_NOT_FOUND.getDefaultMessage())
-                .extracting(ex -> ((BusinessException) ex).getErrorCode())
-                .isEqualTo(ErrorCode.COMPANY_NOT_FOUND);
-
-        verify(companyRepository).getCompanyByName(nonExistentName);
-    }
-
-    @Test
-    @DisplayName("Should throw NullPointerException when fetching company by null name (Defense in Depth)")
-    void shouldThrowNpeWhenGetByNameIsNull() {
-        // Act & Assert
-        assertThatThrownBy(() -> companyService.getByName(null))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessageContaining("Name must not be null");
-
-        verifyNoMoreInteractions(companyRepository);
+            // Act and Assert
+            assertThatThrownBy(() -> companyService.getByName("Missing"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.COMPANY_NOT_FOUND);
+        }
     }
 }

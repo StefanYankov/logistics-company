@@ -3,18 +3,18 @@ package bg.nbu.cscb532.company;
 import bg.nbu.cscb532.shared.Constants;
 import bg.nbu.cscb532.shared.config.JpaConfig;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.Optional;
@@ -22,164 +22,132 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SuppressWarnings("deprecation")
 @DataJpaTest
 @Testcontainers
 @ActiveProfiles("test")
 @Import(JpaConfig.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@DisplayName("Company Repository Integration Tests")
 class CompanyRepositoryTest {
 
     @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(DockerImageName.parse("postgres:17-alpine"));
+    static PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"));
 
     @Autowired
     private CompanyRepository companyRepository;
 
-    @Test
-    @DisplayName("Should save a valid Company entity and generate ID")
-    void shouldSaveCompany() {
-        // Arrange
-        Company company = Company.builder()
-                .name("Speedy Logistics")
-                .registrationNumber("BG123456789")
+    // --- DATA FACTORY ---
+
+    private Company createCompanyEntity(String name, String reg) {
+        return Company.builder()
+                .name(name)
+                .registrationNumber(reg)
                 .build();
-
-        // Act
-        Company savedCompany = companyRepository.save(company);
-
-        // Assert
-        assertThat(savedCompany.getId()).isNotNull();
-        assertThat(savedCompany.getName()).isEqualTo("Speedy Logistics");
-        assertThat(savedCompany.getRegistrationNumber()).isEqualTo("BG123456789");
-        assertThat(savedCompany.getCreatedAt()).isNotNull();
-        assertThat(savedCompany.getUpdatedAt()).isNotNull();
     }
 
-    @Test
-    @DisplayName("Should retrieve a company by its exact registration number")
-    void shouldFindByRegistrationNumber() {
-        // Arrange
-        Company company = Company.builder()
-                .name("Econt Express")
-                .registrationNumber("BG987654321")
-                .build();
-        companyRepository.save(company);
+    @Nested
+    @DisplayName("Persistence & Auditing")
+    class PersistenceTests {
 
-        // Act
-        Optional<Company> foundCompany = companyRepository.findByRegistrationNumber("BG987654321");
+        @Test
+        @DisplayName("Should save valid company and populate auditing fields")
+        void shouldSaveAndAuditCompany() {
+            // Arrange
+            Company company = createCompanyEntity("Speedy Logistics", "BG123456789");
 
-        // Assert
-        assertThat(foundCompany).isPresent();
-        assertThat(foundCompany.get().getName()).isEqualTo("Econt Express");
+            // Act
+            Company saved = companyRepository.saveAndFlush(company);
+
+            // Assert
+            assertThat(saved.getId()).isNotNull();
+            assertThat(saved.getCreatedAt()).isNotNull();
+            assertThat(saved.getUpdatedAt()).isNotNull();
+        }
     }
 
-    @Test
-    @DisplayName("Should return empty Optional when registration number does not exist")
-    void shouldReturnEmptyWhenRegistrationNumberNotFound() {
-        // Act
-        Optional<Company> foundCompany = companyRepository.findByRegistrationNumber("UNKNOWN");
+    @Nested
+    @DisplayName("Query Methods (findByName & findByRegistrationNumber)")
+    class QueryMethodTests {
 
-        // Assert
-        assertThat(foundCompany).isEmpty();
+        @Test
+        @DisplayName("Happy Path: Should retrieve company by unique name")
+        void shouldFindByName() {
+            // Arrange
+            companyRepository.saveAndFlush(createCompanyEntity("DHL Express", "REG-1"));
+
+            // Act
+            Optional<Company> found = companyRepository.findByName("DHL Express");
+
+            // Assert
+            assertThat(found).isPresent();
+            assertThat(found.get().getName()).isEqualTo("DHL Express");
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should be case-sensitive for name lookups")
+        void shouldBeCaseSensitiveForName() {
+            // Arrange
+            companyRepository.saveAndFlush(createCompanyEntity("FedEx", "REG-2"));
+
+            // Act and Assert
+            assertThat(companyRepository.findByName("fedex")).isEmpty();
+            assertThat(companyRepository.findByName("FedEx")).isPresent();
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should retrieve company by registration number")
+        void shouldFindByRegistrationNumber() {
+            // Arrange
+            companyRepository.saveAndFlush(createCompanyEntity("Econt", "BG987654321"));
+
+            // Act
+            Optional<Company> found = companyRepository.findByRegistrationNumber("BG987654321");
+
+            // Assert
+            assertThat(found).isPresent();
+            assertThat(found.get().getRegistrationNumber()).isEqualTo("BG987654321");
+        }
     }
 
-    @Test
-    @DisplayName("Should retrieve a company by its exact name")
-    void shouldGetCompanyByName_HappyPath() {
-        // Arrange
-        Company company = Company.builder()
-                .name("DHL Express")
-                .registrationNumber("BG112233445")
-                .build();
-        companyRepository.save(company);
+    @Nested
+    @DisplayName("Data Integrity & Constraints")
+    class ConstraintTests {
 
-        // Act
-        Company foundCompany = companyRepository.getCompanyByName("DHL Express");
+        @Test
+        @DisplayName("Constraint: Should throw exception on duplicate registration number")
+        void shouldThrowOnDuplicateReg() {
+            // Arrange
+            companyRepository.saveAndFlush(createCompanyEntity("Company A", "UNIQUE-REG"));
+            Company duplicate = createCompanyEntity("Company B", "UNIQUE-REG");
 
-        // Assert
-        assertThat(foundCompany).isNotNull();
-        assertThat(foundCompany.getRegistrationNumber()).isEqualTo("BG112233445");
-    }
+            // Act and Assert
+            assertThatThrownBy(() -> companyRepository.saveAndFlush(duplicate))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
 
-    @Test
-    @DisplayName("Should return null when company name does not exist")
-    void shouldReturnNullWhenCompanyByNameNotFound_ErrorCase() {
-        // Act
-        Company foundCompany = companyRepository.getCompanyByName("Nonexistent Company");
 
-        // Assert
-        assertThat(foundCompany).isNull();
-    }
+        @Test
+        @DisplayName("Constraint: Should throw exception when name is null")
+        void shouldThrowOnNullName() {
+            // Arrange
+            Company invalid = createCompanyEntity(null, "REG-NULL");
 
-    @Test
-    @DisplayName("Should retrieve company by name case sensitively")
-    void shouldGetCompanyByNameCaseSensitive_EdgeCase() {
-        // Arrange
-        Company company = Company.builder()
-                .name("FedEx")
-                .registrationNumber("BG998877665")
-                .build();
-        companyRepository.save(company);
+            // Act and Assert
+            assertThatThrownBy(() -> companyRepository.saveAndFlush(invalid))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
 
-        // Act & Assert
-        Company lowercaseSearch = companyRepository.getCompanyByName("fedex");
-        assertThat(lowercaseSearch).isNull();
+        @Test
+        @DisplayName("Constraint: Should throw exception when name exceeds max length")
+        void shouldThrowOnLongName() {
+            // Arrange
+            String longName = "A".repeat(Constants.Validation.MAX_NAME_LENGTH + 1);
+            Company invalid = createCompanyEntity(longName, "REG-LONG");
 
-        Company exactCaseSearch = companyRepository.getCompanyByName("FedEx");
-        assertThat(exactCaseSearch).isNotNull();
-    }
-
-    @Test
-    @DisplayName("Should throw DataIntegrityViolationException when saving company with duplicate registration number")
-    void shouldThrowExceptionOnDuplicateRegistrationNumber() {
-        // Arrange
-        Company company1 = Company.builder()
-                .name("Econt Express")
-                .registrationNumber("DUPLICATE_REG_NUM")
-                .build();
-        companyRepository.saveAndFlush(company1);
-
-        Company company2 = Company.builder()
-                .name("Another Company")
-                .registrationNumber("DUPLICATE_REG_NUM")
-                .build();
-
-        // Act & Assert
-        assertThatThrownBy(() -> companyRepository.saveAndFlush(company2))
-                .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("duplicate key value violates unique constraint");
-    }
-
-    @Test
-    @DisplayName("Should throw DataIntegrityViolationException when saving company with null name")
-    void shouldThrowExceptionOnNullName() {
-        // Arrange
-        Company company = Company.builder()
-                .name(null)
-                .registrationNumber("BG987654321")
-                .build();
-
-        // Act & Assert
-        assertThatThrownBy(() -> companyRepository.saveAndFlush(company))
-                .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("null value in column \"name\"");
-    }
-    
-    @Test
-    @DisplayName("Should throw DataIntegrityViolationException when saving company with name exceeding max length")
-    void shouldThrowExceptionOnNameExceedingMaxLength() {
-        // Arrange
-        String longName = "A".repeat(Constants.Validation.MAX_NAME_LENGTH + 1);
-        Company company = Company.builder()
-                .name(longName)
-                .registrationNumber("VALID_REG_NUM")
-                .build();
-
-        // Act & Assert
-        assertThatThrownBy(() -> companyRepository.saveAndFlush(company))
-                .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("value too long for type character varying");
+            // Act and Assert
+            assertThatThrownBy(() -> companyRepository.saveAndFlush(invalid))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
     }
 }

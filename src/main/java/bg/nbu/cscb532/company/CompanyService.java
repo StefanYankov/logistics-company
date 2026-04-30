@@ -41,9 +41,11 @@ public interface CompanyService {
     CompanyViewDto getById(Long id);
 
     /**
-     * Retrieves the company by name.
-     * @param name the name of the company.
-     * @return the company's view DTO
+     * Retrieves a company by its unique name.
+     *
+     * @param name The exact name of the company to find.
+     * @return The company's view DTO.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if no company with the given name is found.
      */
     CompanyViewDto getByName(String name);
 

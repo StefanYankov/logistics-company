@@ -9,10 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Core business logic implementation for the Company domain.
@@ -21,7 +23,6 @@ import java.util.Objects;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-// TODO: (Security) Add @PreAuthorize("hasRole('ADMIN')") to mutating methods once JWT is implemented
 public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
@@ -29,11 +30,16 @@ public class CompanyServiceImpl implements CompanyService {
     /** {@inheritDoc} */
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public CompanyViewDto create(CompanyDto dto) {
         log.debug("Attempting to create a new company");
 
         Objects.requireNonNull(dto, Constants.DeveloperErrors.DTO_NULL);
 
+        if (companyRepository.findByName(dto.name()).isPresent()) {
+            log.warn("Company creation failed. Name [{}] already exists.", dto.name());
+            throw new BusinessException(ErrorCode.COMPANY_NAME_DUPLICATE);
+        }
         if (companyRepository.findByRegistrationNumber(dto.registrationNumber()).isPresent()) {
             log.warn("Company creation failed. Registration number [{}] already exists.", dto.registrationNumber());
             throw new BusinessException(ErrorCode.COMPANY_REGISTRATION_DUPLICATE);
@@ -45,43 +51,62 @@ public class CompanyServiceImpl implements CompanyService {
                 .build();
 
         Company savedCompany = companyRepository.save(company);
-        
+
         log.info("Successfully created company [{}] with ID: {}", savedCompany.getName(), savedCompany.getId());
-        
+
         return mapToViewDto(savedCompany);
     }
 
     /** {@inheritDoc} */
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public CompanyViewDto update(Long id, CompanyDto dto) {
         log.debug("Attempting to update company with ID: {}", id);
-        
+
         Objects.requireNonNull(id, Constants.DeveloperErrors.ENTITY_ID_NULL);
         Objects.requireNonNull(dto, Constants.DeveloperErrors.DTO_NULL);
 
         Company company = findCompanyOrThrow(id);
 
+        // Check for name duplication before updating
+        companyRepository.findByName(dto.name().trim()).ifPresent(existing -> {
+            if (!existing.getId().equals(id)) {
+                log.warn("Company update failed. Name [{}] is already taken by company ID [{}].", dto.name(), existing.getId());
+                throw new BusinessException(ErrorCode.COMPANY_NAME_DUPLICATE);
+            }
+        });
+        
+        // Check for registration number duplication before updating
+        companyRepository.findByRegistrationNumber(dto.registrationNumber().trim()).ifPresent(existing -> {
+            if (!existing.getId().equals(id)) {
+                log.warn("Company update failed. Registration number [{}] is already taken by company ID [{}].", dto.registrationNumber(), existing.getId());
+                throw new BusinessException(ErrorCode.COMPANY_REGISTRATION_DUPLICATE);
+            }
+        });
+
         company.setName(dto.name().trim());
+        company.setRegistrationNumber(dto.registrationNumber().trim());
 
         company = companyRepository.save(company);
-        
+
         log.info("Successfully updated company [{}] with ID: {}", company.getName(), id);
-        
+
         return mapToViewDto(company);
     }
 
     /** {@inheritDoc} */
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public void delete(Long id) {
         log.debug("Attempting to delete company with ID: {}", id);
-        
+
         Objects.requireNonNull(id, Constants.DeveloperErrors.ENTITY_ID_NULL);
 
         Company company = findCompanyOrThrow(id);
         companyRepository.delete(company);
-        
+
         log.info("Successfully deleted company with ID: {}", id);
     }
 
@@ -90,9 +115,9 @@ public class CompanyServiceImpl implements CompanyService {
     @Transactional(readOnly = true)
     public CompanyViewDto getById(Long id) {
         log.debug("Fetching company by ID: {}", id);
-        
+
         Objects.requireNonNull(id, Constants.DeveloperErrors.ENTITY_ID_NULL);
-        
+
         return mapToViewDto(findCompanyOrThrow(id));
     }
 
@@ -101,19 +126,18 @@ public class CompanyServiceImpl implements CompanyService {
     @Transactional(readOnly = true)
     public CompanyViewDto getByName(String name) {
         log.debug("Fetching company by Name: {}", name);
-
         Objects.requireNonNull(name, Constants.DeveloperErrors.NAME_NULL);
 
-        Company company = companyRepository.getCompanyByName(name);
-        
-        if (company == null) {
+        Optional<Company> company = companyRepository.findByName(name);
+
+        if (company.isEmpty()) {
             log.warn("Lookup failed. Company with Name [{}] not found.", name);
             throw new BusinessException(ErrorCode.COMPANY_NOT_FOUND);
         }
 
-        return mapToViewDto(company);
+        return mapToViewDto(company.get());
     }
-
+    
     /** {@inheritDoc} */
     @Override
     @Transactional(readOnly = true)
@@ -122,7 +146,7 @@ public class CompanyServiceImpl implements CompanyService {
         Objects.requireNonNull(pageable, Constants.DeveloperErrors.PAGEABLE_NULL);
 
         Page<Company> companies = companyRepository.findAll(pageable);
-        
+
         return companies.map(this::mapToViewDto);
     }
 
