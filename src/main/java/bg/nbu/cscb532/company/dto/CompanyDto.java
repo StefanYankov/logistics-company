@@ -5,6 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
+/**
+ * Data Transfer Object for creating and updating a Company.
+ */
 @Builder
 public record CompanyDto(
 
@@ -15,5 +18,5 @@ public record CompanyDto(
         @NotBlank(message = "{validation.company.registration.notblank}")
         @Size(max = Constants.Validation.MAX_REGISTRATION_NUMBER_LENGTH, message = "{validation.company.registration.toolong}")
         String registrationNumber
-
-) {}
+) {
+}

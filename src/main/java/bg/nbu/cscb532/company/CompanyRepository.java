@@ -13,6 +13,8 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
      */
     Optional<Company> findByRegistrationNumber(String registrationNumber);
 
-
-    Company getCompanyByName(String name);
+    /**
+     * Finds a company by its unique name.
+     */
+    Optional<Company> findByName(String name);
 }

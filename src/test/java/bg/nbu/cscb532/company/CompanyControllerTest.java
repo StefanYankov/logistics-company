@@ -2,6 +2,7 @@ package bg.nbu.cscb532.company;
 
 import bg.nbu.cscb532.company.dto.CompanyDto;
 import bg.nbu.cscb532.company.dto.CompanyViewDto;
+import bg.nbu.cscb532.shared.config.SecurityConfig;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
@@ -10,12 +11,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * WebMvcTest for the CompanyController.
  */
 @WebMvcTest(controllers = {CompanyController.class, GlobalExceptionHandler.class})
+@Import(SecurityConfig.class)
+@AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
 class CompanyControllerTest {
 
@@ -58,6 +64,7 @@ class CompanyControllerTest {
 
         @Test
         @DisplayName("Should return 201 Created and Location header when DTO is valid")
+        @WithMockUser(roles = "ADMIN")
         void shouldCreateCompanyWhenValid() throws Exception {
             // Arrange
             CompanyDto requestDto = CompanyDto.builder()
@@ -100,6 +107,7 @@ class CompanyControllerTest {
 
         @Test
         @DisplayName("Should return 409 Conflict when business rule violates unique registration")
+        @WithMockUser(roles = "ADMIN")
         void shouldReturn409WhenBusinessRuleFails() throws Exception {
             // Arrange
             CompanyDto requestDto = CompanyDto.builder()
@@ -126,6 +134,7 @@ class CompanyControllerTest {
 
         @Test
         @DisplayName("Should return 200 OK when company exists")
+        @WithMockUser(roles = "ADMIN")
         void shouldReturn200WhenExists() throws Exception {
             CompanyViewDto responseDto = new CompanyViewDto(1L, "Speedy Logistics", "BG12345");
 
@@ -139,6 +148,7 @@ class CompanyControllerTest {
 
         @Test
         @DisplayName("Should return 404 Not Found with ProblemDetail when company does not exist")
+        @WithMockUser(roles = "ADMIN")
         void shouldReturn404WhenNotFound() throws Exception {
             given(companyService.getById(99L))
                     .willThrow(new BusinessException(ErrorCode.COMPANY_NOT_FOUND));
@@ -156,6 +166,7 @@ class CompanyControllerTest {
 
         @Test
         @DisplayName("Should return 200 OK and resolve Pageable automatically")
+        @WithMockUser(roles = "ADMIN")
         void shouldReturn200AndMapPageable() throws Exception {
             // Arrange
             CompanyViewDto company = new CompanyViewDto(1L, "Speedy", "BG123");
@@ -181,6 +192,7 @@ class CompanyControllerTest {
 
         @Test
         @DisplayName("Should return 200 OK when update is successful")
+        @WithMockUser(roles = "ADMIN")
         void shouldUpdateSuccessfully() throws Exception {
             CompanyDto requestDto = CompanyDto.builder()
                     .name("New Name")
@@ -205,12 +217,27 @@ class CompanyControllerTest {
 
         @Test
         @DisplayName("Should return 204 No Content when deletion is successful")
+        @WithMockUser(roles = "ADMIN")
         void shouldDeleteSuccessfully() throws Exception {
             mockMvc.perform(delete("/api/companies/1"))
                     .andExpect(status().isNoContent())
                     .andExpect(content().string("")); // Proves the body is empty
 
             verify(companyService).delete(1L);
+        }
+    }
+
+    @Nested
+    @DisplayName("Security & Role Authorization")
+    class SecurityTests {
+
+        @Test
+        @DisplayName("RBAC: Should return 403 Forbidden when user is not an ADMIN")
+        @WithMockUser(roles = "CLERK")
+        void shouldReturn403ForNonAdmin() throws Exception {
+            mockMvc.perform(get("/api/companies")
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isForbidden());
         }
     }
 }
