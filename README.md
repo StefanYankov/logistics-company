@@ -56,13 +56,22 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
     *   Public self-registration endpoint for new customers.
     *   Secure password hashing (BCrypt).
     *   Proactive duplication checks (username, email).
-*   **Employee Domain (In Progress)**:
+*   **Employee Domain**:
     *   Polymorphic user types (`OfficeClerk` assigned to an office, mobile `Courier`).
     *   Admin-only management endpoints.
+*   **Shipment Domain**:
+    *   Full shipment registration workflow.
+    *   Dynamic, versioned pricing engine for calculating shipping costs.
+    *   Shipment lifecycle management via a State Machine.
+    *   Comprehensive audit trail via `ShipmentStatusHistory`.
+    *   Public tracking number lookup.
+*   **Reporting Domain**:
+    *   Aggregate revenue reporting for administrators over custom date ranges.
 
 ## Project Structure
 The project follows a **Package-by-Feature** (Modular Monolith) structure to ensure high cohesion and prepare for potential future microservice extraction.
 
+```
 LogisticsCompany/
 ├── 📂 .github/                   # GitHub Actions (CI/CD workflows)
 ├── 📂 frontend/                  # Angular 19+ Application Root
@@ -76,7 +85,7 @@ LogisticsCompany/
 │   │   │   ├── 📂 employee/      # Staff (Couriers, Clerks) management
 │   │   │   ├── 📂 office/        # Physical locations and cities
 │   │   │   ├── 📂 shared/        # Cross-cutting concerns (Security, Exceptions, Config)
-│   │   │   ├── 📂 shipment/      # Core logistics process (Pending)
+│   │   │   ├── 📂 shipment/      # Core logistics process
 │   │   │   └── 📂 user/          # IAM, Authentication, JWT logic
 │   │   └── 📂 resources/
 │   │       ├── 📂 db/migration/  # Flyway SQL scripts
@@ -89,6 +98,7 @@ LogisticsCompany/
 ├── 📄 build.gradle               # Backend build script
 ├── 📄 compose.yaml               # Docker Compose (Postgres setup)
 └── 📄 README.md                  # Project instructions & documentation
+```
 
 ## Installation and Setup
 
