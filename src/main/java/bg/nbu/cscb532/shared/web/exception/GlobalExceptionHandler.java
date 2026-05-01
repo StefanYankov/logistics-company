@@ -54,6 +54,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
         problem.setTitle("Unauthorized");
+        problem.setProperty("errorCode", "E3005");
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
