@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -39,7 +40,7 @@ public class CityController {
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g. missing name or postcode format)")
     @ApiResponse(responseCode = "409", description = "Conflict - City already exists")
     @PostMapping
-    // TODO: @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CityViewDto> createCity(@Valid @RequestBody CityDto dto) {
         log.info("API POST Request to create a city :{} with a postcode: {}", dto.name(), dto.postcode());
 
@@ -67,7 +68,7 @@ public class CityController {
     @ApiResponse(responseCode = "404", description = "City not found")
     @ApiResponse(responseCode = "409", description = "Conflict - The new name and postcode combination already exists")
     @PutMapping("/{id}")
-    // TODO: @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CityViewDto> updateCity(
             @PathVariable Long id,
             @Valid @RequestBody CityDto dto
@@ -86,7 +87,7 @@ public class CityController {
     @ApiResponse(responseCode = "204", description = "City deleted successfully")
     @ApiResponse(responseCode = "404", description = "City not found")
     @DeleteMapping("/{id}")
-    // TODO: @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCity(@PathVariable Long id) {
         log.info("API DELETE request to delete city with ID {}", id);
 
@@ -101,7 +102,7 @@ public class CityController {
     @ApiResponse(responseCode = "200", description = "Successfully retrieved the city")
     @ApiResponse(responseCode = "404", description = "City not found")
     @GetMapping("/{id}")
-    // TODO: @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<CityViewDto> getCityById(@PathVariable Long id) {
         log.info("API GET request for city ID: {}", id);
 
@@ -116,7 +117,7 @@ public class CityController {
     )
     @ApiResponse(responseCode = "200", description = "Successfully retrieved the list of cities")
     @GetMapping
-    // TODO: @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<CityViewDto>> getAllCities(Pageable pageable) {
         log.info("API GET requests for all cities. Pageable: {}", pageable);
 
@@ -132,7 +133,7 @@ public class CityController {
     @ApiResponse(responseCode = "200", description = "Successfully retrieved matching cities")
     @ApiResponse(responseCode = "404", description = "No cities found matching the requested name")
     @GetMapping("/search")
-    // TODO: @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<CityViewDto>> getCityByName(@RequestParam String name) {
         log.info("API GET request to search cities by exact name: {}", name);
 

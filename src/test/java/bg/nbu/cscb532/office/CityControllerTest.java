@@ -2,37 +2,47 @@ package bg.nbu.cscb532.office;
 
 import bg.nbu.cscb532.office.dto.CityDto;
 import bg.nbu.cscb532.office.dto.CityViewDto;
+import bg.nbu.cscb532.shared.config.SecurityConfig;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
+import bg.nbu.cscb532.user.ApplicationRole;
+import bg.nbu.cscb532.user.CustomUserDetails;
 import bg.nbu.cscb532.user.JwtService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * WebMvcTest for the CityController.
+ * Full Unit Test Suite for CityController.
+ * All tests now include security context to align with PreAuthorize constraints.
  */
 @WebMvcTest(controllers = {CityController.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
+@Import(SecurityConfig.class)
 public class CityControllerTest {
 
     private static final Long VALID_CITY_ID = 1L;
@@ -57,6 +67,13 @@ public class CityControllerTest {
     private UserDetailsService userDetailsService;
 
     // --- TEST DATA FACTORY METHODS ---
+
+    private CustomUserDetails createMockUser(ApplicationRole role) {
+        return new CustomUserDetails(
+                UUID.randomUUID(), "testUser", "password", role, true,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.name()))
+        );
+    }
 
     private CityDto createValidCityDto() {
         return CityDto.builder()
@@ -88,8 +105,9 @@ public class CityControllerTest {
             given(cityService.create(any(CityDto.class)))
                     .willReturn(responseDto);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post("/api/cities")
+                            .with(user(createMockUser(ApplicationRole.ADMIN)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isCreated())
@@ -111,8 +129,9 @@ public class CityControllerTest {
                     .postcode(INVALID_POSTCODE)
                     .build();
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(post("/api/cities")
+                            .with(user(createMockUser(ApplicationRole.ADMIN)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidDto)))
                     .andExpect(status().isBadRequest())
@@ -134,9 +153,9 @@ public class CityControllerTest {
             given(cityService.create(any(CityDto.class)))
                     .willThrow(new BusinessException(ErrorCode.CITY_DUPLICATE));
 
-            // Act & Assert
-
+            // Act and Assert
             mockMvc.perform(post("/api/cities")
+                            .with(user(createMockUser(ApplicationRole.ADMIN)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isConflict())
@@ -160,8 +179,9 @@ public class CityControllerTest {
             given(cityService.update(eq(VALID_CITY_ID), any(CityDto.class)))
                     .willReturn(responseDto);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(put("/api/cities/1")
+                            .with(user(createMockUser(ApplicationRole.ADMIN)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isOk())
@@ -178,8 +198,9 @@ public class CityControllerTest {
                     .postcode(INVALID_POSTCODE)
                     .build();
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(put("/api/cities/1")
+                            .with(user(createMockUser(ApplicationRole.ADMIN)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidDto)))
                     .andExpect(status().isBadRequest())
@@ -199,8 +220,9 @@ public class CityControllerTest {
             given(cityService.update(eq(nonExistentId), any(CityDto.class)))
                     .willThrow(new BusinessException(ErrorCode.CITY_NOT_FOUND));
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(put("/api/cities/" + nonExistentId)
+                            .with(user(createMockUser(ApplicationRole.ADMIN)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isNotFound())
@@ -218,14 +240,33 @@ public class CityControllerTest {
             given(cityService.update(eq(VALID_CITY_ID), any(CityDto.class)))
                     .willThrow(new BusinessException(ErrorCode.CITY_DUPLICATE));
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(put("/api/cities/1")
+                            .with(user(createMockUser(ApplicationRole.ADMIN)))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.detail").value(ErrorCode.CITY_DUPLICATE.getDefaultMessage()));
 
             verify(cityService).update(eq(VALID_CITY_ID), any(CityDto.class));
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should prioritize Path Variable ID over Body ID (if body ID differs)")
+        void shouldHandleIdMismatchBetweenPathAndBody() throws Exception {
+            // Body has ID 99, but path is 1. Path must win.
+            String bodyWithDifferentId = "{\"id\":99, \"name\":\"Troyan\", \"postcode\":\"5600\"}";
+
+            given(cityService.update(eq(1L), any())).willReturn(createValidCityViewDto());
+
+            mockMvc.perform(put("/api/cities/1")
+                            .with(user(createMockUser(ApplicationRole.ADMIN)))
+                            .with(user(createMockUser(ApplicationRole.ADMIN)))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(bodyWithDifferentId))
+                    .andExpect(status().isOk());
+
+            verify(cityService).update(eq(1L), any());
         }
     }
 
@@ -238,7 +279,8 @@ public class CityControllerTest {
         void shouldDeleteSuccessfully() throws Exception {
 
             // Arrange & Assert
-            mockMvc.perform(delete("/api/cities/1"))
+            mockMvc.perform(delete("/api/cities/1")
+                    .with(user(createMockUser(ApplicationRole.ADMIN))))
                     .andExpect(status().isNoContent())
                     .andExpect(content().string(""));
 
@@ -255,8 +297,9 @@ public class CityControllerTest {
             doThrow(new BusinessException(ErrorCode.CITY_NOT_FOUND))
                     .when(cityService).delete(nonExistentId);
 
-            // Act & Assert
-            mockMvc.perform(delete("/api/cities/" + nonExistentId))
+            // Act and Assert
+            mockMvc.perform(delete("/api/cities/" + nonExistentId)
+                            .with(user(createMockUser(ApplicationRole.ADMIN))))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.detail").value(ErrorCode.CITY_NOT_FOUND.getDefaultMessage()));
             verify(cityService).delete(nonExistentId);
@@ -270,9 +313,9 @@ public class CityControllerTest {
 
             String invalidId = "an-invalid-string-id";
 
-            // Act & Assert
-            mockMvc.perform(delete("/api/cities/" + invalidId))
-                    .andExpect(status().isBadRequest())
+            // Act and Assert
+            mockMvc.perform(delete("/api/cities/" + invalidId)
+                            .with(user(createMockUser(ApplicationRole.ADMIN))))
                     .andExpect(jsonPath("$.status").value(400));
 
             verifyNoInteractions(cityService);
@@ -293,8 +336,9 @@ public class CityControllerTest {
             given(cityService.getById(VALID_CITY_ID))
                     .willReturn(responseDto);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get("/api/cities/" + VALID_CITY_ID)
+                            .with(user(createMockUser(ApplicationRole.CLIENT)))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(VALID_CITY_ID))
@@ -314,8 +358,9 @@ public class CityControllerTest {
             given(cityService.getById(nonExistentId))
                     .willThrow(new BusinessException(ErrorCode.CITY_NOT_FOUND));
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get("/api/cities/" + nonExistentId)
+                            .with(user(createMockUser(ApplicationRole.CLIENT)))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.detail").value(ErrorCode.CITY_NOT_FOUND.getDefaultMessage()));
@@ -330,8 +375,9 @@ public class CityControllerTest {
             // Arrange
             String invalidId = "invalid-string-id";
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get("/api/cities/" + invalidId)
+                            .with(user(createMockUser(ApplicationRole.CLIENT)))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.status").value(400));
@@ -354,8 +400,9 @@ public class CityControllerTest {
 
             given(cityService.getByName(VALID_CITY_NAME)).willReturn(List.of(city1, city2));
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get("/api/cities/" + "search")
+                            .with(user(createMockUser(ApplicationRole.COURIER)))
                             .param("name", VALID_CITY_NAME)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
@@ -374,8 +421,9 @@ public class CityControllerTest {
             given(cityService.getByName(missingName))
                     .willThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get("/api/cities" + "/search")
+                            .with(user(createMockUser(ApplicationRole.CLIENT)))
                             .param("name", missingName)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound())
@@ -387,14 +435,13 @@ public class CityControllerTest {
         @Test
         @DisplayName("Should return 400 Bad Request when name parameter is missing")
         void shouldReturn400WhenMissingParameter() throws Exception {
-            // Act & Assert
-            // Omitting the .param("name", ...) entirely
+            // Act and Assert
             mockMvc.perform(get("/api/cities" + "/search")
+                            .with(user(createMockUser(ApplicationRole.CLIENT)))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.status").value(400));
 
-            // Prove the framework rejected the request before hitting our code
             verifyNoInteractions(cityService);
         }
     }
@@ -413,8 +460,9 @@ public class CityControllerTest {
 
             given(cityService.getAll(any())).willReturn(pagedResponse);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get("/api/cities")
+                    .with(user(createMockUser(ApplicationRole.CLIENT)))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content.length()").value(1))
@@ -434,8 +482,9 @@ public class CityControllerTest {
 
             given(cityService.getAll(any())).willReturn(pagedResponse);
 
-            // Act & Assert
+            // Act and Assert
             mockMvc.perform(get("/api/cities")
+                            .with(user(createMockUser(ApplicationRole.CLIENT)))
                             .param("page", "2")
                             .param("size", "5")
                             .param("sort", "name,desc")
@@ -444,6 +493,57 @@ public class CityControllerTest {
                     .andExpect(jsonPath("$.content.length()").value(1));
 
             verify(cityService).getAll(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("Security & Authorization Tests")
+    class AuthorizationTests {
+        @Test
+        @DisplayName("Forbidden: Should return 403 when Client tries to create city")
+        void shouldReturn403WhenClientCreatesCity() throws Exception {
+            mockMvc.perform(post("/api/cities")
+                            .with(user(createMockUser(ApplicationRole.CLIENT)))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(createValidCityDto())))
+                    .andExpect(status().isForbidden());
+            verifyNoInteractions(cityService);
+        }
+
+        @Test
+        @DisplayName("Forbidden: Should return 403 when Clerk tries to update a city")
+        void shouldReturn403WhenClerkUpdatesCity() throws Exception {
+            mockMvc.perform(put("/api/cities/1")
+                            .with(user(createMockUser(ApplicationRole.CLERK)))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(createValidCityDto())))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Forbidden: Should return 403 when Courier tries to delete a city")
+        void shouldReturn403WhenCourierDeletesCity() throws Exception {
+            mockMvc.perform(delete("/api/cities/1")
+                            .with(user(createMockUser(ApplicationRole.COURIER))))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(cityService);
+        }
+
+        @Test
+        @DisplayName("Unauthorized: Should return 403 when Anonymous tries to access GET")
+        void shouldReturn401WhenAnonymousAccesses() throws Exception {
+            mockMvc.perform(get("/api/cities")).andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("System Error: Should return 500 Internal Server Error for unhandled exceptions")
+        void shouldReturn500WhenUnexpectedErrorOccurs() throws Exception {
+            given(cityService.getAll(any())).willThrow(new RuntimeException("Database is down"));
+
+            mockMvc.perform(get("/api/cities")
+                            .with(user(createMockUser(ApplicationRole.ADMIN))))
+                    .andExpect(status().isInternalServerError());
         }
     }
 }
