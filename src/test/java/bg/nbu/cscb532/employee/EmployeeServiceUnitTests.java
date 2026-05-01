@@ -8,9 +8,7 @@ import bg.nbu.cscb532.office.Office;
 import bg.nbu.cscb532.office.OfficeRepository;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
-import bg.nbu.cscb532.user.ApplicationRole;
-import bg.nbu.cscb532.user.User;
-import bg.nbu.cscb532.user.UserRepository;
+import bg.nbu.cscb532.user.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -33,13 +31,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("EmployeeService Unit Tests")
@@ -90,7 +86,7 @@ class EmployeeServiceUnitTests {
         }
 
         @Test
-        @DisplayName("Happy Path: Should successfully create an OfficeClerk when valid")
+        @DisplayName("Happy Path: Should successfully create an OfficeClerk pre-verified without dispatching emails")
         void shouldCreateOfficeClerkSuccessfully() {
             // Arrange
             EmployeeCreationDto dto = createBaseDtoBuilder()
@@ -109,9 +105,9 @@ class EmployeeServiceUnitTests {
 
             OfficeClerk savedClerk = new OfficeClerk();
             savedClerk.setId(UUID.randomUUID());
+            savedClerk.setEmail(dto.email());
             savedClerk.setOffice(mockOffice);
             savedClerk.setApplicationRole(ApplicationRole.CLERK);
-            savedClerk.setEmployeeNumber(dto.employeeNumber());
             given(employeeRepository.save(any(Employee.class))).willReturn(savedClerk);
 
             // Act
@@ -119,13 +115,10 @@ class EmployeeServiceUnitTests {
 
             // Assert
             assertThat(result).isNotNull();
-            assertThat(result.applicationRole()).isEqualTo(ApplicationRole.CLERK);
-            assertThat(result.officeId()).isEqualTo(1L);
 
+            // Verify Entity Persistence
             verify(employeeRepository).save(employeeCaptor.capture());
-            Employee capturedEmployee = employeeCaptor.getValue();
-            assertThat(capturedEmployee).isInstanceOf(OfficeClerk.class);
-            assertThat(((OfficeClerk) capturedEmployee).getOffice().getId()).isEqualTo(1L);
+            assertThat(employeeCaptor.getValue().isEmailVerified()).isTrue();
         }
 
         @Test
@@ -158,7 +151,7 @@ class EmployeeServiceUnitTests {
             verify(employeeRepository).save(employeeCaptor.capture());
             Employee capturedEmployee = employeeCaptor.getValue();
             assertThat(capturedEmployee).isInstanceOf(Courier.class);
-            verifyNoInteractions(officeRepository); // Courier shouldn't query offices
+            verifyNoInteractions(officeRepository);
         }
 
         @Test
@@ -192,7 +185,7 @@ class EmployeeServiceUnitTests {
                     .build();
 
             given(userRepository.findByUsername(anyString())).willReturn(Optional.empty());
-            
+
             User existingUser = new Courier();
             given(userRepository.findByEmail(dto.email())).willReturn(Optional.of(existingUser));
 

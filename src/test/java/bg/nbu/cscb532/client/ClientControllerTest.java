@@ -98,7 +98,8 @@ class ClientControllerTest {
                 "John",
                 "Doe",
                 "0888123456",
-                true
+                true,
+                false
         );
     }
 
@@ -175,7 +176,9 @@ class ClientControllerTest {
         @DisplayName("Happy Path: Should return 201 Created when registration is successful")
         void shouldReturn201_WhenRegistrationIsSuccessful() throws Exception {
             // Arrange
-            ClientRegistrationDto requestDto = createValidRegistrationDto();
+            ClientRegistrationDto requestDto = new ClientRegistrationDto(
+                    "newClient", "client@example.com", "rawPassword123", "John", "Doe", "0888123456"
+            );
             UUID newClientId = UUID.randomUUID();
             ClientViewDto responseDto = createValidViewDto(newClientId);
 
@@ -188,7 +191,9 @@ class ClientControllerTest {
                     .andExpect(status().isCreated())
                     .andExpect(header().string("Location", "http://localhost/api/clients/" + newClientId))
                     .andExpect(jsonPath("$.id").value(newClientId.toString()))
-                    .andExpect(jsonPath("$.username").value("newClient"));
+                    .andExpect(jsonPath("$.username").value("newClient"))
+                    .andExpect(jsonPath("$.isEmailVerified").value(false))
+                    .andExpect(jsonPath("$.isActive").value(true));
 
             verify(clientService).register(any(ClientRegistrationDto.class));
         }

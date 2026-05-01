@@ -1,8 +1,11 @@
 package bg.nbu.cscb532.user;
 
+import bg.nbu.cscb532.client.ClientService;
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
+import bg.nbu.cscb532.user.dto.ForgotPasswordRequestDto;
 import bg.nbu.cscb532.user.dto.LoginRequestDto;
 import bg.nbu.cscb532.user.dto.LoginResponseDto;
+import bg.nbu.cscb532.user.dto.ResetPasswordRequestDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,6 +36,7 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final JwtService jwtService;
+    private final ClientService clientService; // Injected to handle self-service password resets
 
     @Operation(
             summary = "Authenticate user",
@@ -62,5 +66,36 @@ public class AuthController {
                         .token(jwtToken)
                         .build()
         );
+    }
+
+    @Operation(
+            summary = "Request password reset",
+            description = "Public endpoint to request a password reset link. Only processes requests for valid Client email addresses."
+    )
+    @ApiResponse(responseCode = "200", description = "If the email belongs to a client, a reset link was dispatched")
+    @ApiResponse(responseCode = "400", description = "Validation failed (e.g., invalid email format)")
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
+        log.info("API POST request to initiate password reset");
+
+        clientService.requestPasswordReset(request);
+
+        // We return 200 OK even if the email doesn't exist to prevent email enumeration attacks
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(
+            summary = "Execute password reset",
+            description = "Public endpoint to set a new password using a secure, time-bound reset token."
+    )
+    @ApiResponse(responseCode = "200", description = "Password successfully reset")
+    @ApiResponse(responseCode = "400", description = "Validation failed (e.g., token expired, missing fields)")
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request) {
+        log.info("API POST request to execute password reset with token");
+
+        clientService.resetPassword(request);
+
+        return ResponseEntity.ok().build();
     }
 }

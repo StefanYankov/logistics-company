@@ -9,8 +9,9 @@ import bg.nbu.cscb532.office.OfficeRepository;
 import bg.nbu.cscb532.shared.Constants;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
-import bg.nbu.cscb532.user.ApplicationRole;
-import bg.nbu.cscb532.user.UserRepository;
+import bg.nbu.cscb532.shared.infrastructure.email.EmailService;
+import bg.nbu.cscb532.shared.security.SecurityUtils;
+import bg.nbu.cscb532.user.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -19,6 +20,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -35,6 +38,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final UserRepository userRepository;
     private final OfficeRepository officeRepository;
     private final PasswordEncoder passwordEncoder;
+    private final VerificationTokenRepository verificationTokenRepository;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -58,6 +63,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         }
 
         // Common Fields Setup
+        boolean isEmailVerified = true;
         newEmployee.setUsername(dto.username().trim());
         newEmployee.setEmail(dto.email().trim().toLowerCase());
         newEmployee.setPassword(passwordEncoder.encode(dto.password()));
@@ -68,8 +74,25 @@ public class EmployeeServiceImpl implements EmployeeService {
         newEmployee.setSalary(dto.salary());
         newEmployee.setApplicationRole(dto.applicationRole());
         newEmployee.setActive(true);
+        newEmployee.setEmailVerified(isEmailVerified);
 
         Employee savedEmployee = employeeRepository.save(newEmployee);
+
+        // current logic handles upon admin creation users are automatically veirified
+        if (!isEmailVerified) {
+            // Generate Verification Token
+            String rawToken = UUID.randomUUID().toString();
+            VerificationToken token = VerificationToken.builder()
+                    .tokenHash(SecurityUtils.hashSha256(rawToken))
+                    .tokenType(TokenType.EMAIL_VERIFICATION)
+                    .expiryDate(Instant.now().plus(Duration.ofHours(48)))
+                    .user(savedEmployee)
+                    .build();
+
+            verificationTokenRepository.save(token);
+            emailService.sendVerificationEmail(savedEmployee.getEmail(), rawToken);
+        }
+
         log.info("Successfully created new {} with ID: {}", dto.applicationRole(), savedEmployee.getId());
 
         return mapToViewDto(savedEmployee);
@@ -218,6 +241,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .salary(employee.getSalary())
                 .applicationRole(employee.getApplicationRole())
                 .isActive(employee.isActive())
+                .isEmailVerified(employee.isEmailVerified())
                 .officeId(officeId)
                 .build();
     }

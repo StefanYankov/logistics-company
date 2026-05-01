@@ -42,4 +42,11 @@ public abstract class User extends BaseUUIDEntity {
      */
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
+
+    /**
+     * Indicates whether the user has verified their email address.
+     * Typically used to restrict access to certain features until verification is complete.
+     */
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
 }
