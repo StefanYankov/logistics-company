@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -57,6 +58,21 @@ public class ClientController {
         return ResponseEntity
                 .created(location)
                 .body(createdClient);
+    }
+
+    @Operation(
+            summary = "Verify client email",
+            description = "Public endpoint to verify a client's email address using a secure token provided via email link."
+    )
+    @ApiResponse(responseCode = "200", description = "Email successfully verified and account activated")
+    @ApiResponse(responseCode = "400", description = "Validation failed - Token is missing, invalid, or expired")
+    @GetMapping("/verify")
+    public ResponseEntity<Void> verifyEmail(@RequestParam String token) {
+        log.info("API GET request to verify email with token");
+
+        clientService.verifyEmail(token);
+
+        return ResponseEntity.ok().build();
     }
 
     @Operation(

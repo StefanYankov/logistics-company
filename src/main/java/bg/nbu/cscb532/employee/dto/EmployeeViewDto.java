@@ -19,6 +19,7 @@ public record EmployeeViewDto(
         BigDecimal salary,
         ApplicationRole applicationRole,
         boolean isActive,
+        boolean isEmailVerified,
         Long officeId // Will be null for Couriers, populated for Clerks
 ) {
 }

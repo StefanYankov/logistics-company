@@ -16,6 +16,7 @@ public record ClientViewDto(
         String firstName,
         String lastName,
         String phoneNumber,
-        boolean isActive
+        boolean isActive,
+        boolean isEmailVerified
 ) {
 }
