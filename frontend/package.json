@@ -3,10 +3,11 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "ng serve --proxy-config proxy.conf.json",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "generate-api": "npx @openapitools/openapi-generator-cli generate -i http://localhost:8080/v3/api-docs -g typescript-angular -o src/app/api --additional-properties=ngVersion=19,providedIn=root"
   },
   "private": true,
   "packageManager": "npm@11.8.0",
