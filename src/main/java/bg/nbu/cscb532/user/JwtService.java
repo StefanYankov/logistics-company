@@ -4,7 +4,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -39,7 +38,7 @@ public class JwtService {
         if (userDetails instanceof CustomUserDetails customUser) {
             extraClaims.put("userId", customUser.getId());
             extraClaims.put("role", customUser.getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)
+                    .map(auth -> auth.getAuthority() != null ? auth.getAuthority() : "")
                     .findFirst()
                     .orElse(""));
         }
