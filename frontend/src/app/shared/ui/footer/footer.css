@@ -1,0 +1,16 @@
+.app-footer {
+  background-color: #343a40;
+  color: #f8f9fa;
+  text-align: center;
+  padding: 1.5rem 0;
+  margin-top: auto; /* Pushes footer to the bottom if container is flex */
+}
+
+.app-footer p {
+  margin: 0.25rem 0;
+}
+
+.university-note {
+  font-size: 0.8rem;
+  color: #adb5bd;
+}

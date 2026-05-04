@@ -1,0 +1,23 @@
+<div class="hero-section">
+  <div class="hero-content">
+    <h1>Fast, Reliable Logistics.</h1>
+    <p>We deliver your packages safely and on time. Track your shipment or create an account to start sending today.</p>
+
+    <div class="cta-buttons">
+      <a routerLink="/register" class="btn btn-primary">Create an Account</a>
+      <a routerLink="/login" class="btn btn-secondary">Login to Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<!-- Public Tracking Search Bar -->
+<div class="tracking-section">
+  <form (ngSubmit)="onTrackSubmit()">
+    <input
+      #trackingInput
+      type="text"
+      placeholder="Enter your tracking number (e.g., TRK-12345)"
+    />
+    <button type="submit">Track Shipment</button>
+  </form>
+</div>

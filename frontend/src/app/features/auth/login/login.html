@@ -1,0 +1,47 @@
+<div class="login-container">
+  <h2>Logistics Company Login</h2>
+
+  <!-- We use a FormGroup to bind our HTML inputs to the TypeScript class -->
+  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+
+    <div class="form-group">
+      <label for="username">Username</label>
+      <!-- formControlName links this input to the 'username' control in our FormGroup -->
+      <input id="username" type="text" formControlName="username" />
+
+      <!-- Validation Feedback using modern @if syntax (Angular 17+) -->
+      @if (loginForm.get('username')?.invalid && loginForm.get('username')?.touched) {
+        <div class="error">
+          Username is required.
+        </div>
+      }
+    </div>
+
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input id="password" type="password" formControlName="password" />
+
+      @if (loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
+        <div class="error">
+          Password is required.
+        </div>
+      }
+    </div>
+
+    <!-- Display server-side errors (like 401 Unauthorized) -->
+    @if (errorMessage) {
+      <div class="error server-error">
+        {{ errorMessage }}
+      </div>
+    }
+
+    <button type="submit" [disabled]="loginForm.invalid || isLoading">
+      <!-- Modern ternary operator in templates -->
+      {{ isLoading ? 'Logging in...' : 'Login' }}
+    </button>
+  </form>
+
+  <p class="register-link">
+    Don't have an account? <a routerLink="/register">Register here</a>
+  </p>
+</div>
