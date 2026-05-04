@@ -1,0 +1,15 @@
+export * from './authenticationAPI.service';
+import { AuthenticationAPIService } from './authenticationAPI.service';
+export * from './cityAPI.service';
+import { CityAPIService } from './cityAPI.service';
+export * from './clientAPI.service';
+import { ClientAPIService } from './clientAPI.service';
+export * from './companyAPI.service';
+import { CompanyAPIService } from './companyAPI.service';
+export * from './employeeManagementAPI.service';
+import { EmployeeManagementAPIService } from './employeeManagementAPI.service';
+export * from './officeAPI.service';
+import { OfficeAPIService } from './officeAPI.service';
+export * from './shipmentAPI.service';
+import { ShipmentAPIService } from './shipmentAPI.service';
+export const APIS = [AuthenticationAPIService, CityAPIService, ClientAPIService, CompanyAPIService, EmployeeManagementAPIService, OfficeAPIService, ShipmentAPIService];

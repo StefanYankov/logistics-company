@@ -1,0 +1,59 @@
+.tracking-container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 2rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.loading-spinner, .error-message {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.2rem;
+  color: #6c757d;
+}
+
+.error-message h3 {
+  color: #dc3545;
+}
+
+.shipment-details h2 {
+  text-align: center;
+  color: #343a40;
+  margin-bottom: 1rem;
+}
+
+.tracking-number {
+  text-align: center;
+  font-size: 1.1rem;
+  color: #495057;
+  margin-bottom: 1.5rem;
+}
+
+.status-card {
+  padding: 1rem;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+  color: white;
+}
+
+/* Dynamic status colors */
+.status-card.registered { background-color: #007bff; }
+.status-card.in_transit { background-color: #ffc107; color: #343a40; }
+.status-card.delivered { background-color: #28a745; }
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  font-size: 1rem;
+}
+
+.details-grid div {
+  background-color: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 4px;
+}
