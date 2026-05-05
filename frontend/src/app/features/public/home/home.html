@@ -12,7 +12,8 @@
 
 <!-- Public Tracking Search Bar -->
 <div class="tracking-section">
-  <form (ngSubmit)="onTrackSubmit()">
+  <!-- Use native (submit) event for simple forms not using Angular's FormGroup/NgForm -->
+  <form (submit)="onTrackSubmit(); $event.preventDefault()">
     <input
       #trackingInput
       type="text"

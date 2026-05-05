@@ -7,8 +7,12 @@
     </div>
     <nav class="sidebar-nav">
       <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a>
-      <a routerLink="/app/shipments" routerLinkActive="active">Shipments</a>
-      <!-- Future Admin/Staff Links can go here -->
+
+      <!-- Role-based Navigation Links (Future: @if based on decodedToken.role) -->
+      <a routerLink="/app/register-shipment" routerLinkActive="active">Register Shipment</a>
+
+      <!-- Future Admin/Staff Links -->
+      <!-- <a routerLink="/app/shipments" routerLinkActive="active">All Shipments</a> -->
       <!-- <a routerLink="/app/offices" routerLinkActive="active">Offices</a> -->
     </nav>
   </aside>

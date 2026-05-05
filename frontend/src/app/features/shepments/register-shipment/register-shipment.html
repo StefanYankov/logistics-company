@@ -1,0 +1,95 @@
+<div class="registration-container">
+  <div class="header">
+    <h2>Register New Shipment</h2>
+    <p>Enter the shipment details below to calculate pricing and generate a tracking number.</p>
+  </div>
+
+  @if (isLoadingLookups()) {
+    <div class="loading">Loading form data...</div>
+  } @else {
+    <form [formGroup]="registerForm" (submit)="onSubmit(); $event.preventDefault()">
+
+      <div class="form-row">
+        <!-- Sender Dropdown -->
+        <div class="form-group half-width">
+          <label for="senderId">Sender</label>
+          <select id="senderId" formControlName="senderId">
+            <option value="" disabled selected>Select Sender...</option>
+            @for (client of clients(); track client.id) {
+              <option [value]="client.id">{{ client.firstName }} {{ client.lastName }} ({{ client.email }})</option>
+            }
+          </select>
+          @if (registerForm.get('senderId')?.invalid && registerForm.get('senderId')?.touched) {
+            <div class="error">Sender is required.</div>
+          }
+        </div>
+
+        <!-- Receiver Dropdown -->
+        <div class="form-group half-width">
+          <label for="receiverId">Receiver</label>
+          <select id="receiverId" formControlName="receiverId">
+            <option value="" disabled selected>Select Receiver...</option>
+            @for (client of clients(); track client.id) {
+              <option [value]="client.id">{{ client.firstName }} {{ client.lastName }} ({{ client.email }})</option>
+            }
+          </select>
+          @if (registerForm.get('receiverId')?.invalid && registerForm.get('receiverId')?.touched) {
+            <div class="error">Receiver is required.</div>
+          }
+        </div>
+      </div>
+
+      <div class="form-row">
+        <!-- Shipment Type Dropdown -->
+        <div class="form-group half-width">
+          <label for="type">Shipment Type</label>
+          <select id="type" formControlName="type">
+            @for (type of shipmentTypes; track type) {
+              <option [value]="type">{{ type }}</option>
+            }
+          </select>
+          @if (registerForm.get('type')?.invalid && registerForm.get('type')?.touched) {
+            <div class="error">Type is required.</div>
+          }
+        </div>
+
+        <!-- Weight Input -->
+        <div class="form-group half-width">
+          <label for="weight">Weight (kg)</label>
+          <input id="weight" type="number" step="0.1" min="0.1" formControlName="weight" />
+          @if (registerForm.get('weight')?.invalid && registerForm.get('weight')?.touched) {
+            <div class="error">Weight must be a positive number.</div>
+          }
+        </div>
+      </div>
+
+      <!-- Delivery Office Dropdown -->
+      <div class="form-group">
+        <label for="deliveryOfficeId">Delivery Office (Destination)</label>
+        <select id="deliveryOfficeId" formControlName="deliveryOfficeId">
+          <option [ngValue]="null" disabled selected>Select Destination Office...</option>
+          @for (office of offices(); track office.id) {
+            <option [value]="office.id">{{ office.cityName }} - {{ office.fullAddress }}</option>
+          }
+        </select>
+        @if (registerForm.get('deliveryOfficeId')?.invalid && registerForm.get('deliveryOfficeId')?.touched) {
+          <div class="error">Delivery office is required.</div>
+        }
+      </div>
+
+      @if (errorMessage()) {
+        <div class="error server-error">
+          {{ errorMessage() }}
+        </div>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" routerLink="/app">Cancel</button>
+        <button type="submit" class="btn-submit" [disabled]="registerForm.invalid || isSubmitting()">
+          {{ isSubmitting() ? 'Registering...' : 'Register Shipment' }}
+        </button>
+      </div>
+
+    </form>
+  }
+</div>

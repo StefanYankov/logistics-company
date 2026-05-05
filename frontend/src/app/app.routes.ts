@@ -6,6 +6,7 @@ import { Register } from './features/auth/register/register';
 import { Tracking } from './features/public/tracking/tracking';
 import { AuthenticatedLayout } from './layouts/authenticated-layout/authenticated-layout';
 import { Dashboard } from './features/dashboard/dashboard';
+import { RegisterShipment } from './features/shepments/register-shipment/register-shipment';
 import { authGuard } from './shared/auth.guard';
 
 export const routes: Routes = [
@@ -28,6 +29,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', component: Dashboard },
+      { path: 'register-shipment', component: RegisterShipment }
     ]
   },
   { path: '**', redirectTo: '' }

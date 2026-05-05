@@ -1,7 +1,11 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { forkJoin } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 import { ShipmentAPIService } from '../../api';
 import { ShipmentViewDto } from '../../api';
+import { AuthService } from '../../shared/auth.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -12,8 +16,8 @@ import { ShipmentViewDto } from '../../api';
 })
 export class Dashboard implements OnInit {
   private shipmentApi = inject(ShipmentAPIService);
+  private authService = inject(AuthService);
 
-  // Modern Signals for state management
   sentShipments = signal<ShipmentViewDto[]>([]);
   receivedShipments = signal<ShipmentViewDto[]>([]);
   isLoading = signal(true);
@@ -24,10 +28,30 @@ export class Dashboard implements OnInit {
   }
 
   private loadClientShipments() {
-    this.isLoading.set(true);
+    const decodedToken = this.authService.getDecodedToken();
 
-    setTimeout(() => {
+    if (!decodedToken || decodedToken.role !== 'ROLE_CLIENT') {
+       this.isLoading.set(false);
+       return;
+    }
+
+    const userId = decodedToken.userId;
+    const pageParams = { page: 0, size: 20 };
+
+    forkJoin({
+      sent: this.shipmentApi.getShipmentsBySender(userId, pageParams),
+      received: this.shipmentApi.getShipmentsByReceiver(userId, pageParams)
+    }).pipe(
+      catchError(_err => {
+        this.errorMessage.set('Failed to load shipments. Please try again.');
+        return of(null);
+      })
+    ).subscribe(result => {
+      if (result) {
+         this.sentShipments.set(result.sent.content || []);
+         this.receivedShipments.set(result.received.content || []);
+      }
       this.isLoading.set(false);
-    }, 500);
+    });
   }
 }
