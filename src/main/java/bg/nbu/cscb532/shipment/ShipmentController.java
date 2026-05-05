@@ -5,6 +5,7 @@ import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
+import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,10 +17,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
@@ -41,18 +44,25 @@ public class ShipmentController {
 
     @Operation(
             summary = "Register a new shipment",
-            description = "Creates a new shipment, calculates the price, and logs the initial REGISTERED status. Restricted to staff roles."
+            description = "Creates a new shipment, calculates the price, and logs the initial REGISTERED status. Accessible to staff and clients."
     )
     @ApiResponse(responseCode = "201", description = "Shipment registered successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., negative weight, mutually exclusive destination error)")
     @ApiResponse(responseCode = "404", description = "Sender, Receiver, or delivery Office not found")
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ShipmentViewDto> registerShipment(
             @Valid @RequestBody ShipmentCreationDto request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         
         log.info("API POST request to register a new shipment from user ID: {}", userDetails.getId());
+
+        if (userDetails.getApplicationRole() == ApplicationRole.CLIENT) {
+            if (!userDetails.getId().equals(request.senderId())) {
+                log.warn("Client {} attempted to register a shipment with a different sender ID {}", userDetails.getId(), request.senderId());
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Clients can only register shipments under their own ID.");
+            }
+        }
 
         ShipmentViewDto createdShipment = shipmentService.registerShipment(request, userDetails.getId());
 
@@ -160,29 +170,47 @@ public class ShipmentController {
 
     @Operation(
             summary = "Get shipments sent by a client",
-            description = "Retrieves a paginated list of shipments where the specified client is the sender. Restricted to staff roles."
+            description = "Retrieves a paginated list of shipments where the specified client is the sender. Accessible to staff and the specific client."
     )
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
     @GetMapping("/sender/{senderId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<ShipmentViewDto>> getShipmentsBySender(
             @Parameter(description = "The UUID of the sending client") @PathVariable UUID senderId,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             Pageable pageable) {
-        log.info("API GET request for shipments sent by client ID: {}", senderId);
+        log.info("API GET request for shipments sent by client ID: {} from user ID: {}", senderId, userDetails.getId());
+
+        if (userDetails.getApplicationRole() == ApplicationRole.CLIENT) {
+            if (!userDetails.getId().equals(senderId)) {
+                log.warn("Client {} attempted to fetch sent shipments for ID {}", userDetails.getId(), senderId);
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied");
+            }
+        }
+
         return ResponseEntity.ok(shipmentService.getShipmentsBySender(senderId, pageable));
     }
 
     @Operation(
             summary = "Get shipments received by a client",
-            description = "Retrieves a paginated list of shipments where the specified client is the receiver. Restricted to staff roles."
+            description = "Retrieves a paginated list of shipments where the specified client is the receiver. Accessible to staff and the specific client."
     )
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
     @GetMapping("/receiver/{receiverId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<ShipmentViewDto>> getShipmentsByReceiver(
             @Parameter(description = "The UUID of the receiving client") @PathVariable UUID receiverId,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             Pageable pageable) {
-        log.info("API GET request for shipments received by client ID: {}", receiverId);
+        log.info("API GET request for shipments received by client ID: {} from user ID: {}", receiverId, userDetails.getId());
+
+        if (userDetails.getApplicationRole() == ApplicationRole.CLIENT) {
+            if (!userDetails.getId().equals(receiverId)) {
+                log.warn("Client {} attempted to fetch received shipments for ID {}", userDetails.getId(), receiverId);
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied");
+            }
+        }
+
         return ResponseEntity.ok(shipmentService.getShipmentsByReceiver(receiverId, pageable));
     }
 

@@ -31,8 +31,8 @@ The **Logistics Company System** is a Java-based web application developed as a 
 - **Migrations**: Flyway
 - **Containerization**: Docker & Docker Compose
 - **Security**: Stateless JWT Authentication with Spring Security 7
-- **API Pattern**: RESTful with DTO/Entity separation
-- **Testing**: JUnit 5, Testcontainers, Mockito, AssertJ
+- **API Pattern**: RESTful with DTO/Entity separation, OpenAPI (Swagger) for documentation and client generation
+- **Testing**: JUnit 5, Testcontainers, Mockito, AssertJ (Backend); Vitest, Angular Testing Library (Frontend)
 
 ## Implemented Features
 
@@ -50,8 +50,9 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
     *   Geospatial integration (Latitude/Longitude on addresses).
 *   **Identity & Access Management (IAM)**:
     *   Full Spring Security integration.
-    *   Stateless JWT (JSON Web Token) generation and validation.
+    *   Stateless JWT (JSON Web Token) generation and validation with enriched claims (userId, role).
     *   Role-based access control (`CLIENT`, `COURIER`, `CLERK`, `ADMIN`).
+    *   Secure email verification and single-use password recovery tokens.
 *   **Client Domain**:
     *   Public self-registration endpoint for new customers.
     *   Secure password hashing (BCrypt).
@@ -60,13 +61,34 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
     *   Polymorphic user types (`OfficeClerk` assigned to an office, mobile `Courier`).
     *   Admin-only management endpoints.
 *   **Shipment Domain**:
-    *   Full shipment registration workflow.
+    *   Full shipment registration workflow (accessible to staff and clients).
     *   Dynamic, versioned pricing engine for calculating shipping costs.
     *   Shipment lifecycle management via a State Machine.
     *   Comprehensive audit trail via `ShipmentStatusHistory`.
     *   Public tracking number lookup.
+    *   Client-specific access to their sent and received shipments.
 *   **Reporting Domain**:
     *   Aggregate revenue reporting for administrators over custom date ranges.
+
+## Frontend Application Structure & Features
+
+The Angular frontend is built with a standalone component architecture and follows a feature-driven structure:
+
+*   **Core Authentication:**
+    *   `AuthService`: Manages JWT tokens, user login/logout, and token decoding.
+    *   `AuthInterceptor`: Automatically attaches JWT to all outgoing API requests.
+    *   `AuthGuard`: Protects authenticated routes.
+*   **Public Zone:**
+    *   `PublicLayout`: Provides a shared header (with Login/Register links) and footer for unauthenticated users.
+    *   `Home`: Landing page with a public shipment tracking search bar.
+    *   `Login`: User authentication form.
+    *   `Register`: New client registration form.
+    *   `Tracking`: Displays public shipment details by tracking number.
+*   **Authenticated Zone:**
+    *   `AuthenticatedLayout`: Provides a shared sidebar navigation and top bar (with Logout) for authenticated users.
+    *   `Dashboard`: Client-specific view displaying sent and received shipments.
+    *   `RegisterShipment`: Form for staff (and clients) to register new shipments.
+    *   `ShipmentList`: Master view for staff to see all shipments and update their status.
 
 ## Project Structure
 The project follows a **Package-by-Feature** (Modular Monolith) structure to ensure high cohesion and prepare for potential future microservice extraction.
@@ -75,6 +97,10 @@ The project follows a **Package-by-Feature** (Modular Monolith) structure to ens
 LogisticsCompany/
 ├── 📂 .github/                   # GitHub Actions (CI/CD workflows)
 ├── 📂 frontend/                  # Angular 19+ Application Root
+│   ├── 📂 src/app/api/          # Auto-generated OpenAPI client services and models
+│   ├── 📂 src/app/features/     # Feature-specific components (auth, public, dashboard, shipments)
+│   ├── 📂 src/app/layouts/      # Shared layout components (public, authenticated)
+│   ├── 📂 src/app/shared/       # Cross-cutting concerns (auth.service, auth.guard, auth.interceptor, models, ui)
 │   └── ...
 ├── 📂 src/                       # Spring Boot 4.0 Application Root
 │   ├── 📂 main/
@@ -108,12 +134,19 @@ LogisticsCompany/
     ```
 
 2. **Run Backend**:
-    Press 'Run' in IntelliJ IDEA (LogisticsCompanyApplication).
+    *   Open the project in IntelliJ IDEA.
+    *   Run the `LogisticsCompanyApplication.java` file.
+    *   Ensure the backend is running on `http://localhost:8080`.
 
-3. **Run Frontend**:
-    ```bash
-    cd frontend && npm start
-    ```
+3. **Generate Frontend API Client**:
+    *   Navigate to the `frontend/` directory in your terminal.
+    *   Run `npm install` to install dependencies.
+    *   Run `npm run generate-api` to create the TypeScript API client from the running backend.
+
+4. **Run Frontend**:
+    *   Navigate to the `frontend/` directory in your terminal.
+    *   Run `npm start`.
+    *   Open your browser to `http://localhost:4200`.
 
 ---
 
