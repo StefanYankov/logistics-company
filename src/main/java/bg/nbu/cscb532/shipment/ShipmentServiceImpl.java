@@ -53,6 +53,9 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final CityRepository cityRepository;
     private final PricingService pricingService;
 
+    // TODO: Phase 2 Refactor - Allow unregistered receivers (guest checkout) by removing strict receiverId requirement
+    // and supporting raw text fields (receiverName, receiverPhone) mapped via mobile phone tracking.
+
     @Override
     @Transactional
     public ShipmentViewDto registerShipment(ShipmentCreationDto request, UUID registeredById) {
@@ -67,6 +70,9 @@ public class ShipmentServiceImpl implements ShipmentService {
         Client receiver = clientRepository.findById(request.receiverId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
+        // Note: For Phase 2, if a CLIENT self-registers, the `registeredById` will be the Client's UUID.
+        // We currently look up in `employeeRepository`. This will need an adjustment when we allow client self-registration.
+        // For now, sticking to the existing Phase 1 plan of opening the GET endpoints first.
         Employee registeredBy = employeeRepository.findById(registeredById)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
 
@@ -319,7 +325,11 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         String senderName = shipment.getSender().getFirstName() + " " + shipment.getSender().getLastName();
         String receiverName = shipment.getReceiver().getFirstName() + " " + shipment.getReceiver().getLastName();
-        String registeredByName = shipment.getRegisteredBy().getFirstName() + " " + shipment.getRegisteredBy().getLastName();
+        
+        // Handle cases where a Client self-registered (registeredBy might be null or we need to adjust logic)
+        // For now, maintaining current logic as we are just unblocking the GET endpoints.
+        String registeredByName = shipment.getRegisteredBy() != null ? 
+                shipment.getRegisteredBy().getFirstName() + " " + shipment.getRegisteredBy().getLastName() : "Self-Registered";
 
         return ShipmentViewDto.builder()
                 .id(shipment.getId())
@@ -342,7 +352,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .deliveryOfficeId(deliveryOfficeId)
                 .deliveryOfficeName(deliveryOfficeName)
                 .deliveryAddressString(deliveryAddressString)
-                .registeredById(shipment.getRegisteredBy().getId())
+                .registeredById(shipment.getRegisteredBy() != null ? shipment.getRegisteredBy().getId() : null)
                 .registeredByName(registeredByName.trim())
                 .build();
     }

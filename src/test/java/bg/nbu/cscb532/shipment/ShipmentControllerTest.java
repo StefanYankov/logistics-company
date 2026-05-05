@@ -85,9 +85,9 @@ class ShipmentControllerTest {
         );
     }
 
-    private ShipmentCreationDto createValidCreationDto() {
+    private ShipmentCreationDto createValidCreationDto(UUID senderId) {
         return ShipmentCreationDto.builder()
-                .senderId(UUID.randomUUID())
+                .senderId(senderId)
                 .receiverId(UUID.randomUUID())
                 .type(ShipmentType.PARCEL)
                 .weight(BigDecimal.valueOf(2.5))
@@ -139,10 +139,32 @@ class ShipmentControllerTest {
     class AuthorizationTests {
 
         @Test
-        @DisplayName("Security: Should return 403 Forbidden when Client attempts to POST (Register)")
-        void shouldReturn403WhenClientAttemptsToRegister() throws Exception {
-            ShipmentCreationDto dto = createValidCreationDto();
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
+        @DisplayName("Security: Should allow Client to POST (Register) if senderId matches their own ID")
+        void shouldAllowClientToRegisterOwnShipment() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            ShipmentCreationDto dto = createValidCreationDto(clientId);
+            CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+            ShipmentViewDto responseDto = createValidViewDto(UUID.randomUUID(), "TRK-TEST");
+
+            given(shipmentService.registerShipment(any(ShipmentCreationDto.class), eq(authUser.getId())))
+                    .willReturn(responseDto);
+
+            mockMvc.perform(post(BASE_URL)
+                            .with(user(authUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().isCreated());
+                    
+            verify(shipmentService).registerShipment(any(ShipmentCreationDto.class), eq(authUser.getId()));
+        }
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when Client attempts to POST (Register) for a different senderId")
+        void shouldReturn403WhenClientAttemptsToRegisterForOther() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            UUID otherSenderId = UUID.randomUUID();
+            ShipmentCreationDto dto = createValidCreationDto(otherSenderId);
+            CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
 
             mockMvc.perform(post(BASE_URL)
                             .with(user(authUser))
@@ -178,11 +200,29 @@ class ShipmentControllerTest {
         }
 
         @Test
-        @DisplayName("Security: Should return 403 Forbidden when Client attempts to GET shipments by sender")
-        void shouldReturn403WhenClientAttemptsToReadBySender() throws Exception {
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
+        @DisplayName("Security: Should allow Client to GET shipments by sender if senderId matches their own ID")
+        void shouldAllowClientToReadOwnSentShipments() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+            Page<ShipmentViewDto> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
 
-            mockMvc.perform(get(BASE_URL + "/sender/" + UUID.randomUUID())
+            given(shipmentService.getShipmentsBySender(eq(clientId), any(Pageable.class))).willReturn(page);
+
+            mockMvc.perform(get(BASE_URL + "/sender/" + clientId)
+                            .with(user(authUser)))
+                    .andExpect(status().isOk());
+                    
+            verify(shipmentService).getShipmentsBySender(eq(clientId), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when Client attempts to GET shipments by sender for a different ID")
+        void shouldReturn403WhenClientAttemptsToReadBySenderForOther() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            UUID otherSenderId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+
+            mockMvc.perform(get(BASE_URL + "/sender/" + otherSenderId)
                             .with(user(authUser)))
                     .andExpect(status().isForbidden());
                     
@@ -190,11 +230,29 @@ class ShipmentControllerTest {
         }
 
         @Test
-        @DisplayName("Security: Should return 403 Forbidden when Client attempts to GET shipments by receiver")
-        void shouldReturn403WhenClientAttemptsToReadByReceiver() throws Exception {
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
+        @DisplayName("Security: Should allow Client to GET shipments by receiver if receiverId matches their own ID")
+        void shouldAllowClientToReadOwnReceivedShipments() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+            Page<ShipmentViewDto> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
 
-            mockMvc.perform(get(BASE_URL + "/receiver/" + UUID.randomUUID())
+            given(shipmentService.getShipmentsByReceiver(eq(clientId), any(Pageable.class))).willReturn(page);
+
+            mockMvc.perform(get(BASE_URL + "/receiver/" + clientId)
+                            .with(user(authUser)))
+                    .andExpect(status().isOk());
+                    
+            verify(shipmentService).getShipmentsByReceiver(eq(clientId), any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when Client attempts to GET shipments by receiver for a different ID")
+        void shouldReturn403WhenClientAttemptsToReadByReceiverForOther() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            UUID otherReceiverId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+
+            mockMvc.perform(get(BASE_URL + "/receiver/" + otherReceiverId)
                             .with(user(authUser)))
                     .andExpect(status().isForbidden());
                     
@@ -219,12 +277,12 @@ class ShipmentControllerTest {
     class RegisterShipmentTests {
 
         @Test
-        @DisplayName("Happy Path: Should successfully create and return 201 Created")
-        void shouldRegisterSuccessfully() throws Exception {
+        @DisplayName("Happy Path: Should successfully create and return 201 Created for Staff")
+        void shouldRegisterSuccessfullyForStaff() throws Exception {
 
             // Arrange
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
-            ShipmentCreationDto requestDto = createValidCreationDto();
+            ShipmentCreationDto requestDto = createValidCreationDto(UUID.randomUUID());
             UUID newId = UUID.randomUUID();
             ShipmentViewDto responseDto = createValidViewDto(newId, "TRK-TEST");
 
@@ -272,7 +330,7 @@ class ShipmentControllerTest {
         @DisplayName("Error Case: Should return 404 Not Found if BusinessException thrown for missing entities")
         void shouldReturn404WhenEntitiesMissing() throws Exception {
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
-            ShipmentCreationDto requestDto = createValidCreationDto();
+            ShipmentCreationDto requestDto = createValidCreationDto(UUID.randomUUID());
 
             given(shipmentService.registerShipment(any(), any()))
                     .willThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
@@ -350,8 +408,8 @@ class ShipmentControllerTest {
         }
 
         @Test
-        @DisplayName("Happy Path: Should retrieve paginated list by sender ID")
-        void shouldGetBySender() throws Exception {
+        @DisplayName("Happy Path: Should retrieve paginated list by sender ID for Staff")
+        void shouldGetBySenderForStaff() throws Exception {
             // Arrange
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
             UUID senderId = UUID.randomUUID();
@@ -370,8 +428,8 @@ class ShipmentControllerTest {
         }
 
         @Test
-        @DisplayName("Happy Path: Should retrieve paginated list by receiver ID")
-        void shouldGetByReceiver() throws Exception {
+        @DisplayName("Happy Path: Should retrieve paginated list by receiver ID for Staff")
+        void shouldGetByReceiverForStaff() throws Exception {
             // Arrange
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.COURIER);
             UUID receiverId = UUID.randomUUID();
