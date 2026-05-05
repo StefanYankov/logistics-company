@@ -1,0 +1,37 @@
+<div class="authenticated-container">
+
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      📦 LogisticsCo
+    </div>
+    <nav class="sidebar-nav">
+      <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a>
+
+      <!-- Role-based Navigation Links (Future: @if based on decodedToken.role) -->
+      <a routerLink="/app/register-shipment" routerLinkActive="active">Register Shipment</a>
+
+      <!-- Future Admin/Staff Links -->
+      <!-- <a routerLink="/app/shipments" routerLinkActive="active">All Shipments</a> -->
+      <!-- <a routerLink="/app/offices" routerLinkActive="active">Offices</a> -->
+    </nav>
+  </aside>
+
+  <!-- Main Application Area -->
+  <div class="main-wrapper">
+
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+      <div class="nav-content">
+        <span>Welcome to your portal</span>
+        <button (click)="logout()" class="btn-logout">Logout</button>
+      </div>
+    </header>
+
+    <!-- Dynamic Content Area -->
+    <main class="content-area">
+      <router-outlet></router-outlet>
+    </main>
+
+  </div>
+</div>

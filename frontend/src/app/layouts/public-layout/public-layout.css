@@ -1,0 +1,11 @@
+/* Ensure the wrapper takes at least the full height of the viewport */
+.layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Allow the main content to grow and push the footer to the bottom */
+.content-area {
+  flex: 1;
+}

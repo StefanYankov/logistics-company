@@ -35,6 +35,14 @@ public class JwtService {
      * Generates a new JWT with extra claims.
      */
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        if (userDetails instanceof CustomUserDetails customUser) {
+            extraClaims.put("userId", customUser.getId());
+            extraClaims.put("role", customUser.getAuthorities().stream()
+                    .map(auth -> auth.getAuthority() != null ? auth.getAuthority() : "")
+                    .findFirst()
+                    .orElse(""));
+        }
+
         return Jwts.builder()
                 .claims(extraClaims)
                 .subject(userDetails.getUsername())

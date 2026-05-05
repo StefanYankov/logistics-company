@@ -1,0 +1,28 @@
+<div class="tracking-container">
+  @if (isLoading()) {
+    <div class="loading-spinner">Loading shipment details...</div>
+  } @else if (errorMessage()) {
+    <div class="error-message">
+      <h3>Error</h3>
+      <p>{{ errorMessage() }}</p>
+    </div>
+  } @else if (shipment(); as s) {
+    <div class="shipment-details">
+      <h2>Shipment Details</h2>
+      <p class="tracking-number">Tracking Number: <strong>{{ s.trackingNumber }}</strong></p>
+
+      <div class="status-card" [ngClass]="s.status?.toLowerCase()">
+        Current Status: <strong>{{ s.status }}</strong>
+      </div>
+
+      <div class="details-grid">
+        <!-- The OpenAPI generator flattened the DTOs, so sender is just an ID now based on our backend design -->
+        <div><strong>Sender ID:</strong> {{ s.senderId }}</div>
+        <div><strong>Receiver ID:</strong> {{ s.receiverId }}</div>
+        <div><strong>Weight:</strong> {{ s.weight }} kg</div>
+        <div><strong>Total Price:</strong> {{ s.totalPrice | currency:'USD' }}</div>
+        <div><strong>Registered At:</strong> {{ s.createdAt | date:'medium' }}</div>
+      </div>
+    </div>
+  }
+</div>

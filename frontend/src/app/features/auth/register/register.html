@@ -1,0 +1,78 @@
+<div class="register-container">
+  <h2>Client Registration</h2>
+
+  <!-- Display success message when registration is complete -->
+  @if (isSuccess) {
+    <div class="success-message">
+      Registration successful! Please check your email to verify your account.
+      <br><br>
+      <a routerLink="/login">Go to Login</a>
+    </div>
+  } @else {
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input id="username" type="text" formControlName="username" />
+        @if (registerForm.get('username')?.invalid && registerForm.get('username')?.touched) {
+          <div class="error">Username must be at least 3 characters.</div>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input id="email" type="email" formControlName="email" />
+        @if (registerForm.get('email')?.invalid && registerForm.get('email')?.touched) {
+          <div class="error">Please enter a valid email address.</div>
+        }
+      </div>
+
+      <div class="form-row">
+        <div class="form-group half-width">
+          <label for="firstName">First Name</label>
+          <input id="firstName" type="text" formControlName="firstName" />
+          @if (registerForm.get('firstName')?.invalid && registerForm.get('firstName')?.touched) {
+            <div class="error">First name is required.</div>
+          }
+        </div>
+        <div class="form-group half-width">
+          <label for="lastName">Last Name</label>
+          <input id="lastName" type="text" formControlName="lastName" />
+          @if (registerForm.get('lastName')?.invalid && registerForm.get('lastName')?.touched) {
+            <div class="error">Last name is required.</div>
+          }
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="phoneNumber">Phone Number</label>
+        <input id="phoneNumber" type="text" formControlName="phoneNumber" />
+        @if (registerForm.get('phoneNumber')?.invalid && registerForm.get('phoneNumber')?.touched) {
+          <div class="error">Phone number is required.</div>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input id="password" type="password" formControlName="password" />
+        @if (registerForm.get('password')?.invalid && registerForm.get('password')?.touched) {
+          <div class="error">Password must be at least 8 characters.</div>
+        }
+      </div>
+
+      @if (errorMessage) {
+        <div class="error server-error">
+          {{ errorMessage }}
+        </div>
+      }
+
+      <button type="submit" [disabled]="registerForm.invalid || isLoading">
+        {{ isLoading ? 'Registering...' : 'Register' }}
+      </button>
+    </form>
+
+    <p class="login-link">
+      Already have an account? <a routerLink="/login">Login here</a>
+    </p>
+  }
+</div>

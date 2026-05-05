@@ -1,0 +1,50 @@
+.hero-section {
+  background-color: #e9ecef;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.hero-content {
+  max-width: 600px;
+}
+
+h1 {
+  font-size: 2.5rem;
+  color: #343a40;
+  margin-bottom: 1rem;
+}
+
+p {
+  font-size: 1.2rem;
+  color: #6c757d;
+  margin-bottom: 2rem;
+}
+
+.cta-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.btn-primary {
+  background-color: #0056b3;
+  color: white;
+}
+
+.btn-secondary {
+  background-color: white;
+  color: #0056b3;
+  border: 1px solid #0056b3;
+}

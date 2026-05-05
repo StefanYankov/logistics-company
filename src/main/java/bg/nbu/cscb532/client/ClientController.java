@@ -28,7 +28,7 @@ import java.net.URI;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/clients")
+@RequestMapping(value = "/api/clients", produces = "application/json")
 @ApiStandardResponses
 @RequiredArgsConstructor
 @Tag(name = "Client API", description = "Endpoints for managing logistics clients.")
@@ -43,7 +43,7 @@ public class ClientController {
     @ApiResponse(responseCode = "201", description = "Client registered successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., missing fields or invalid email/phone format)")
     @ApiResponse(responseCode = "409", description = "Conflict - Username or email is already taken")
-    @PostMapping("/register")
+    @PostMapping(value = "/register", consumes = "application/json")
     public ResponseEntity<ClientViewDto> registerClient(@Valid @RequestBody ClientRegistrationDto dto) {
         log.info("API POST request to register a new client with username: {}", dto.username());
 
