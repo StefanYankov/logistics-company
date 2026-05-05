@@ -1,0 +1,62 @@
+<div class="list-container">
+  <div class="header">
+    <h2>All Shipments</h2>
+    <p>Manage and track all shipments in the logistics network.</p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading">Loading network data...</div>
+  } @else if (errorMessage()) {
+    <div class="error">{{ errorMessage() }}</div>
+  } @else {
+
+    <div class="table-stats">
+      Total Shipments: {{ totalElements() }}
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Tracking Number</th>
+          <th>Sender ID</th>
+          <th>Type</th>
+          <th>Weight</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of shipments(); track s.id) {
+          <tr>
+            <td><strong>{{ s.trackingNumber }}</strong></td>
+            <!-- Real app would resolve Sender ID to a Name, we display ID for simplicity -->
+            <td><span class="uuid-truncate" [title]="s.senderId">{{ s.senderId }}</span></td>
+            <td>{{ s.type }}</td>
+            <td>{{ s.weight }} kg</td>
+            <td><span class="status-badge" [ngClass]="s.status?.toLowerCase()">{{ s.status }}</span></td>
+            <td class="actions-cell">
+              <!-- State Machine Controls -->
+              @if (s.status === 'REGISTERED') {
+                <button class="btn-action btn-transit" (click)="updateStatus(s.id!, 'IN_TRANSIT')">
+                  Mark In Transit
+                </button>
+              }
+              @if (s.status === 'IN_TRANSIT') {
+                <button class="btn-action btn-deliver" (click)="updateStatus(s.id!, 'DELIVERED')">
+                  Mark Delivered
+                </button>
+              }
+              @if (s.status === 'DELIVERED') {
+                <span class="text-success">Completed</span>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="empty-state">No shipments found in the system.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
