@@ -37,8 +37,18 @@ public class Shipment extends BaseUUIDEntity {
     private Client sender;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "receiver_id", nullable = false)
+    @JoinColumn(name = "receiver_id")
     private Client receiver;
+
+    // Guest receiver details (used if 'receiver' is null)
+    @Column(name = "receiver_name")
+    private String receiverName;
+
+    @Column(name = "receiver_phone", length = Constants.Validation.MAX_PHONE_LENGTH)
+    private String receiverPhone;
+
+    @Column(name = "receiver_email")
+    private String receiverEmail;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "registered_by_id", nullable = false)

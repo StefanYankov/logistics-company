@@ -32,6 +32,7 @@ public final class Constants {
         // Security
         public static final int MIN_PASSWORD_LENGTH = 8;
         public static final int MAX_PASSWORD_LENGTH = 128;
+        public static final int MAX_PHONE_LENGTH = 16;
     }
 
     /**

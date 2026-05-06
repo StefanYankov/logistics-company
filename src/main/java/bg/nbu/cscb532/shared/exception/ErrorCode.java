@@ -34,7 +34,11 @@ public enum ErrorCode {
     // --- Employee Domain (E4000 - E4999) ---
     EMPLOYEE_NUMBER_DUPLICATE("E4001", "This employee number is already assigned.", HttpStatus.CONFLICT),
     EMPLOYEE_NOT_FOUND("E4002", "Employee not found.", HttpStatus.NOT_FOUND),
-    INVALID_EMPLOYEE_ROLE("E4003", "Invalid role specified for employee creation.", HttpStatus.BAD_REQUEST);
+    INVALID_EMPLOYEE_ROLE("E4003", "Invalid role specified for employee creation.", HttpStatus.BAD_REQUEST),
+
+    // --- Shipment Domain (E5000 - E5999) ---
+    SHIPMENT_DESTINATION_EXCLUSIVE("E5001", "Shipment must have either a delivery office OR a delivery address.", HttpStatus.BAD_REQUEST),
+    SHIPMENT_RECEIVER_EXCLUSIVE("E5002", "Shipment must have either a registered receiver ID OR guest receiver details (name and phone).", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String defaultMessage;

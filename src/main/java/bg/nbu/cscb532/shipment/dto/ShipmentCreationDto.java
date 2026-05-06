@@ -12,6 +12,7 @@ import java.util.UUID;
 
 /**
  * DTO for creating a new shipment.
+ * Supports sending to either a registered user (receiverId) OR a guest (receiverName + receiverPhone).
  * Requires either a deliveryOfficeId OR a deliveryAddress, but not both.
  */
 @Builder
@@ -19,8 +20,12 @@ public record ShipmentCreationDto(
         @NotNull(message = "{validation.shipment.sender.notnull}")
         UUID senderId,
 
-        @NotNull(message = "{validation.shipment.receiver.notnull}")
+        // Receiver can be a registered client OR a guest. 
+        // Validation is handled at the Service layer (XOR logic).
         UUID receiverId,
+        String receiverName,
+        String receiverPhone,
+        String receiverEmail,
 
         @NotNull(message = "{validation.shipment.type.notnull}")
         ShipmentType type,

@@ -353,7 +353,7 @@ class ShipmentServiceUnitTests {
     class RegisterShipmentTests {
 
         @Test
-        @DisplayName("Happy Path: Should successfully register a shipment destined for an Office")
+        @DisplayName("Happy Path: Should successfully register a shipment destined for an Office (Registered Receiver)")
         void shouldRegisterShipmentToOffice() {
             // Arrange
             UUID senderId = UUID.randomUUID();
@@ -410,6 +410,61 @@ class ShipmentServiceUnitTests {
             ShipmentStatusHistory capturedHistory = historyCaptor.getValue();
             assertThat(capturedHistory.getShipment().getId()).isEqualTo(savedShipment.getId());
             assertThat(capturedHistory.getStatus()).isEqualTo(ShipmentStatus.REGISTERED);
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should successfully register a shipment for a Guest Receiver")
+        void shouldRegisterShipmentGuestReceiver() {
+            // Arrange
+            UUID senderId = UUID.randomUUID();
+            UUID employeeId = UUID.randomUUID();
+            Long officeId = 10L;
+
+            ShipmentCreationDto dto = ShipmentCreationDto.builder()
+                    .senderId(senderId)
+                    .receiverName("Guest Mom")
+                    .receiverPhone("0888123456")
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(2.5))
+                    .deliveryOfficeId(officeId)
+                    .build();
+
+            Client sender = createMockClient(senderId, "Sender", "One");
+            Courier employee = createMockEmployee(employeeId, "Emp", "Three");
+            City city = createMockCity(1L, "Sofia", "1000");
+            Office office = createMockOffice(officeId, city);
+
+            given(clientRepository.findById(senderId)).willReturn(Optional.of(sender));
+            given(employeeRepository.findById(employeeId)).willReturn(Optional.of(employee));
+            given(officeRepository.findById(officeId)).willReturn(Optional.of(office));
+            given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
+
+            Shipment savedShipment = new Shipment();
+            savedShipment.setId(UUID.randomUUID());
+            savedShipment.setSender(sender);
+            savedShipment.setReceiverName("Guest Mom");
+            savedShipment.setReceiverPhone("0888123456");
+            savedShipment.setRegisteredBy(employee);
+            savedShipment.setDeliveryOffice(office);
+            savedShipment.setTotalPrice(BigDecimal.valueOf(15.00));
+            savedShipment.setTrackingNumber("TRK-TEST");
+            savedShipment.setStatus(ShipmentStatus.REGISTERED);
+            savedShipment.setCreatedAt(Instant.now());
+
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(savedShipment);
+
+            // Act
+            ShipmentViewDto result = shipmentService.registerShipment(dto, employeeId);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.receiverName()).isEqualTo("Guest Mom");
+            assertThat(result.receiverId()).isNull();
+
+            verify(shipmentRepository).save(shipmentCaptor.capture());
+            Shipment capturedShipment = shipmentCaptor.getValue();
+            assertThat(capturedShipment.getReceiver()).isNull();
+            assertThat(capturedShipment.getReceiverName()).isEqualTo("Guest Mom");
         }
 
         @Test
@@ -481,6 +536,53 @@ class ShipmentServiceUnitTests {
         }
 
         @Test
+        @DisplayName("Error Case: Should throw SHIPMENT_RECEIVER_EXCLUSIVE if both receiver ID and guest details provided")
+        void shouldThrowIfBothReceiverTypesProvided() {
+            // Arrange
+            UUID senderId = UUID.randomUUID();
+            UUID receiverId = UUID.randomUUID();
+
+            ShipmentCreationDto dto = ShipmentCreationDto.builder()
+                    .senderId(senderId)
+                    .receiverId(receiverId)
+                    .receiverName("Guest Name")
+                    .receiverPhone("0888123456")
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(2.5))
+                    .build();
+
+            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
+
+            // Act and Assert
+            assertThatThrownBy(() -> shipmentService.registerShipment(dto, UUID.randomUUID()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.SHIPMENT_RECEIVER_EXCLUSIVE);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw SHIPMENT_RECEIVER_EXCLUSIVE if neither receiver ID nor guest details provided")
+        void shouldThrowIfNoReceiverDetailsProvided() {
+            // Arrange
+            UUID senderId = UUID.randomUUID();
+
+            ShipmentCreationDto dto = ShipmentCreationDto.builder()
+                    .senderId(senderId)
+                    // missing both receiver ID and guest name/phone
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(2.5))
+                    .build();
+
+            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
+
+            // Act and Assert
+            assertThatThrownBy(() -> shipmentService.registerShipment(dto, UUID.randomUUID()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.SHIPMENT_RECEIVER_EXCLUSIVE);
+        }
+
+        @Test
         @DisplayName("Error Case: Should throw 404 RESOURCE_NOT_FOUND if sender does not exist")
         void shouldThrowIfSenderNotFound() {
             // Arrange
@@ -499,7 +601,7 @@ class ShipmentServiceUnitTests {
         }
 
         @Test
-        @DisplayName("Error Case: Should throw 404 RESOURCE_NOT_FOUND if receiver does not exist")
+        @DisplayName("Error Case: Should throw 404 RESOURCE_NOT_FOUND if receiver ID does not exist")
         void shouldThrowIfReceiverNotFound() {
             // Arrange
             UUID senderId = UUID.randomUUID();
@@ -527,12 +629,13 @@ class ShipmentServiceUnitTests {
             UUID receiverId = UUID.randomUUID();
             UUID employeeId = UUID.randomUUID();
 
-            ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId).build();
+            ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
+                    .deliveryOfficeId(10L)
+                    .build();
 
             given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
             given(clientRepository.findById(receiverId)).willReturn(Optional.of(new Client()));
             given(employeeRepository.findById(employeeId)).willReturn(Optional.empty());
-
 
             // Act and Assert
             assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
@@ -544,7 +647,7 @@ class ShipmentServiceUnitTests {
         }
 
         @Test
-        @DisplayName("Error Case: Should throw VALIDATION_FAILED if both destination types are provided")
+        @DisplayName("Error Case: Should throw SHIPMENT_DESTINATION_EXCLUSIVE if both destination types are provided")
         void shouldThrowIfBothDestinationsProvided() {
             // Arrange
             UUID senderId = UUID.randomUUID();
@@ -555,7 +658,7 @@ class ShipmentServiceUnitTests {
 
             ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
                     .deliveryOfficeId(10L)
-                    .deliveryAddress(addressDto) // BOTH!
+                    .deliveryAddress(addressDto)
                     .build();
 
             given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
@@ -566,13 +669,13 @@ class ShipmentServiceUnitTests {
             assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
-                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+                    .isEqualTo(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
 
             verifyNoInteractions(pricingService, shipmentRepository);
         }
 
         @Test
-        @DisplayName("Error Case: Should throw VALIDATION_FAILED if neither destination type is provided")
+        @DisplayName("Error Case: Should throw SHIPMENT_DESTINATION_EXCLUSIVE if neither destination type is provided")
         void shouldThrowIfNeitherDestinationProvided() {
             // Arrange
             UUID senderId = UUID.randomUUID();
@@ -592,7 +695,7 @@ class ShipmentServiceUnitTests {
             assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
-                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+                    .isEqualTo(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
 
             verifyNoInteractions(pricingService, shipmentRepository);
         }
@@ -815,6 +918,8 @@ class ShipmentServiceUnitTests {
         @Test
         @DisplayName("Happy Path: Admin should retrieve any shipment by tracking number")
         void adminShouldRetrieveAnyShipmentByTracking() {
+
+            // Arrange
             String tracking = "TRK-123";
             UUID adminId = UUID.randomUUID();
             Shipment shipment = new Shipment();
@@ -826,8 +931,10 @@ class ShipmentServiceUnitTests {
 
             given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.of(shipment));
 
+            // Act
             ShipmentViewDto result = shipmentService.getShipmentByTrackingNumber(tracking, adminId, ApplicationRole.ADMIN);
 
+            // Assert
             assertThat(result).isNotNull();
             assertThat(result.trackingNumber()).isEqualTo(tracking);
         }
@@ -835,6 +942,8 @@ class ShipmentServiceUnitTests {
         @Test
         @DisplayName("Happy Path: Client should retrieve shipment they sent by tracking number")
         void senderShouldRetrieveShipmentByTracking() {
+
+            // Arrange
             String tracking = "TRK-456";
             UUID clientId = UUID.randomUUID();
             Shipment shipment = new Shipment();
@@ -846,8 +955,10 @@ class ShipmentServiceUnitTests {
 
             given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.of(shipment));
 
+            // Act
             ShipmentViewDto result = shipmentService.getShipmentByTrackingNumber(tracking, clientId, ApplicationRole.CLIENT);
 
+            // Assert
             assertThat(result).isNotNull();
             assertThat(result.trackingNumber()).isEqualTo(tracking);
         }
@@ -855,6 +966,8 @@ class ShipmentServiceUnitTests {
         @Test
         @DisplayName("Error Case: Client requesting someone else's shipment by tracking number should get 404 (Security)")
         void clientShouldNotRetrieveOtherShipmentByTracking() {
+
+            // Arrange
             String tracking = "TRK-789";
             UUID maliciousClientId = UUID.randomUUID();
 
@@ -867,6 +980,7 @@ class ShipmentServiceUnitTests {
 
             given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.of(shipment));
 
+            // Act and Assert
             assertThatThrownBy(() -> shipmentService.getShipmentByTrackingNumber(tracking, maliciousClientId, ApplicationRole.CLIENT))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")

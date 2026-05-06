@@ -53,9 +53,6 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final CityRepository cityRepository;
     private final PricingService pricingService;
 
-    // TODO: Phase 2 Refactor - Allow unregistered receivers (guest checkout) by removing strict receiverId requirement
-    // and supporting raw text fields (receiverName, receiverPhone) mapped via mobile phone tracking.
-
     @Override
     @Transactional
     public ShipmentViewDto registerShipment(ShipmentCreationDto request, UUID registeredById) {
@@ -66,13 +63,26 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         Client sender = clientRepository.findById(request.senderId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        
-        Client receiver = clientRepository.findById(request.receiverId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
-        // Note: For Phase 2, if a CLIENT self-registers, the `registeredById` will be the Client's UUID.
-        // We currently look up in `employeeRepository`. This will need an adjustment when we allow client self-registration.
-        // For now, sticking to the existing Phase 1 plan of opening the GET endpoints first.
+        // --- XOR Validation for Receiver ---
+        boolean hasReceiverId = request.receiverId() != null;
+        boolean hasGuestDetails = request.receiverName() != null && !request.receiverName().isBlank() &&
+                                  request.receiverPhone() != null && !request.receiverPhone().isBlank();
+
+        if (hasReceiverId == hasGuestDetails) {
+            throw new BusinessException(ErrorCode.SHIPMENT_RECEIVER_EXCLUSIVE);
+        }
+
+        Client receiver = null;
+        if (hasReceiverId) {
+            receiver = clientRepository.findById(request.receiverId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        }
+
+        // TODO: once the user is registered map by mobile phone maybe or whatever would be a good reason.
+        // For example, if a guest receiver later registers an account with the same phone number,
+        // run a batch job to link their old guest shipments to their new client ID.
+
         Employee registeredBy = employeeRepository.findById(registeredById)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
 
@@ -80,14 +90,14 @@ public class ShipmentServiceImpl implements ShipmentService {
         AddressDetails deliveryAddressSnapshot = null;
 
         if (request.deliveryOfficeId() != null && request.deliveryAddress() != null) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+            throw new BusinessException(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
         } else if (request.deliveryOfficeId() != null) {
             deliveryOffice = officeRepository.findById(request.deliveryOfficeId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
         } else if (request.deliveryAddress() != null) {
             deliveryAddressSnapshot = buildAddressDetails(request.deliveryAddress());
         } else {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+            throw new BusinessException(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
         }
 
         BigDecimal totalPrice = pricingService.calculatePrice(request);
@@ -98,6 +108,9 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .trackingNumber(trackingNumber)
                 .sender(sender)
                 .receiver(receiver)
+                .receiverName(request.receiverName())
+                .receiverPhone(request.receiverPhone())
+                .receiverEmail(request.receiverEmail())
                 .registeredBy(registeredBy)
                 .type(request.type())
                 .weight(request.weight())
@@ -179,8 +192,9 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
         if (role == ApplicationRole.CLIENT) {
-            if (!shipment.getSender().getId().equals(requestingUserId) &&
-                !shipment.getReceiver().getId().equals(requestingUserId)) {
+            boolean isSender = shipment.getSender().getId().equals(requestingUserId);
+            boolean isReceiver = shipment.getReceiver() != null && shipment.getReceiver().getId().equals(requestingUserId);
+            if (!isSender && !isReceiver) {
                 throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
             }
         }
@@ -201,8 +215,9 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
         if (role == ApplicationRole.CLIENT) {
-            if (!shipment.getSender().getId().equals(requestingUserId) &&
-                !shipment.getReceiver().getId().equals(requestingUserId)) {
+            boolean isSender = shipment.getSender().getId().equals(requestingUserId);
+            boolean isReceiver = shipment.getReceiver() != null && shipment.getReceiver().getId().equals(requestingUserId);
+            if (!isSender && !isReceiver) {
                 throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
             }
         }
@@ -264,7 +279,6 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         BigDecimal rawRevenue = shipmentRepository.calculateTotalRevenue(startInstant, endInstant);
 
-        // Standard SQL SUM() on an empty result set returns null. Default it to Zero.
         BigDecimal totalRevenue = rawRevenue != null ? rawRevenue : BigDecimal.ZERO;
 
         return RevenueReportDto.builder()
@@ -324,10 +338,20 @@ public class ShipmentServiceImpl implements ShipmentService {
         }
 
         String senderName = shipment.getSender().getFirstName() + " " + shipment.getSender().getLastName();
-        String receiverName = shipment.getReceiver().getFirstName() + " " + shipment.getReceiver().getLastName();
         
-        // Handle cases where a Client self-registered (registeredBy might be null or we need to adjust logic)
-        // For now, maintaining current logic as we are just unblocking the GET endpoints.
+        // Handle guest vs registered receiver
+        String receiverName;
+        String receiverPhone;
+        UUID receiverId = null;
+        if (shipment.getReceiver() != null) {
+            receiverName = shipment.getReceiver().getFirstName() + " " + shipment.getReceiver().getLastName();
+            receiverPhone = shipment.getReceiver().getPhoneNumber();
+            receiverId = shipment.getReceiver().getId();
+        } else {
+            receiverName = shipment.getReceiverName();
+            receiverPhone = shipment.getReceiverPhone();
+        }
+
         String registeredByName = shipment.getRegisteredBy() != null ? 
                 shipment.getRegisteredBy().getFirstName() + " " + shipment.getRegisteredBy().getLastName() : "Self-Registered";
 
@@ -346,9 +370,9 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .senderId(shipment.getSender().getId())
                 .senderName(senderName.trim())
                 .senderPhone(shipment.getSender().getPhoneNumber())
-                .receiverId(shipment.getReceiver().getId())
+                .receiverId(receiverId)
                 .receiverName(receiverName.trim())
-                .receiverPhone(shipment.getReceiver().getPhoneNumber())
+                .receiverPhone(receiverPhone)
                 .deliveryOfficeId(deliveryOfficeId)
                 .deliveryOfficeName(deliveryOfficeName)
                 .deliveryAddressString(deliveryAddressString)

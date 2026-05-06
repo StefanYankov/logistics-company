@@ -119,14 +119,33 @@ class ShipmentRepositoryIntegrationTest {
         shipmentRepository.saveAndFlush(shipment);
     }
 
+    private void createAndSaveGuestShipment(String trackingNumber, Client sender, Courier employee, ShipmentStatus status, City deliveryCity) {
+        AddressDetails deliveryAddress = new AddressDetails();
+        deliveryAddress.setCity(deliveryCity);
+        deliveryAddress.setStreet("Delivery Street 1");
+
+        Shipment shipment = Shipment.builder()
+                .trackingNumber(trackingNumber)
+                .sender(sender)
+                .receiverName("Guest Mom")
+                .receiverPhone("0888999999")
+                .registeredBy(employee)
+                .type(ShipmentType.PARCEL)
+                .weight(BigDecimal.valueOf(2.5))
+                .totalPrice(BigDecimal.valueOf(10.50))
+                .status(status)
+                .deliveryAddressSnapshot(deliveryAddress)
+                .build();
+        shipmentRepository.saveAndFlush(shipment);
+    }
+
     private void createAndSaveShipmentWithDate(String trackingNumber, Client sender, Client receiver, Courier employee, BigDecimal price, Instant createdAt, City city) {
-        // Bypassing JPA Auditing and Repository save() entirely to forcefully set the historical date
         UUID newId = UUID.randomUUID();
         
         String nativeQuery = """
             INSERT INTO shipments (
                 id, version, created_at, updated_at,
-                sender_id, receiver_id, registered_by_id, 
+                sender_id, receiver_id, registered_by_id,
                 tracking_number, shipment_type, weight, total_price, status,
                 city_id, delivery_street
             ) VALUES (
@@ -197,7 +216,7 @@ class ShipmentRepositoryIntegrationTest {
     class ReportingQueriesTests {
 
         @Test
-        @DisplayName("Should return paginated shipments sent by a specific client")
+        @DisplayName("Should return paginated shipments sent by a specific client (including guest receivers)")
         void shouldReturnShipmentsBySender() {
             City city = createAndSaveCity("Plovdiv", "4000");
             Client targetSender = createAndSaveClient("senderA", "sendA@test.com");
@@ -208,11 +227,12 @@ class ShipmentRepositoryIntegrationTest {
             createAndSaveShipment("TR-01", targetSender, receiver, employee, ShipmentStatus.DELIVERED, city);
             createAndSaveShipment("TR-02", targetSender, receiver, employee, ShipmentStatus.IN_TRANSIT, city);
             createAndSaveShipment("TR-03", otherSender, receiver, employee, ShipmentStatus.REGISTERED, city);
+            createAndSaveGuestShipment("TR-04", targetSender, employee, ShipmentStatus.REGISTERED, city);
 
             Page<Shipment> resultPage = shipmentRepository.findBySender_Id(targetSender.getId(), PageRequest.of(0, 10));
 
-            assertThat(resultPage.getTotalElements()).isEqualTo(2);
-            assertThat(resultPage.getContent()).extracting(Shipment::getTrackingNumber).containsExactlyInAnyOrder("TR-01", "TR-02");
+            assertThat(resultPage.getTotalElements()).isEqualTo(3);
+            assertThat(resultPage.getContent()).extracting(Shipment::getTrackingNumber).containsExactlyInAnyOrder("TR-01", "TR-02", "TR-04");
         }
 
         @Test
@@ -290,10 +310,11 @@ class ShipmentRepositoryIntegrationTest {
 
             // The window is from 3 days ago up to right now
             Instant startDate = now.minus(3, ChronoUnit.DAYS);
-            Instant endDate = now.plus(1, ChronoUnit.MINUTES); // padding to ensure 'now' is caught
+            Instant endDate = now.plus(1, ChronoUnit.MINUTES);
 
             BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
 
+            // Assert
             // Expecting 10.00 + 15.50 = 25.50
             assertThat(revenue).isEqualByComparingTo(BigDecimal.valueOf(25.50));
         }
@@ -309,12 +330,12 @@ class ShipmentRepositoryIntegrationTest {
             Instant startDate = Instant.parse("2026-01-01T00:00:00Z");
             Instant endDate = Instant.parse("2026-01-31T23:59:59Z");
 
-            // Exactly on the boundary
             createAndSaveShipmentWithDate("BOUND-1", sender, receiver, employee, BigDecimal.valueOf(50.00), startDate, city);
             createAndSaveShipmentWithDate("BOUND-2", sender, receiver, employee, BigDecimal.valueOf(20.00), endDate, city);
 
             BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
 
+            // Assert
             assertThat(revenue).isEqualByComparingTo(BigDecimal.valueOf(70.00));
         }
 
@@ -411,6 +432,38 @@ class ShipmentRepositoryIntegrationTest {
 
             assertThatThrownBy(() -> shipmentRepository.saveAndFlush(invalidShipment))
                     .isInstanceOf(Exception.class);
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should successfully save a shipment when receiver is missing (Guest Receiver)")
+        void shouldSaveOnMissingReceiver() {
+            City city = createAndSaveCity("Pernik", "5800");
+            Client sender = createAndSaveClient("sender Guest", "senderGuest@test.com");
+            Courier employee = createAndSaveCourier("employee Guest", "empGuest@test.com", "EMP-GST");
+
+            AddressDetails deliveryAddress = new AddressDetails();
+            deliveryAddress.setCity(city);
+            deliveryAddress.setStreet("Delivery Street 1");
+
+            Shipment guestShipment = Shipment.builder()
+                    .trackingNumber("TRACK-GUEST")
+                    .sender(sender)
+                    .receiver(null)
+                    .receiverName("Guest Name")
+                    .receiverPhone("0888111222")
+                    .registeredBy(employee)
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(5.0))
+                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .status(ShipmentStatus.REGISTERED)
+                    .deliveryAddressSnapshot(deliveryAddress)
+                    .build();
+
+            Shipment saved = shipmentRepository.saveAndFlush(guestShipment);
+            
+            assertThat(saved.getId()).isNotNull();
+            assertThat(saved.getReceiver()).isNull();
+            assertThat(saved.getReceiverName()).isEqualTo("Guest Name");
         }
 
         @Test
