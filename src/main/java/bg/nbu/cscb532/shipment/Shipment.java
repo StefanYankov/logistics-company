@@ -14,7 +14,6 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -58,8 +57,31 @@ public class Shipment extends BaseUUIDEntity {
     @JoinColumn(name = "delivered_by_id")
     private Courier deliveredBy;
 
-    // --- 2. Destinations ---
+    // --- 2. Origin & Destinations ---
 
+    // Origin (Where the package started)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "origin_office_id")
+    private Office originOffice;
+
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "street", column = @Column(name = "origin_street", length = Constants.Validation.MAX_STREET_LENGTH)),
+            @AttributeOverride(name = "district", column = @Column(name = "origin_district", length = Constants.Validation.MAX_DISTRICT_LENGTH)),
+            @AttributeOverride(name = "building", column = @Column(name = "origin_building", length = Constants.Validation.MAX_BUILDING_INFO_LENGTH)),
+            @AttributeOverride(name = "entrance", column = @Column(name = "origin_entrance", length = Constants.Validation.MAX_BUILDING_INFO_LENGTH)),
+            @AttributeOverride(name = "floor", column = @Column(name = "origin_floor", length = Constants.Validation.MAX_BUILDING_INFO_LENGTH)),
+            @AttributeOverride(name = "apartment", column = @Column(name = "origin_apartment", length = Constants.Validation.MAX_BUILDING_INFO_LENGTH)),
+            @AttributeOverride(name = "latitude", column = @Column(name = "origin_latitude")),
+            @AttributeOverride(name = "longitude", column = @Column(name = "origin_longitude"))
+    })
+    @AssociationOverrides({
+            // Fix: Specify the exact column definition to prevent Liquibase/JPA Buddy generation errors
+            @AssociationOverride(name = "city", joinColumns = @JoinColumn(name = "origin_city_id", columnDefinition = "bigint"))
+    })
+    private AddressDetails originAddressSnapshot;
+
+    // Destination (Where the package is going)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delivery_office_id")
     private Office deliveryOffice;
@@ -71,35 +93,37 @@ public class Shipment extends BaseUUIDEntity {
             @AttributeOverride(name = "building", column = @Column(name = "delivery_building", length = Constants.Validation.MAX_BUILDING_INFO_LENGTH)),
             @AttributeOverride(name = "entrance", column = @Column(name = "delivery_entrance", length = Constants.Validation.MAX_BUILDING_INFO_LENGTH)),
             @AttributeOverride(name = "floor", column = @Column(name = "delivery_floor", length = Constants.Validation.MAX_BUILDING_INFO_LENGTH)),
-            @AttributeOverride(name = "apartment", column = @Column(name = "delivery_apartment", length = Constants.Validation.MAX_BUILDING_INFO_LENGTH))
+            @AttributeOverride(name = "apartment", column = @Column(name = "delivery_apartment", length = Constants.Validation.MAX_BUILDING_INFO_LENGTH)),
+            @AttributeOverride(name = "latitude", column = @Column(name = "delivery_latitude")),
+            @AttributeOverride(name = "longitude", column = @Column(name = "delivery_longitude"))
+    })
+    @AssociationOverrides({
+            // Fix: Specify the exact column definition to prevent Liquibase/JPA Buddy generation errors
+            @AssociationOverride(name = "city", joinColumns = @JoinColumn(name = "city_id", columnDefinition = "bigint"))
     })
     private AddressDetails deliveryAddressSnapshot;
+
+    // Current Physical Location (For fast querying)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_office_id")
+    private Office currentOffice;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_courier_id")
+    private Courier currentCourier;
 
     // --- 3. Package Details ---
 
     @Column(nullable = false, unique = true, length = 50)
     private String trackingNumber;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "shipment_type", nullable = false)
-    private ShipmentType type;
-
-    @Column(nullable = false, precision = 8, scale = 3)
-    private BigDecimal weight;
-
-    @Column(precision = 8, scale = 2)
-    private BigDecimal length;
-
-    @Column(precision = 8, scale = 2)
-    private BigDecimal width;
-
-    @Column(precision = 8, scale = 2)
-    private BigDecimal height;
+    @Embedded
+    private PackageDetails packageDetails;
 
     // --- 4. Financials ---
 
-    @Column(name = "total_price", nullable = false, precision = 19, scale = 2)
-    private BigDecimal totalPrice;
+    @Embedded
+    private ShipmentFinancials financials;
 
     // --- 5. Status ---
 

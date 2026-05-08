@@ -1,5 +1,6 @@
 package bg.nbu.cscb532.shipment.dto;
 
+import bg.nbu.cscb532.shipment.PaidBy;
 import bg.nbu.cscb532.shipment.ShipmentStatus;
 import bg.nbu.cscb532.shipment.ShipmentType;
 import lombok.Builder;
@@ -22,7 +23,12 @@ public record ShipmentViewDto(
         BigDecimal length,
         BigDecimal width,
         BigDecimal height,
+        
+        // Financials
         BigDecimal totalPrice,
+        PaidBy paidBy,
+        boolean isPaid,
+
         Instant createdAt,
         Instant updatedAt,
 
@@ -36,10 +42,21 @@ public record ShipmentViewDto(
         String receiverName,
         String receiverPhone,
 
-        // Destination summary (Mutually Exclusive based on Pricing Engine rules)
+        // Origin summary
+        Long originOfficeId,
+        String originOfficeName,
+        String originAddressString,
+
+        // Destination summary
         Long deliveryOfficeId,
         String deliveryOfficeName,
-        String deliveryAddressString, // Formatted flat string if delivered to a home address
+        String deliveryAddressString,
+
+        // Current Location summary
+        Long currentOfficeId,
+        String currentOfficeName,
+        UUID currentCourierId,
+        String currentCourierName,
 
         // Employee summary
         UUID registeredById,

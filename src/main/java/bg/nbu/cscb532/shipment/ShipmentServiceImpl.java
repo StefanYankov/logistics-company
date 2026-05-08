@@ -86,23 +86,60 @@ public class ShipmentServiceImpl implements ShipmentService {
         Employee registeredBy = employeeRepository.findById(registeredById)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
 
+        // --- XOR Validation for Origin ---
+        boolean hasOriginOfficeId = request.originOfficeId() != null;
+        boolean hasOriginAddress = request.originAddress() != null;
+
+        if (hasOriginOfficeId == hasOriginAddress) {
+            // Re-using the same error code conceptually, though a new one could be created
+            throw new BusinessException(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
+        }
+
+        Office originOffice = null;
+        AddressDetails originAddressSnapshot = null;
+
+        if (hasOriginOfficeId) {
+            originOffice = officeRepository.findById(request.originOfficeId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
+        } else {
+            originAddressSnapshot = buildAddressDetails(request.originAddress());
+        }
+
+        // --- XOR Validation for Destination ---
+        boolean hasDeliveryOfficeId = request.deliveryOfficeId() != null;
+        boolean hasDeliveryAddress = request.deliveryAddress() != null;
+
+        if (hasDeliveryOfficeId == hasDeliveryAddress) {
+            throw new BusinessException(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
+        }
+
         Office deliveryOffice = null;
         AddressDetails deliveryAddressSnapshot = null;
 
-        if (request.deliveryOfficeId() != null && request.deliveryAddress() != null) {
-            throw new BusinessException(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
-        } else if (request.deliveryOfficeId() != null) {
+        if (hasDeliveryOfficeId) {
             deliveryOffice = officeRepository.findById(request.deliveryOfficeId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
-        } else if (request.deliveryAddress() != null) {
-            deliveryAddressSnapshot = buildAddressDetails(request.deliveryAddress());
         } else {
-            throw new BusinessException(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
+            deliveryAddressSnapshot = buildAddressDetails(request.deliveryAddress());
         }
 
         BigDecimal totalPrice = pricingService.calculatePrice(request);
 
         String trackingNumber = "TRK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        PackageDetails packageDetails = PackageDetails.builder()
+                .type(request.type())
+                .weight(request.weight())
+                .length(request.length())
+                .width(request.width())
+                .height(request.height())
+                .build();
+
+        ShipmentFinancials financials = ShipmentFinancials.builder()
+                .totalPrice(totalPrice)
+                .paidBy(request.paidBy())
+                .isPaid(false) // Default to unpaid upon registration
+                .build();
 
         Shipment shipment = Shipment.builder()
                 .trackingNumber(trackingNumber)
@@ -112,13 +149,11 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .receiverPhone(request.receiverPhone())
                 .receiverEmail(request.receiverEmail())
                 .registeredBy(registeredBy)
-                .type(request.type())
-                .weight(request.weight())
-                .length(request.length())
-                .width(request.width())
-                .height(request.height())
-                .totalPrice(totalPrice)
+                .packageDetails(packageDetails)
+                .financials(financials)
                 .status(ShipmentStatus.REGISTERED)
+                .originOffice(originOffice)
+                .originAddressSnapshot(originAddressSnapshot)
                 .deliveryOffice(deliveryOffice)
                 .deliveryAddressSnapshot(deliveryAddressSnapshot)
                 .build();
@@ -161,12 +196,26 @@ public class ShipmentServiceImpl implements ShipmentService {
                         .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
                 shipment.setDeliveredBy((Courier) employee);
             }
+            
+            // If out for delivery, set the current courier
+            if (request.newStatus() == ShipmentStatus.OUT_FOR_DELIVERY) {
+                 Employee employee = employeeRepository.findById(userDetails.getId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
+                 shipment.setCurrentCourier((Courier) employee);
+                 shipment.setCurrentOffice(null); // It's no longer at an office
+            }
         }
 
         Office locationOffice = null;
         if (request.locationOfficeId() != null) {
             locationOffice = officeRepository.findById(request.locationOfficeId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
+                    
+            // Update current location if provided
+            if (request.newStatus() == ShipmentStatus.AT_DELIVERY_OFFICE || request.newStatus() == ShipmentStatus.IN_TRANSIT) {
+                shipment.setCurrentOffice(locationOffice);
+                shipment.setCurrentCourier(null);
+            }
         }
 
         shipment.setStatus(request.newStatus());
@@ -325,6 +374,18 @@ public class ShipmentServiceImpl implements ShipmentService {
     private ShipmentViewDto mapToViewDto(Shipment shipment) {
         if (shipment == null) return null;
 
+        Long originOfficeId = null;
+        String originOfficeName = null;
+        String originAddressString = null;
+        
+        if (shipment.getOriginOffice() != null) {
+             originOfficeId = shipment.getOriginOffice().getId();
+             originOfficeName = shipment.getOriginOffice().getAddressDetails().getCity().getName() + " - " + 
+                                shipment.getOriginOffice().getAddressDetails().getStreet();
+        } else if (shipment.getOriginAddressSnapshot() != null) {
+             originAddressString = formatAddress(shipment.getOriginAddressSnapshot());
+        }
+
         Long deliveryOfficeId = null;
         String deliveryOfficeName = null;
         String deliveryAddressString = null;
@@ -351,6 +412,14 @@ public class ShipmentServiceImpl implements ShipmentService {
             receiverName = shipment.getReceiverName();
             receiverPhone = shipment.getReceiverPhone();
         }
+        
+        Long currentOfficeId = shipment.getCurrentOffice() != null ? shipment.getCurrentOffice().getId() : null;
+        String currentOfficeName = shipment.getCurrentOffice() != null ? 
+            shipment.getCurrentOffice().getAddressDetails().getCity().getName() + " - " + shipment.getCurrentOffice().getAddressDetails().getStreet() : null;
+            
+        UUID currentCourierId = shipment.getCurrentCourier() != null ? shipment.getCurrentCourier().getId() : null;
+        String currentCourierName = shipment.getCurrentCourier() != null ? 
+            shipment.getCurrentCourier().getFirstName() + " " + shipment.getCurrentCourier().getLastName() : null;
 
         String registeredByName = shipment.getRegisteredBy() != null ? 
                 shipment.getRegisteredBy().getFirstName() + " " + shipment.getRegisteredBy().getLastName() : "Self-Registered";
@@ -358,13 +427,15 @@ public class ShipmentServiceImpl implements ShipmentService {
         return ShipmentViewDto.builder()
                 .id(shipment.getId())
                 .trackingNumber(shipment.getTrackingNumber())
-                .type(shipment.getType())
+                .type(shipment.getPackageDetails().getType())
                 .status(shipment.getStatus())
-                .weight(shipment.getWeight())
-                .length(shipment.getLength())
-                .width(shipment.getWidth())
-                .height(shipment.getHeight())
-                .totalPrice(shipment.getTotalPrice())
+                .weight(shipment.getPackageDetails().getWeight())
+                .length(shipment.getPackageDetails().getLength())
+                .width(shipment.getPackageDetails().getWidth())
+                .height(shipment.getPackageDetails().getHeight())
+                .totalPrice(shipment.getFinancials().getTotalPrice())
+                .paidBy(shipment.getFinancials().getPaidBy())
+                .isPaid(shipment.getFinancials().isPaid())
                 .createdAt(shipment.getCreatedAt())
                 .updatedAt(shipment.getUpdatedAt())
                 .senderId(shipment.getSender().getId())
@@ -373,9 +444,16 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .receiverId(receiverId)
                 .receiverName(receiverName.trim())
                 .receiverPhone(receiverPhone)
+                .originOfficeId(originOfficeId)
+                .originOfficeName(originOfficeName)
+                .originAddressString(originAddressString)
                 .deliveryOfficeId(deliveryOfficeId)
                 .deliveryOfficeName(deliveryOfficeName)
                 .deliveryAddressString(deliveryAddressString)
+                .currentOfficeId(currentOfficeId)
+                .currentOfficeName(currentOfficeName)
+                .currentCourierId(currentCourierId)
+                .currentCourierName(currentCourierName)
                 .registeredById(shipment.getRegisteredBy() != null ? shipment.getRegisteredBy().getId() : null)
                 .registeredByName(registeredByName.trim())
                 .build();

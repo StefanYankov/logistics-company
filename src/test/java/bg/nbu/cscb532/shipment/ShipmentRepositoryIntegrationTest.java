@@ -105,14 +105,24 @@ class ShipmentRepositoryIntegrationTest {
         deliveryAddress.setCity(deliveryCity);
         deliveryAddress.setStreet("Delivery Street 1");
 
+        PackageDetails packageDetails = PackageDetails.builder()
+                .type(ShipmentType.PARCEL)
+                .weight(BigDecimal.valueOf(2.5))
+                .build();
+
+        ShipmentFinancials financials = ShipmentFinancials.builder()
+                .totalPrice(BigDecimal.valueOf(10.50))
+                .paidBy(PaidBy.SENDER)
+                .isPaid(false)
+                .build();
+
         Shipment shipment = Shipment.builder()
                 .trackingNumber(trackingNumber)
                 .sender(sender)
                 .receiver(receiver)
                 .registeredBy(employee)
-                .type(ShipmentType.PARCEL)
-                .weight(BigDecimal.valueOf(2.5))
-                .totalPrice(BigDecimal.valueOf(10.50))
+                .packageDetails(packageDetails)
+                .financials(financials)
                 .status(status)
                 .deliveryAddressSnapshot(deliveryAddress)
                 .build();
@@ -124,15 +134,25 @@ class ShipmentRepositoryIntegrationTest {
         deliveryAddress.setCity(deliveryCity);
         deliveryAddress.setStreet("Delivery Street 1");
 
+        PackageDetails packageDetails = PackageDetails.builder()
+                .type(ShipmentType.PARCEL)
+                .weight(BigDecimal.valueOf(2.5))
+                .build();
+
+        ShipmentFinancials financials = ShipmentFinancials.builder()
+                .totalPrice(BigDecimal.valueOf(10.50))
+                .paidBy(PaidBy.SENDER)
+                .isPaid(false)
+                .build();
+
         Shipment shipment = Shipment.builder()
                 .trackingNumber(trackingNumber)
                 .sender(sender)
                 .receiverName("Guest Mom")
                 .receiverPhone("0888999999")
                 .registeredBy(employee)
-                .type(ShipmentType.PARCEL)
-                .weight(BigDecimal.valueOf(2.5))
-                .totalPrice(BigDecimal.valueOf(10.50))
+                .packageDetails(packageDetails)
+                .financials(financials)
                 .status(status)
                 .deliveryAddressSnapshot(deliveryAddress)
                 .build();
@@ -147,12 +167,12 @@ class ShipmentRepositoryIntegrationTest {
                 id, version, created_at, updated_at,
                 sender_id, receiver_id, registered_by_id,
                 tracking_number, shipment_type, weight, total_price, status,
-                city_id, delivery_street
+                city_id, delivery_street, paid_by, is_paid
             ) VALUES (
                 :id, 0, :createdAt, :updatedAt,
                 :senderId, :receiverId, :employeeId,
                 :trackingNumber, 'PARCEL', 2.500, :price, 'REGISTERED',
-                :cityId, 'Delivery Street'
+                :cityId, 'Delivery Street', 'SENDER', false
             )
         """;
 
@@ -292,6 +312,8 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("calculateTotalRevenue: Should sum total prices within the strict time boundaries")
         void shouldCalculateRevenueInTimeWindow() {
+            shipmentRepository.deleteAll();
+            
             City city = createAndSaveCity("Vidin", "5000");
             Client sender = createAndSaveClient("senderRev", "sendRev@test.com");
             Client receiver = createAndSaveClient("receiverRev", "recvRev@test.com");
@@ -322,6 +344,8 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("calculateTotalRevenue: Edge Case: Should be fully inclusive of the exact boundary seconds")
         void shouldBeInclusiveOfBoundaryDates() {
+            shipmentRepository.deleteAll(); // Isolate test data
+
             City city = createAndSaveCity("Silistra", "3000");
             Client sender = createAndSaveClient("senderB", "sendB@test.com");
             Client receiver = createAndSaveClient("receiverB", "recvB@test.com");
@@ -390,14 +414,24 @@ class ShipmentRepositoryIntegrationTest {
             deliveryAddress.setCity(city);
             deliveryAddress.setStreet("Delivery Street 1");
 
+            PackageDetails packageDetails = PackageDetails.builder()
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(5.0))
+                    .build();
+
+            ShipmentFinancials financials = ShipmentFinancials.builder()
+                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .paidBy(PaidBy.SENDER)
+                    .isPaid(false)
+                    .build();
+
             Shipment duplicateShipment = Shipment.builder()
                     .trackingNumber("DUPLICATE-TRACK")
                     .sender(sender)
                     .receiver(receiver)
                     .registeredBy(employee)
-                    .type(ShipmentType.PARCEL)
-                    .weight(BigDecimal.valueOf(5.0))
-                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .packageDetails(packageDetails)
+                    .financials(financials)
                     .status(ShipmentStatus.REGISTERED)
                     .deliveryAddressSnapshot(deliveryAddress)
                     .build();
@@ -418,14 +452,24 @@ class ShipmentRepositoryIntegrationTest {
             deliveryAddress.setCity(city);
             deliveryAddress.setStreet("Delivery Street 1");
 
+            PackageDetails packageDetails = PackageDetails.builder()
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(5.0))
+                    .build();
+
+            ShipmentFinancials financials = ShipmentFinancials.builder()
+                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .paidBy(PaidBy.SENDER)
+                    .isPaid(false)
+                    .build();
+
             Shipment invalidShipment = Shipment.builder()
                     .trackingNumber("TRACK-NO-SENDER")
                     .sender(null)
                     .receiver(receiver)
                     .registeredBy(employee)
-                    .type(ShipmentType.PARCEL)
-                    .weight(BigDecimal.valueOf(5.0))
-                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .packageDetails(packageDetails)
+                    .financials(financials)
                     .status(ShipmentStatus.REGISTERED)
                     .deliveryAddressSnapshot(deliveryAddress)
                     .build();
@@ -445,6 +489,17 @@ class ShipmentRepositoryIntegrationTest {
             deliveryAddress.setCity(city);
             deliveryAddress.setStreet("Delivery Street 1");
 
+            PackageDetails packageDetails = PackageDetails.builder()
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(5.0))
+                    .build();
+
+            ShipmentFinancials financials = ShipmentFinancials.builder()
+                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .paidBy(PaidBy.SENDER)
+                    .isPaid(false)
+                    .build();
+
             Shipment guestShipment = Shipment.builder()
                     .trackingNumber("TRACK-GUEST")
                     .sender(sender)
@@ -452,9 +507,8 @@ class ShipmentRepositoryIntegrationTest {
                     .receiverName("Guest Name")
                     .receiverPhone("0888111222")
                     .registeredBy(employee)
-                    .type(ShipmentType.PARCEL)
-                    .weight(BigDecimal.valueOf(5.0))
-                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .packageDetails(packageDetails)
+                    .financials(financials)
                     .status(ShipmentStatus.REGISTERED)
                     .deliveryAddressSnapshot(deliveryAddress)
                     .build();
@@ -478,14 +532,24 @@ class ShipmentRepositoryIntegrationTest {
             deliveryAddress.setCity(city);
             deliveryAddress.setStreet("Delivery Street 1");
 
+            PackageDetails packageDetails = PackageDetails.builder()
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(5.0))
+                    .build();
+
+            ShipmentFinancials financials = ShipmentFinancials.builder()
+                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .paidBy(PaidBy.SENDER)
+                    .isPaid(false)
+                    .build();
+
             Shipment invalidShipment = Shipment.builder()
                     .trackingNumber(null)
                     .sender(sender)
                     .receiver(receiver)
                     .registeredBy(employee)
-                    .type(ShipmentType.PARCEL)
-                    .weight(BigDecimal.valueOf(5.0))
-                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .packageDetails(packageDetails)
+                    .financials(financials)
                     .status(ShipmentStatus.REGISTERED)
                     .deliveryAddressSnapshot(deliveryAddress)
                     .build();

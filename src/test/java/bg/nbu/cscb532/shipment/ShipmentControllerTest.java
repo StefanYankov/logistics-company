@@ -92,6 +92,7 @@ class ShipmentControllerTest {
                 .type(ShipmentType.PARCEL)
                 .weight(BigDecimal.valueOf(2.5))
                 .deliveryOfficeId(10L)
+                .paidBy(PaidBy.SENDER)
                 .build();
     }
 
@@ -102,6 +103,7 @@ class ShipmentControllerTest {
                 .type(ShipmentType.PARCEL)
                 .weight(weight)
                 .deliveryOfficeId(10L)
+                .paidBy(PaidBy.SENDER)
                 .build();
     }
 
@@ -113,6 +115,8 @@ class ShipmentControllerTest {
                 .status(ShipmentStatus.REGISTERED)
                 .weight(BigDecimal.valueOf(2.5))
                 .totalPrice(BigDecimal.valueOf(15.00))
+                .paidBy(PaidBy.SENDER)
+                .isPaid(false)
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .senderId(UUID.randomUUID())
@@ -313,6 +317,7 @@ class ShipmentControllerTest {
                     .type(ShipmentType.PARCEL)
                     .weight(BigDecimal.valueOf(-5.0))
                     .deliveryOfficeId(10L)
+                    .paidBy(PaidBy.SENDER)
                     .build();
 
             // Act and Assert

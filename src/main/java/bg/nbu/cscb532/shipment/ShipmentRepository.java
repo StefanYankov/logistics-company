@@ -53,6 +53,6 @@ public interface ShipmentRepository extends JpaRepository<Shipment, UUID> {
      * @param endDate   The precise UTC end moment.
      * @return The summed total, or null if no shipments exist in the period.
      */
-    @Query("SELECT SUM(s.totalPrice) FROM Shipment s WHERE s.createdAt >= :startDate AND s.createdAt <= :endDate")
+    @Query("SELECT SUM(s.financials.totalPrice) FROM Shipment s WHERE s.createdAt >= :startDate AND s.createdAt <= :endDate")
     BigDecimal calculateTotalRevenue(@Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 }
