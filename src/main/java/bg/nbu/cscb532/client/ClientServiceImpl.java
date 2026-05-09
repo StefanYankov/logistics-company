@@ -1,5 +1,6 @@
 package bg.nbu.cscb532.client;
 
+import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.Constants;
@@ -97,6 +98,62 @@ public class ClientServiceImpl implements ClientService {
         emailService.sendVerificationEmail(savedClient.getEmail(), rawToken);
 
         log.info("Client registered in pending state. Verification email sent to: {}", savedClient.getEmail());
+
+        return mapToViewDto(savedClient);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public ClientViewDto quickRegister(ClientQuickRegistrationDto dto) {
+        log.debug("Attempting quick registration for walk-in client: {} {}", dto.firstName(), dto.lastName());
+
+        Objects.requireNonNull(dto, Constants.DeveloperErrors.DTO_NULL);
+        
+        String normalizedPhone = dto.phoneNumber().trim();
+        String normalizedEmail = dto.email() != null && !dto.email().isBlank() ? dto.email().trim().toLowerCase() : null;
+
+        // Check if phone number already exists
+        if (clientRepository.searchClients(normalizedPhone, Pageable.unpaged()).getTotalElements() > 0) {
+             log.warn("Quick registration failed. Phone number [{}] is already registered.", normalizedPhone);
+             throw new BusinessException(ErrorCode.PHONE_DUPLICATE);
+        }
+
+        if (normalizedEmail != null && userRepository.findByEmail(normalizedEmail).isPresent()) {
+            log.warn("Quick registration failed. Email [{}] is already registered.", normalizedEmail);
+            throw new BusinessException(ErrorCode.EMAIL_DUPLICATE);
+        }
+
+        // Generate system defaults for required fields
+        String generatedUsername = "walkin_" + UUID.randomUUID().toString().substring(0, 8);
+        String generatedPassword = UUID.randomUUID().toString(); // Random, secure, unknown password
+        String hashedPassword = passwordEncoder.encode(generatedPassword);
+
+        Client newClient = new Client();
+        newClient.setUsername(generatedUsername);
+        newClient.setEmail(normalizedEmail); // Might be null
+        newClient.setPassword(hashedPassword);
+        newClient.setFirstName(dto.firstName().trim());
+        newClient.setLastName(dto.lastName().trim());
+        newClient.setPhoneNumber(normalizedPhone);
+        newClient.setApplicationRole(ApplicationRole.CLIENT);
+        newClient.setActive(true);
+        newClient.setEmailVerified(false);
+
+        Client savedClient = clientRepository.save(newClient);
+
+        log.info("Walk-in client successfully registered with system ID: {}", savedClient.getId());
+
+        // The Twist: If an email was provided during quick registration, initiate the password reset flow
+        // so they can claim their account online.
+        if (normalizedEmail != null) {
+            log.debug("Email provided during quick registration. Initiating password reset flow to allow account claim.");
+            ForgotPasswordRequestDto resetRequest = new ForgotPasswordRequestDto();
+            resetRequest.setEmail(normalizedEmail);
+            this.requestPasswordReset(resetRequest); // Reuse existing robust logic
+        }
 
         return mapToViewDto(savedClient);
     }

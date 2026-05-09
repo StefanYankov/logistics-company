@@ -1,5 +1,6 @@
 package bg.nbu.cscb532.client;
 
+import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.config.SecurityConfig;
@@ -127,6 +128,25 @@ class ClientControllerTest {
 
             mockMvc.perform(get(BASE_URL + "/search")
                             .param("term", "Doe")
+                            .with(user(clientUser)))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(clientService);
+        }
+        
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when Client attempts to use quick register")
+        void shouldReturn403WhenClientAttemptsToQuickRegister() throws Exception {
+            CustomUserDetails clientUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
+            ClientQuickRegistrationDto dto = ClientQuickRegistrationDto.builder()
+                    .firstName("Test")
+                    .lastName("User")
+                    .phoneNumber("0888123456")
+                    .build();
+
+            mockMvc.perform(post(BASE_URL + "/quick-register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(dto))
                             .with(user(clientUser)))
                     .andExpect(status().isForbidden());
 
@@ -329,6 +349,86 @@ class ClientControllerTest {
                     .andExpect(jsonPath("$.errorCode").value(ErrorCode.EMAIL_DUPLICATE.getCode()));
 
             verify(clientService).register(any(ClientRegistrationDto.class));
+        }
+    }
+    
+    @Nested
+    @DisplayName("POST /api/clients/quick-register")
+    class QuickRegisterClientTests {
+
+        @Test
+        @DisplayName("Happy Path: Should return 201 Created when quick registration is successful")
+        void shouldReturn201_WhenQuickRegistrationIsSuccessful() throws Exception {
+            // Arrange
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            ClientQuickRegistrationDto requestDto = ClientQuickRegistrationDto.builder()
+                    .firstName("Guest")
+                    .lastName("User")
+                    .phoneNumber("0888123456")
+                    .build();
+                    
+            UUID newClientId = UUID.randomUUID();
+            ClientViewDto responseDto = createValidViewDto(newClientId);
+
+            given(clientService.quickRegister(any(ClientQuickRegistrationDto.class))).willReturn(responseDto);
+
+            // Act and Assert
+            mockMvc.perform(post(BASE_URL + "/quick-register")
+                            .with(user(clerkUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestDto)))
+                    .andExpect(status().isCreated())
+                    .andExpect(header().string("Location", "http://localhost/api/clients/" + newClientId))
+                    .andExpect(jsonPath("$.id").value(newClientId.toString()))
+                    .andExpect(jsonPath("$.firstName").value("John")); // Value from createValidViewDto mock
+
+            verify(clientService).quickRegister(any(ClientQuickRegistrationDto.class));
+        }
+
+        @Test
+        @DisplayName("Validation Error: Should return 400 when missing required fields")
+        void shouldReturn400_WhenMissingFields() throws Exception {
+            // Arrange
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            ClientQuickRegistrationDto invalidDto = ClientQuickRegistrationDto.builder()
+                    .firstName("Guest")
+                    .lastName("User")
+                    .build();
+
+            // Act and Assert
+            mockMvc.perform(post(BASE_URL + "/quick-register")
+                            .with(user(clerkUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(invalidDto)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.phoneNumber").exists());
+
+            verifyNoInteractions(clientService);
+        }
+
+        @Test
+        @DisplayName("Business Conflict: Should return 409 Conflict when phone number is duplicate")
+        void shouldReturn409_WhenPhoneIsDuplicate() throws Exception {
+            // Arrange
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            ClientQuickRegistrationDto requestDto = ClientQuickRegistrationDto.builder()
+                    .firstName("Guest")
+                    .lastName("User")
+                    .phoneNumber("0888123456")
+                    .build();
+
+            given(clientService.quickRegister(any(ClientQuickRegistrationDto.class)))
+                    .willThrow(new BusinessException(ErrorCode.PHONE_DUPLICATE));
+
+            // Act and Assert
+            mockMvc.perform(post(BASE_URL + "/quick-register")
+                            .with(user(clerkUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestDto)))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.PHONE_DUPLICATE.getCode()));
+
+            verify(clientService).quickRegister(any(ClientQuickRegistrationDto.class));
         }
     }
 }

@@ -1,5 +1,6 @@
 package bg.nbu.cscb532.client;
 
+import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
@@ -49,6 +50,31 @@ public class ClientController {
         log.info("API POST request to register a new client with username: {}", dto.username());
 
         ClientViewDto createdClient = clientService.register(dto);
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/api/clients/{id}")
+                .buildAndExpand(createdClient.id())
+                .toUri();
+
+        return ResponseEntity
+                .created(location)
+                .body(createdClient);
+    }
+
+    @Operation(
+            summary = "Quickly register a walk-in client",
+            description = "Staff endpoint to register a new client with minimal details (name, phone). Auto-generates security credentials. Optional email triggers password reset flow."
+    )
+    @ApiResponse(responseCode = "201", description = "Client registered successfully")
+    @ApiResponse(responseCode = "400", description = "Validation failed")
+    @ApiResponse(responseCode = "409", description = "Conflict - Phone number or email already registered")
+    @PostMapping(value = "/quick-register", consumes = "application/json")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK')")
+    public ResponseEntity<ClientViewDto> quickRegisterClient(@Valid @RequestBody ClientQuickRegistrationDto dto) {
+        log.info("API POST request for quick registration. Phone: {}", dto.phoneNumber());
+
+        ClientViewDto createdClient = clientService.quickRegister(dto);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentContextPath()
