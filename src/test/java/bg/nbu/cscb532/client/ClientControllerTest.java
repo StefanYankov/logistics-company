@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -118,6 +119,19 @@ class ClientControllerTest {
 
             verifyNoInteractions(clientService);
         }
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when Client attempts to search clients")
+        void shouldReturn403WhenClientAttemptsToSearchClients() throws Exception {
+            CustomUserDetails clientUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
+
+            mockMvc.perform(get(BASE_URL + "/search")
+                            .param("term", "Doe")
+                            .with(user(clientUser)))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(clientService);
+        }
     }
 
     @Nested
@@ -165,6 +179,36 @@ class ClientControllerTest {
                     .andExpect(jsonPath("$.content").isEmpty());
 
             verify(clientService).getAllClients(any(Pageable.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/clients/search")
+    class SearchClientsTests {
+
+        @Test
+        @DisplayName("Happy Path: Staff should successfully search clients")
+        void staffShouldSearchClientsSuccessfully() throws Exception {
+            // Arrange
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            ClientViewDto clientDto = createValidViewDto(UUID.randomUUID());
+            Page<ClientViewDto> pagedResponse = new PageImpl<>(List.of(clientDto), PageRequest.of(0, 10), 1);
+            String searchTerm = "John";
+
+            given(clientService.searchClients(eq(searchTerm), any(Pageable.class))).willReturn(pagedResponse);
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/search")
+                            .with(user(clerkUser))
+                            .param("term", searchTerm)
+                            .param("page", "0")
+                            .param("size", "10")
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalElements").value(1))
+                    .andExpect(jsonPath("$.content[0].firstName").value("John"));
+
+            verify(clientService).searchClients(eq(searchTerm), any(Pageable.class));
         }
     }
 

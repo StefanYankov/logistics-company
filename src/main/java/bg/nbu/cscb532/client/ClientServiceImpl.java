@@ -119,6 +119,24 @@ public class ClientServiceImpl implements ClientService {
      * {@inheritDoc}
      */
     @Override
+    @Transactional(readOnly = true)
+    public Page<ClientViewDto> searchClients(String term, Pageable pageable) {
+        log.debug("Searching for clients with term: {}", term);
+
+        Objects.requireNonNull(pageable, Constants.DeveloperErrors.PAGEABLE_NULL);
+
+        if (term == null || term.isBlank()) {
+            return Page.empty(pageable);
+        }
+
+        return clientRepository.searchClients(term.trim(), pageable)
+                .map(this::mapToViewDto);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     @Transactional
     public void verifyEmail(String rawToken) {
         log.debug("Attempting to verify email via token");

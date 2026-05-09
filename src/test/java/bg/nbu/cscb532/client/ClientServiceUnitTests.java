@@ -473,4 +473,63 @@ class ClientServiceUnitTests {
 
         }
     }
+
+    @Nested
+    @DisplayName("searchClients(String, Pageable) Tests")
+    class SearchClientsTests {
+
+        @Test
+        @DisplayName("Happy Path: Should retrieve paginated list of matching clients")
+        void shouldSearchClientsSuccessfully() {
+            // Arrange
+            String term = "Doe";
+            Pageable pageable = PageRequest.of(0, 10);
+            Client mockClient = createMockSavedClient();
+            Page<Client> pagedResponse = new PageImpl<>(List.of(mockClient), pageable, 1);
+
+            given(clientRepository.searchClients(term, pageable)).willReturn(pagedResponse);
+
+            // Act
+            Page<ClientViewDto> result = clientService.searchClients(term, pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isEqualTo(1);
+            assertThat(result.getContent().getFirst().lastName()).isEqualTo("Doe");
+
+            verify(clientRepository).searchClients(term, pageable);
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should trim term and search")
+        void shouldTrimTermAndSearch() {
+            // Arrange
+            String dirtyTerm = "  0888  ";
+            String cleanTerm = "0888";
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<Client> pagedResponse = new PageImpl<>(List.of(createMockSavedClient()), pageable, 1);
+
+            given(clientRepository.searchClients(cleanTerm, pageable)).willReturn(pagedResponse);
+
+            // Act
+            clientService.searchClients(dirtyTerm, pageable);
+
+            // Assert
+            verify(clientRepository).searchClients(cleanTerm, pageable);
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should return empty page if term is null or blank")
+        void shouldReturnEmptyPageIfTermBlank() {
+            // Arrange
+            Pageable pageable = PageRequest.of(0, 10);
+
+            // Act
+            Page<ClientViewDto> result = clientService.searchClients("   ", pageable);
+
+            // Assert
+            assertThat(result.isEmpty()).isTrue();
+            verifyNoInteractions(clientRepository);
+        }
+    }
 }

@@ -40,6 +40,16 @@ public interface ClientService {
     Page<ClientViewDto> getAllClients(Pageable pageable);
 
     /**
+     * Searches for clients based on a partial match (case-insensitive) of their first name,
+     * last name, or phone number. Designed for autocomplete features in the UI.
+     *
+     * @param term     The search string provided by the user.
+     * @param pageable Pagination and sorting constraints.
+     * @return A Page of matching Client view DTOs.
+     */
+    Page<ClientViewDto> searchClients(String term, Pageable pageable);
+
+    /**
      * Initiates the password recovery flow for a Client.
      * Generates a secure, time-bound token and dispatches an email link.
      * Silently ignores requests for non-existent emails or non-client accounts to prevent enumeration.

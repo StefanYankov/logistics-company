@@ -4,6 +4,7 @@ import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -87,6 +88,23 @@ public class ClientController {
         
         Page<ClientViewDto> clients = clientService.getAllClients(pageable);
         
+        return ResponseEntity.ok(clients);
+    }
+
+    @Operation(
+            summary = "Search clients",
+            description = "Searches for clients by partial match on first name, last name, or phone number. Restricted to staff."
+    )
+    @ApiResponse(responseCode = "200", description = "Successful retrieval")
+    @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    public ResponseEntity<Page<ClientViewDto>> searchClients(
+            @Parameter(description = "The search term (name or phone number)") @RequestParam String term,
+            Pageable pageable) {
+        log.info("API GET request to search clients with term: {}", term);
+
+        Page<ClientViewDto> clients = clientService.searchClients(term, pageable);
+
         return ResponseEntity.ok(clients);
     }
 }
