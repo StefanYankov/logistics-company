@@ -161,7 +161,7 @@ class ShipmentRepositoryIntegrationTest {
 
     private void createAndSaveShipmentWithDate(String trackingNumber, Client sender, Client receiver, Courier employee, BigDecimal price, Instant createdAt, City city) {
         UUID newId = UUID.randomUUID();
-        
+        @SuppressWarnings("SqlResolve")
         String nativeQuery = """
             INSERT INTO shipments (
                 id, version, created_at, updated_at,
@@ -366,13 +366,15 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("calculateTotalRevenue: Edge Case: Should return null when no shipments found in window")
         void shouldReturnNullWhenNoRevenueInWindow() {
+            // Arrange
             Instant startDate = Instant.now().minus(10, ChronoUnit.DAYS);
             Instant endDate = Instant.now().minus(9, ChronoUnit.DAYS);
 
-            // DB has shipments, but none in this specific 1-day window
+            // Act
             BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
 
-            // The SQL SUM() function natively returns NULL if no rows are found
+            // Assert
+            // The SQL SUM() function natively returns NULL
             assertThat(revenue).isNull();
         }
         

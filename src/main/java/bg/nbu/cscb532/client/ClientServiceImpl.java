@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -51,6 +52,7 @@ public class ClientServiceImpl implements ClientService {
 
         String normalizedUsername = dto.username().trim();
         String normalizedEmail = dto.email().trim().toLowerCase();
+        String normalizedPhone = dto.phoneNumber().trim();
 
         if (userRepository.findByUsername(normalizedUsername).isPresent()) {
             log.warn("Registration failed. Username [{}] is already taken.", normalizedUsername);
@@ -64,21 +66,48 @@ public class ClientServiceImpl implements ClientService {
 
         String hashedPassword = passwordEncoder.encode(dto.password());
 
-        Client newClient = new Client();
-        newClient.setUsername(normalizedUsername);
-        newClient.setEmail(normalizedEmail);
-        newClient.setPassword(hashedPassword);
-        newClient.setFirstName(dto.firstName().trim());
-        newClient.setLastName(dto.lastName().trim());
-        newClient.setPhoneNumber(dto.phoneNumber().trim());
-        newClient.setApplicationRole(ApplicationRole.CLIENT);
-        newClient.setActive(true);
-        newClient.setEmailVerified(false);
+        // Claim Account Logic
+        // Check if an offline-only account already exists with this phone number
+        Optional<Client> existingClientOpt = clientRepository.findByPhoneNumber(normalizedPhone);
+        
+        Client targetClient;
 
-        Client savedClient = clientRepository.save(newClient);
+        if (existingClientOpt.isPresent()) {
+            Client existing = existingClientOpt.get();
+            // A pure offline account will have a null email and a generated username starting with "walkin_"
+            if (existing.getEmail() == null && existing.getUsername().startsWith("walkin_")) {
+                log.info("Found existing offline account for phone [{}]. Merging (claiming) account.", normalizedPhone);
+                targetClient = existing;
+                // Update the existing offline profile with the new digital credentials
+                targetClient.setUsername(normalizedUsername);
+                targetClient.setEmail(normalizedEmail);
+                targetClient.setPassword(hashedPassword);
+                targetClient.setFirstName(dto.firstName().trim());
+                targetClient.setLastName(dto.lastName().trim());
+                // Phone number is already set
+                targetClient.setEmailVerified(false);
+            } else {
+                // The phone number belongs to someone who already has a digital account or an email
+                log.warn("Registration failed. Phone number [{}] is already fully registered to another account.", normalizedPhone);
+                throw new BusinessException(ErrorCode.PHONE_DUPLICATE);
+            }
+        } else {
+            // Standard flow: create a brand new client
+            targetClient = new Client();
+            targetClient.setUsername(normalizedUsername);
+            targetClient.setEmail(normalizedEmail);
+            targetClient.setPassword(hashedPassword);
+            targetClient.setFirstName(dto.firstName().trim());
+            targetClient.setLastName(dto.lastName().trim());
+            targetClient.setPhoneNumber(normalizedPhone);
+            targetClient.setApplicationRole(ApplicationRole.CLIENT);
+            targetClient.setActive(true);
+            targetClient.setEmailVerified(false);
+        }
+
+        Client savedClient = clientRepository.save(targetClient);
 
         // Security best practice: If the user clicked resend, we invalidate older tokens
-        // Not strictly required on initial registration, but safe if front-end logic allows rapid double-clicks
         verificationTokenRepository.findFirstByUser_IdAndTokenTypeOrderByCreatedAtDesc(
                 savedClient.getId(), TokenType.EMAIL_VERIFICATION
         ).ifPresent(verificationTokenRepository::delete);
@@ -97,7 +126,7 @@ public class ClientServiceImpl implements ClientService {
 
         emailService.sendVerificationEmail(savedClient.getEmail(), rawToken);
 
-        log.info("Client registered in pending state. Verification email sent to: {}", savedClient.getEmail());
+        log.info("Client registered/claimed in pending state. Verification email sent to: {}", savedClient.getEmail());
 
         return mapToViewDto(savedClient);
     }
@@ -116,7 +145,7 @@ public class ClientServiceImpl implements ClientService {
         String normalizedEmail = dto.email() != null && !dto.email().isBlank() ? dto.email().trim().toLowerCase() : null;
 
         // Check if phone number already exists
-        if (clientRepository.searchClients(normalizedPhone, Pageable.unpaged()).getTotalElements() > 0) {
+        if (clientRepository.findByPhoneNumber(normalizedPhone).isPresent()) {
              log.warn("Quick registration failed. Phone number [{}] is already registered.", normalizedPhone);
              throw new BusinessException(ErrorCode.PHONE_DUPLICATE);
         }
@@ -128,12 +157,13 @@ public class ClientServiceImpl implements ClientService {
 
         // Generate system defaults for required fields
         String generatedUsername = "walkin_" + UUID.randomUUID().toString().substring(0, 8);
-        String generatedPassword = UUID.randomUUID().toString(); // Random, secure, unknown password
+        // Generate a random password
+        String generatedPassword = UUID.randomUUID().toString();
         String hashedPassword = passwordEncoder.encode(generatedPassword);
 
         Client newClient = new Client();
         newClient.setUsername(generatedUsername);
-        newClient.setEmail(normalizedEmail); // Might be null
+        newClient.setEmail(normalizedEmail);
         newClient.setPassword(hashedPassword);
         newClient.setFirstName(dto.firstName().trim());
         newClient.setLastName(dto.lastName().trim());
@@ -146,13 +176,13 @@ public class ClientServiceImpl implements ClientService {
 
         log.info("Walk-in client successfully registered with system ID: {}", savedClient.getId());
 
-        // The Twist: If an email was provided during quick registration, initiate the password reset flow
+        // If an email was provided during quick registration, initiate the password reset flow
         // so they can claim their account online.
         if (normalizedEmail != null) {
             log.debug("Email provided during quick registration. Initiating password reset flow to allow account claim.");
             ForgotPasswordRequestDto resetRequest = new ForgotPasswordRequestDto();
             resetRequest.setEmail(normalizedEmail);
-            this.requestPasswordReset(resetRequest); // Reuse existing robust logic
+            this.requestPasswordReset(resetRequest);
         }
 
         return mapToViewDto(savedClient);
@@ -218,7 +248,7 @@ public class ClientServiceImpl implements ClientService {
 
         if (!verificationToken.isValid()) {
             log.warn("Email verification failed: Token has expired for user [{}]", verificationToken.getUser().getUsername());
-            verificationTokenRepository.delete(verificationToken); // Clean up the expired token
+            verificationTokenRepository.delete(verificationToken);
             throw new BusinessException(ErrorCode.EXPIRED_TOKEN);
         }
 
@@ -226,7 +256,7 @@ public class ClientServiceImpl implements ClientService {
         user.setEmailVerified(true);
         userRepository.save(user);
 
-        verificationTokenRepository.delete(verificationToken); // Consume the token (Single-use security)
+        verificationTokenRepository.delete(verificationToken);
 
         log.info("Successfully verified email for user [{}]", user.getUsername());
     }
@@ -245,7 +275,6 @@ public class ClientServiceImpl implements ClientService {
         User user = userRepository.findByEmail(normalizedEmail).orElse(null);
 
         // Security: Prevent User Enumeration. Do not throw an error if the email doesn't exist.
-        // We also explicitly restrict self-service resets to CLIENT roles only.
         if (user == null || user.getApplicationRole() != ApplicationRole.CLIENT) {
             log.warn("Password reset ignored: Email [{}] not found or user is not a Client.", normalizedEmail);
             return; 
@@ -262,7 +291,7 @@ public class ClientServiceImpl implements ClientService {
         VerificationToken resetToken = VerificationToken.builder()
                 .tokenHash(hashedToken)
                 .tokenType(TokenType.PASSWORD_RESET)
-                .expiryDate(Instant.now().plus(Duration.ofHours(1))) // Reset tokens expire much faster than verification
+                .expiryDate(Instant.now().plus(Duration.ofHours(1)))
                 .user(user)
                 .build();
 
@@ -310,7 +339,7 @@ public class ClientServiceImpl implements ClientService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        verificationTokenRepository.delete(tokenEntity); // Burn the token
+        verificationTokenRepository.delete(tokenEntity);
 
         log.info("Successfully reset password for user [{}]", user.getUsername());
     }

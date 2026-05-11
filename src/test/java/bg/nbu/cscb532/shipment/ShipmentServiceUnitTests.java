@@ -468,6 +468,60 @@ class ShipmentServiceUnitTests {
         }
 
         @Test
+        @DisplayName("Happy Path: Should auto-match guest receiver by phone number if client exists")
+        void shouldAutoMatchReceiverByPhoneNumber() {
+            // Arrange
+            UUID senderId = UUID.randomUUID();
+            UUID employeeId = UUID.randomUUID();
+            Long destOfficeId = 10L;
+            String matchingPhone = "0888123456";
+            
+            ShipmentCreationDto dto = ShipmentCreationDto.builder()
+                    .senderId(senderId)
+                    .receiverName("Guest Mom")
+                    .receiverPhone(matchingPhone)
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(2.5))
+                    .paidBy(PaidBy.RECEIVER)
+                    .originOfficeId(5L)
+                    .deliveryOfficeId(destOfficeId)
+                    .build();
+
+            Client sender = createMockClient(senderId, "Sender", "One");
+            
+            UUID matchedReceiverId = UUID.randomUUID();
+            Client matchedReceiver = createMockClient(matchedReceiverId, "Real", "Mom");
+            
+            Courier employee = createMockEmployee(employeeId, "Emp", "Three");
+            Office destOffice = createMockOffice(destOfficeId, createMockCity(1L, "Sofia", "1000"));
+            Office originOffice = createMockOffice(5L, createMockCity(1L, "Sofia", "1000"));
+
+            given(clientRepository.findById(senderId)).willReturn(Optional.of(sender));
+            given(employeeRepository.findById(employeeId)).willReturn(Optional.of(employee));
+            given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
+            given(officeRepository.findById(5L)).willReturn(Optional.of(originOffice));
+            given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
+            given(clientRepository.findByPhoneNumber(matchingPhone)).willReturn(Optional.of(matchedReceiver));
+
+            Shipment savedShipment = createValidShipment();
+            savedShipment.setReceiver(matchedReceiver);
+            savedShipment.setDeliveryOffice(destOffice);
+
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(savedShipment);
+
+            // Act
+            shipmentService.registerShipment(dto, employeeId);
+
+            // Assert
+            verify(shipmentRepository).save(shipmentCaptor.capture());
+            Shipment capturedShipment = shipmentCaptor.getValue();
+
+            assertThat(capturedShipment.getReceiver()).isNotNull();
+            assertThat(capturedShipment.getReceiver().getId()).isEqualTo(matchedReceiverId);
+            assertThat(capturedShipment.getReceiverName()).isNull();
+        }
+
+        @Test
         @DisplayName("Happy Path: Should successfully register a shipment for a Guest Receiver from an Address")
         void shouldRegisterShipmentGuestReceiverFromAddress() {
             // Arrange
@@ -499,6 +553,7 @@ class ShipmentServiceUnitTests {
             given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
             given(cityRepository.findById(cityId)).willReturn(Optional.of(city));
             given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
+            given(clientRepository.findByPhoneNumber("0888123456")).willReturn(Optional.empty());
 
             Shipment savedShipment = createValidShipment();
             savedShipment.setReceiver(null);

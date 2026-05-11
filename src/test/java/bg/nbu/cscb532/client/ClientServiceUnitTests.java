@@ -105,6 +105,7 @@ class ClientServiceUnitTests {
 
             given(userRepository.findByUsername(dto.username())).willReturn(Optional.empty());
             given(userRepository.findByEmail(dto.email())).willReturn(Optional.empty());
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
             given(passwordEncoder.encode(dto.password())).willReturn("hashedPassword123");
             given(clientRepository.save(any(Client.class))).willReturn(savedClient);
 
@@ -138,6 +139,39 @@ class ClientServiceUnitTests {
 
             verify(userRepository).findByUsername(dto.username());
             verify(userRepository).findByEmail(dto.email());
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should merge with offline account when registering with existing phone")
+        void shouldMergeWithOfflineAccountWhenRegisteringWithExistingPhone() {
+            // Arrange
+            ClientRegistrationDto onlineDto = createValidRegistrationDto();
+            
+            Client offlineGrandma = new Client();
+            offlineGrandma.setId(UUID.randomUUID());
+            offlineGrandma.setPhoneNumber(onlineDto.phoneNumber());
+            offlineGrandma.setUsername("walkin_123");
+            offlineGrandma.setEmail(null);
+            offlineGrandma.setFirstName("Grandma");
+            
+            given(userRepository.findByUsername(onlineDto.username())).willReturn(Optional.empty());
+            given(userRepository.findByEmail(onlineDto.email())).willReturn(Optional.empty());
+            given(clientRepository.findByPhoneNumber(onlineDto.phoneNumber())).willReturn(Optional.of(offlineGrandma));
+            given(passwordEncoder.encode(onlineDto.password())).willReturn("newHashedPassword");
+            given(clientRepository.save(any(Client.class))).willReturn(offlineGrandma);
+
+            // Act
+            clientService.register(onlineDto);
+
+            // Assert
+            verify(clientRepository).save(clientCaptor.capture());
+            Client mergedClient = clientCaptor.getValue();
+
+            assertThat(mergedClient.getId()).isEqualTo(offlineGrandma.getId());
+            assertThat(mergedClient.getUsername()).isEqualTo(onlineDto.username());
+            assertThat(mergedClient.getEmail()).isEqualTo(onlineDto.email());
+            assertThat(mergedClient.getPassword()).isEqualTo("newHashedPassword");
+            assertThat(mergedClient.getFirstName()).isEqualTo(onlineDto.firstName());
         }
 
         @Test
@@ -205,6 +239,7 @@ class ClientServiceUnitTests {
 
             given(userRepository.findByUsername("spacedUser")).willReturn(Optional.empty());
             given(userRepository.findByEmail("upper@example.com")).willReturn(Optional.empty());
+            given(clientRepository.findByPhoneNumber("0888123456")).willReturn(Optional.empty());
             given(passwordEncoder.encode(anyString())).willReturn("hash");
             given(clientRepository.save(any(Client.class))).willReturn(savedClient);
 
@@ -242,8 +277,7 @@ class ClientServiceUnitTests {
             savedClient.setId(UUID.randomUUID());
             savedClient.setPhoneNumber(dto.phoneNumber());
             
-            Page<Client> emptyPage = new PageImpl<>(List.of());
-            given(clientRepository.searchClients(dto.phoneNumber(), Pageable.unpaged())).willReturn(emptyPage);
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
             
             given(passwordEncoder.encode(anyString())).willReturn("hashed-auto-password");
             given(clientRepository.save(any(Client.class))).willReturn(savedClient);
@@ -283,12 +317,12 @@ class ClientServiceUnitTests {
             savedClient.setEmail(dto.email());
             savedClient.setApplicationRole(ApplicationRole.CLIENT);
             
-            Page<Client> emptyPage = new PageImpl<>(List.of());
-            given(clientRepository.searchClients(dto.phoneNumber(), Pageable.unpaged())).willReturn(emptyPage);
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
             
             given(userRepository.findByEmail(dto.email())).willReturn(Optional.empty());
             given(passwordEncoder.encode(anyString())).willReturn("hash");
             given(clientRepository.save(any(Client.class))).willReturn(savedClient);
+            
             reset(userRepository);
             when(userRepository.findByEmail(dto.email()))
                 .thenReturn(Optional.empty())
@@ -315,8 +349,7 @@ class ClientServiceUnitTests {
                     .phoneNumber("0888111222")
                     .build();
                     
-            Page<Client> existingPage = new PageImpl<>(List.of(new Client()));
-            given(clientRepository.searchClients(dto.phoneNumber(), Pageable.unpaged())).willReturn(existingPage);
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.of(new Client()));
 
             // Act and Assert
             assertThatThrownBy(() -> clientService.quickRegister(dto))
@@ -339,8 +372,7 @@ class ClientServiceUnitTests {
                     .email("existing@test.com")
                     .build();
                     
-            Page<Client> emptyPage = new PageImpl<>(List.of());
-            given(clientRepository.searchClients(dto.phoneNumber(), Pageable.unpaged())).willReturn(emptyPage);
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
             given(userRepository.findByEmail(dto.email())).willReturn(Optional.of(new Client()));
 
             // Act and Assert

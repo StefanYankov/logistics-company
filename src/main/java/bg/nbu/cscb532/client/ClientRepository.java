@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -17,6 +18,12 @@ import java.util.UUID;
  */
 @Repository
 public interface ClientRepository extends JpaRepository<Client, UUID> {
+
+    /**
+     * Finds a client by their exact phone number.
+     * Used for auto-matching receivers and preventing duplicate registrations.
+     */
+    Optional<Client> findByPhoneNumber(String phoneNumber);
 
     /**
      * Searches for clients based on a partial match (case-insensitive) of their first name,

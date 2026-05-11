@@ -380,7 +380,7 @@ class ClientControllerTest {
                     .andExpect(status().isCreated())
                     .andExpect(header().string("Location", "http://localhost/api/clients/" + newClientId))
                     .andExpect(jsonPath("$.id").value(newClientId.toString()))
-                    .andExpect(jsonPath("$.firstName").value("John")); // Value from createValidViewDto mock
+                    .andExpect(jsonPath("$.firstName").value("John"));
 
             verify(clientService).quickRegister(any(ClientQuickRegistrationDto.class));
         }
@@ -406,6 +406,30 @@ class ClientControllerTest {
             verifyNoInteractions(clientService);
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"invalid-email", "plainAddress", "@no-local-part.com"})
+        @DisplayName("Validation Error: Should return 400 when optional email is malformed")
+        void shouldReturn400_WhenOptionalEmailIsMalformed(String invalidEmail) throws Exception {
+            // Arrange
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            ClientQuickRegistrationDto invalidDto = ClientQuickRegistrationDto.builder()
+                    .firstName("Guest")
+                    .lastName("User")
+                    .phoneNumber("0888123456")
+                    .email(invalidEmail)
+                    .build();
+
+            // Act and Assert
+            mockMvc.perform(post(BASE_URL + "/quick-register")
+                            .with(user(clerkUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(invalidDto)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.email").exists());
+
+            verifyNoInteractions(clientService);
+        }
+
         @Test
         @DisplayName("Business Conflict: Should return 409 Conflict when phone number is duplicate")
         void shouldReturn409_WhenPhoneIsDuplicate() throws Exception {
@@ -427,6 +451,32 @@ class ClientControllerTest {
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.errorCode").value(ErrorCode.PHONE_DUPLICATE.getCode()));
+
+            verify(clientService).quickRegister(any(ClientQuickRegistrationDto.class));
+        }
+
+        @Test
+        @DisplayName("Business Conflict: Should return 409 Conflict when optional email is duplicate")
+        void shouldReturn409_WhenEmailIsDuplicate() throws Exception {
+            // Arrange
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            ClientQuickRegistrationDto requestDto = ClientQuickRegistrationDto.builder()
+                    .firstName("Guest")
+                    .lastName("User")
+                    .phoneNumber("0888123456")
+                    .email("existing@test.com")
+                    .build();
+
+            given(clientService.quickRegister(any(ClientQuickRegistrationDto.class)))
+                    .willThrow(new BusinessException(ErrorCode.EMAIL_DUPLICATE));
+
+            // Act and Assert
+            mockMvc.perform(post(BASE_URL + "/quick-register")
+                            .with(user(clerkUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestDto)))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.EMAIL_DUPLICATE.getCode()));
 
             verify(clientService).quickRegister(any(ClientQuickRegistrationDto.class));
         }

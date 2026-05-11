@@ -32,6 +32,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -77,11 +78,14 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (hasReceiverId) {
             receiver = clientRepository.findById(request.receiverId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        } else {
+            // Auto-Match Receivers
+            Optional<Client> matchedClientOpt = clientRepository.findByPhoneNumber(request.receiverPhone().trim());
+            if (matchedClientOpt.isPresent()) {
+                receiver = matchedClientOpt.get();
+                log.info("Auto-matched guest receiver phone [{}] to existing client ID: {}", request.receiverPhone(), receiver.getId());
+            }
         }
-
-        // TODO: once the user is registered map by mobile phone maybe or whatever would be a good reason.
-        // For example, if a guest receiver later registers an account with the same phone number,
-        // run a batch job to link their old guest shipments to their new client ID.
 
         Employee registeredBy = employeeRepository.findById(registeredById)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
@@ -91,7 +95,6 @@ public class ShipmentServiceImpl implements ShipmentService {
         boolean hasOriginAddress = request.originAddress() != null;
 
         if (hasOriginOfficeId == hasOriginAddress) {
-            // Re-using the same error code conceptually, though a new one could be created
             throw new BusinessException(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
         }
 
@@ -138,16 +141,16 @@ public class ShipmentServiceImpl implements ShipmentService {
         ShipmentFinancials financials = ShipmentFinancials.builder()
                 .totalPrice(totalPrice)
                 .paidBy(request.paidBy())
-                .isPaid(false) // Default to unpaid upon registration
+                .isPaid(false)
                 .build();
 
         Shipment shipment = Shipment.builder()
                 .trackingNumber(trackingNumber)
                 .sender(sender)
                 .receiver(receiver)
-                .receiverName(request.receiverName())
-                .receiverPhone(request.receiverPhone())
-                .receiverEmail(request.receiverEmail())
+                .receiverName(receiver == null ? request.receiverName() : null)
+                .receiverPhone(receiver == null ? request.receiverPhone() : null)
+                .receiverEmail(receiver == null ? request.receiverEmail() : null)
                 .registeredBy(registeredBy)
                 .packageDetails(packageDetails)
                 .financials(financials)
@@ -197,12 +200,11 @@ public class ShipmentServiceImpl implements ShipmentService {
                 shipment.setDeliveredBy((Courier) employee);
             }
             
-            // If out for delivery, set the current courier
             if (request.newStatus() == ShipmentStatus.OUT_FOR_DELIVERY) {
                  Employee employee = employeeRepository.findById(userDetails.getId())
                         .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
                  shipment.setCurrentCourier((Courier) employee);
-                 shipment.setCurrentOffice(null); // It's no longer at an office
+                 shipment.setCurrentOffice(null);
             }
         }
 
@@ -211,7 +213,6 @@ public class ShipmentServiceImpl implements ShipmentService {
             locationOffice = officeRepository.findById(request.locationOfficeId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
                     
-            // Update current location if provided
             if (request.newStatus() == ShipmentStatus.AT_DELIVERY_OFFICE || request.newStatus() == ShipmentStatus.IN_TRANSIT) {
                 shipment.setCurrentOffice(locationOffice);
                 shipment.setCurrentCourier(null);
