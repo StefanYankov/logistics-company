@@ -67,9 +67,8 @@ describe('Register', () => {
     const req = httpMock.expectOne('/api/clients/register');
     expect(req.request.method).toBe('POST');
 
-    // Explicitly create a Blob that looks like JSON to satisfy the generated client's fallback responseType.
-    const mockResponse = new Blob([JSON.stringify({ id: 'some-uuid' })], { type: 'application/json' });
-    req.flush(mockResponse);
+    // Return a standard JS object. The generator's default config handles JSON properly in recent versions.
+    req.flush({ id: 'some-uuid' });
 
     expect(component.isSuccess).toBe(true);
     expect(component.isLoading).toBe(false);

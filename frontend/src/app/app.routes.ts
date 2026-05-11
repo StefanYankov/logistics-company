@@ -6,8 +6,9 @@ import { Register } from './features/auth/register/register';
 import { Tracking } from './features/public/tracking/tracking';
 import { AuthenticatedLayout } from './layouts/authenticated-layout/authenticated-layout';
 import { Dashboard } from './features/dashboard/dashboard';
-import { RegisterShipment } from './features/shepments/register-shipment/register-shipment';
-import { ShipmentList } from './features/shepments/shipment-list/shipment-list';
+import { ClientRegistration } from './features/shipments/client-registration/client-registration';
+import { ClerkRegistration } from './features/shipments/clerk-registration/clerk-registration';
+import { ShipmentList } from './features/shipments/shipment-list/shipment-list';
 import { authGuard } from './shared/auth.guard';
 
 export const routes: Routes = [
@@ -30,7 +31,8 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', component: Dashboard },
-      { path: 'register-shipment', component: RegisterShipment },
+      { path: 'send-package', component: ClientRegistration },
+      { path: 'register-shipment', component: ClerkRegistration },
       { path: 'shipments', component: ShipmentList }
     ]
   },

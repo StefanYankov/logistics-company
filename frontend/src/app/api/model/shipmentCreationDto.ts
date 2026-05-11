@@ -12,7 +12,12 @@ import { AddressDetailsDto } from './addressDetailsDto';
 
 export interface ShipmentCreationDto { 
     senderId: string;
-    receiverId: string;
+    receiverId?: string;
+    receiverName?: string;
+    receiverPhone?: string;
+    receiverEmail?: string;
+    originOfficeId?: number;
+    originAddress?: AddressDetailsDto;
     type: ShipmentCreationDto.TypeEnum;
     weight: number;
     length?: number;
@@ -20,6 +25,7 @@ export interface ShipmentCreationDto {
     height?: number;
     deliveryOfficeId?: number;
     deliveryAddress?: AddressDetailsDto;
+    paidBy: ShipmentCreationDto.PaidByEnum;
 }
 export namespace ShipmentCreationDto {
     export const TypeEnum = {
@@ -29,6 +35,11 @@ export namespace ShipmentCreationDto {
         Oversized: 'OVERSIZED'
     } as const;
     export type TypeEnum = typeof TypeEnum[keyof typeof TypeEnum];
+    export const PaidByEnum = {
+        Sender: 'SENDER',
+        Receiver: 'RECEIVER'
+    } as const;
+    export type PaidByEnum = typeof PaidByEnum[keyof typeof PaidByEnum];
 }
 
 

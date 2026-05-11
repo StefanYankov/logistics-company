@@ -1,0 +1,246 @@
+.registration-container {
+  max-width: 800px;
+  margin: 0 auto;
+  background-color: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.header h2 {
+  color: #343a40;
+  margin: 0 0 0.5rem 0;
+}
+
+.header p {
+  color: #6c757d;
+  margin: 0;
+}
+
+.form-section {
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  background-color: #fafafa;
+}
+
+.form-section legend {
+  font-weight: bold;
+  color: #495057;
+  background-color: white;
+  padding: 0 0.5rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+}
+
+.toggle-group {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: #0d6efd;
+  cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+  width: auto;
+  margin-right: 0.5rem;
+  cursor: pointer;
+}
+
+.section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.full-width { flex: 1 0 100%; }
+.half-width { flex: 1 1 calc(50% - 0.75rem); }
+.third-width { flex: 1 1 calc(33.33% - 1rem); }
+.quarter-width { flex: 1 1 calc(25% - 1.125rem); }
+
+.guest-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.address-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+input, select {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.error {
+  color: #dc3545;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.server-error {
+  background-color: #f8d7da;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  font-weight: bold;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.btn-submit, .btn-cancel {
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-submit {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.btn-submit:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.btn-cancel:hover {
+  background-color: #ced4da;
+}
+
+/* Autocomplete Specific Styles */
+.search-container {
+  position: relative;
+  width: 100%;
+}
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ced4da;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.autocomplete-dropdown li {
+  padding: 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f8f9fa;
+}
+
+.autocomplete-dropdown li:hover {
+  background-color: #e9ecef;
+}
+
+.search-indicator {
+  position: absolute;
+  right: 1rem;
+  top: 2.2rem;
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.search-no-results {
+  padding: 0.75rem;
+  color: #dc3545;
+  background-color: #f8d7da;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.selected-sender {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #e8f4f8;
+  border: 1px solid #b8daff;
+  border-radius: 4px;
+}
+
+.selected-name {
+  font-weight: bold;
+  color: #004085;
+}
+
+.btn-clear {
+  background: none;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: bold;
+}

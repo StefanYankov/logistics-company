@@ -9,9 +9,10 @@
  */
 
 
-export interface SortObject { 
-    empty?: boolean;
-    unsorted?: boolean;
-    sorted?: boolean;
+export interface ClientQuickRegistrationDto { 
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    email?: string;
 }
 

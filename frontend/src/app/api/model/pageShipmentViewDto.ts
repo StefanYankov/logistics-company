@@ -13,16 +13,16 @@ import { ShipmentViewDto } from './shipmentViewDto';
 
 
 export interface PageShipmentViewDto { 
-    totalPages?: number;
     totalElements?: number;
+    totalPages?: number;
     size?: number;
     content?: Array<ShipmentViewDto>;
     number?: number;
     first?: boolean;
     last?: boolean;
+    pageable?: PageableObject;
     numberOfElements?: number;
     sort?: SortObject;
-    pageable?: PageableObject;
     empty?: boolean;
 }
 
