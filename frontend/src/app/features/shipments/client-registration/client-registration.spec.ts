@@ -16,7 +16,7 @@ describe('ClientRegistration', () => {
   let mockAuthService: any;
 
   beforeEach(async () => {
-    mockClientApi = { getAllClients: vi.fn() };
+    mockClientApi = { getMyProfile: vi.fn() };
     mockOfficeApi = { getAllOffices: vi.fn() };
     mockCityApi = { getAllCities: vi.fn() };
     mockShipmentApi = { registerShipment: vi.fn() };
@@ -39,7 +39,7 @@ describe('ClientRegistration', () => {
   });
 
   it('should initialize and load dropdowns', async () => {
-    mockClientApi.getAllClients.mockReturnValue(of({ content: [] }));
+    mockClientApi.getMyProfile.mockReturnValue(of({ firstName: 'John', lastName: 'Doe', phoneNumber: '123' }));
     mockOfficeApi.getAllOffices.mockReturnValue(of({ content: [] }));
     mockCityApi.getAllCities.mockReturnValue(of({ content: [] }));
 
@@ -53,7 +53,7 @@ describe('ClientRegistration', () => {
   });
 
   it('should toggle origin validation correctly', async () => {
-    mockClientApi.getAllClients.mockReturnValue(of({ content: [] }));
+    mockClientApi.getMyProfile.mockReturnValue(of({ firstName: 'John', lastName: 'Doe', phoneNumber: '123' }));
     mockOfficeApi.getAllOffices.mockReturnValue(of({ content: [] }));
     mockCityApi.getAllCities.mockReturnValue(of({ content: [] }));
 
@@ -71,7 +71,7 @@ describe('ClientRegistration', () => {
   });
 
   it('should require receiver name and valid phone number', async () => {
-    mockClientApi.getAllClients.mockReturnValue(of({ content: [] }));
+    mockClientApi.getMyProfile.mockReturnValue(of({ firstName: 'John', lastName: 'Doe', phoneNumber: '123' }));
     mockOfficeApi.getAllOffices.mockReturnValue(of({ content: [] }));
     mockCityApi.getAllCities.mockReturnValue(of({ content: [] }));
 
