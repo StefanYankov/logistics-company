@@ -155,15 +155,30 @@
             <div class="form-group full-width">
               <label for="deliveryCityFilter">Select City</label>
               <!-- TODO: Add city filter here for cascading dropdown -->
-            </div>
-            <div class="form-group full-width">
-              <label for="deliveryOfficeId">Select Office</label>
-              <select id="deliveryOfficeId" formControlName="deliveryOfficeId">
-                <option [ngValue]="null" disabled selected>Choose destination office...</option>
-                @for (office of offices(); track office.id) {
-                  <option [value]="office.id">{{ office.cityName }} - {{ office.fullAddress }}</option>
+              <div class="form-group full-width">
+                <label for="deliveryCityFilterId">Filter by City (Optional)</label>
+                <select id="deliveryCityFilterId" formControlName="deliveryCityFilterId">
+                  <option [ngValue]="null">-- Show All Cities --</option>
+                  @for (city of cities(); track city.id) {
+                    <option [value]="city.id">{{ city.name }} ({{ city.postcode }})</option>
+                  }
+                </select>
+              </div>
+              <div class="form-group full-width">
+                <label for="deliveryOfficeId">Select Office</label>
+                <select id="deliveryOfficeId" formControlName="deliveryOfficeId">
+                  <option [ngValue]="null" disabled selected>Choose destination office...</option>
+                  @for (office of filteredDeliveryOffices(); track office.id) {
+                    <option [value]="office.id">{{ office.cityName }} - {{ office.fullAddress }}</option>
+                  }
+                </select>
+                @if (registerForm.get('deliveryOfficeId')?.invalid && registerForm.get('deliveryOfficeId')?.touched) {
+                  <div class="error">Destination office is required.</div>
                 }
-              </select>
+                @if (filteredDeliveryOffices().length === 0 && registerForm.get('deliveryCityFilterId')?.value) {
+                  <div class="error">No offices found in this city.</div>
+                }
+              </div>
               @if (registerForm.get('deliveryOfficeId')?.invalid && registerForm.get('deliveryOfficeId')?.touched) {
                 <div class="error">Destination office is required.</div>
               }

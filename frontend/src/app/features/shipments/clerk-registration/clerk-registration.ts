@@ -35,8 +35,12 @@ export class ClerkRegistration implements OnInit {
   isQuickRegistering = signal(false);
   quickRegisterError = signal<string | null>(null);
 
-  offices = signal<OfficeViewDto[]>([]);
+  // Source of truth
+  allOffices: OfficeViewDto[] = [];
   cities = signal<CityViewDto[]>([]);
+
+  // Filtered lists for the UI
+  filteredDeliveryOffices = signal<OfficeViewDto[]>([]);
 
   shipmentTypes = Object.values(ShipmentCreationDto.TypeEnum);
   paidByOptions = Object.values(ShipmentCreationDto.PaidByEnum);
@@ -50,15 +54,14 @@ export class ClerkRegistration implements OnInit {
     senderId: ['', Validators.required],
     selectedSenderDisplay: [''], // Just for showing the selected name
 
-    // Receiver Configuration
-    receiverType: ['REGISTERED', Validators.required],
-    receiverId: [''],
-    receiverName: [''],
-    receiverPhone: [''],
-    receiverEmail: [''],
+    // Receiver Configuration (Simplified to just guest inputs, auto-matched by backend)
+    receiverName: ['', Validators.required],
+    receiverPhone: ['', [Validators.required, Validators.pattern(/^\+?[0-9]{8,15}$/)]],
+    receiverEmail: ['', Validators.email],
 
     // Destination Configuration
     destinationType: ['OFFICE', Validators.required],
+    deliveryCityFilterId: [null as number | null],
     deliveryOfficeId: [null as number | null],
     deliveryCityId: [null as number | null],
     deliveryStreet: [''],
@@ -84,6 +87,7 @@ export class ClerkRegistration implements OnInit {
 
   ngOnInit() {
     this.setupDynamicValidations();
+    this.setupCascadingDropdowns();
     this.setupSenderAutocomplete();
 
     // Production-grade microtask deferral
@@ -91,34 +95,37 @@ export class ClerkRegistration implements OnInit {
   }
 
   private setupSenderAutocomplete() {
-    this.registerForm.get('senderSearchTerm')?.valueChanges.pipe(
-      debounceTime(300),
-      distinctUntilChanged(),
-      tap(() => {
-          this.isSearchingSender.set(true);
-          this.showQuickRegister.set(false); // Hide quick register if they start typing again
+    const senderSearchTermCtrl = this.registerForm.get('senderSearchTerm');
+    if (senderSearchTermCtrl) {
+      senderSearchTermCtrl.valueChanges.pipe(
+        debounceTime(500), // Increased debounce
+        distinctUntilChanged(),
+        tap(() => {
+            this.isSearchingSender.set(true);
+            this.showQuickRegister.set(false); // Hide quick register if they start typing again
 
-          // Clear senderId to enforce re-selection
-          this.registerForm.get('senderId')?.setValue('', { emitEvent: false });
-          this.registerForm.get('senderId')?.markAsTouched();
-          this.registerForm.get('senderId')?.updateValueAndValidity({ emitEvent: false });
-      }),
-      switchMap(term => {
-        if (!term || term.length < 2) {
-          this.senderSearchResults.set([]);
-          this.isSearchingSender.set(false);
-          return of(null);
+            // Clear senderId to enforce re-selection
+            this.registerForm.get('senderId')?.setValue('', { emitEvent: false });
+            this.registerForm.get('senderId')?.markAsTouched();
+            this.registerForm.get('senderId')?.updateValueAndValidity({ emitEvent: false });
+        }),
+        switchMap(term => {
+          if (!term || term.length < 3) { // Increased min length
+            this.senderSearchResults.set([]);
+            this.isSearchingSender.set(false);
+            return of(null);
+          }
+          return this.clientApi.searchClients(term, { page: 0, size: 10 }).pipe(
+            catchError(() => of({ content: [] }))
+          );
+        })
+      ).subscribe(result => {
+        this.isSearchingSender.set(false);
+        if (result && result.content) {
+          this.senderSearchResults.set(result.content);
         }
-        return this.clientApi.searchClients(term, { page: 0, size: 10 }).pipe(
-          catchError(() => of({ content: [] }))
-        );
-      })
-    ).subscribe(result => {
-      this.isSearchingSender.set(false);
-      if (result && result.content) {
-        this.senderSearchResults.set(result.content);
-      }
-    });
+      });
+    }
   }
 
   selectSender(client: ClientViewDto) {
@@ -190,44 +197,37 @@ export class ClerkRegistration implements OnInit {
       }
   }
 
-  private setupDynamicValidations() {
-    // Receiver Validation
-    const receiverTypeCtrl = this.registerForm.get('receiverType');
-    receiverTypeCtrl?.valueChanges.pipe(startWith(receiverTypeCtrl.value)).subscribe(type => {
-      this.syncReceiverValidators(type);
-    });
+  private setupCascadingDropdowns() {
+    // Watch Delivery City Filter
+    this.registerForm.get('deliveryCityFilterId')?.valueChanges.subscribe(cityId => {
+      // Reset the selected office when the city changes
+      this.registerForm.get('deliveryOfficeId')?.setValue(null, { emitEvent: false });
 
-    // Destination Validation
-    const destTypeCtrl = this.registerForm.get('destinationType');
-    destTypeCtrl?.valueChanges.pipe(startWith(destTypeCtrl.value)).subscribe(type => {
-      this.syncDestinationValidators(type);
+      if (!cityId) {
+        this.filteredDeliveryOffices.set(this.allOffices);
+        return;
+      }
+
+      const filtered = this.allOffices.filter(o => o.cityName === this.cities().find(c => c.id == cityId)?.name);
+      this.filteredDeliveryOffices.set(filtered);
     });
   }
 
-  private syncReceiverValidators(type: string | null) {
-    const idCtrl = this.registerForm.get('receiverId');
-    const nameCtrl = this.registerForm.get('receiverName');
-    const phoneCtrl = this.registerForm.get('receiverPhone');
-
-    if (type === 'REGISTERED') {
-      idCtrl?.setValidators([Validators.required]);
-      nameCtrl?.clearValidators();
-      phoneCtrl?.clearValidators();
-      nameCtrl?.setValue('', { emitEvent: false });
-      phoneCtrl?.setValue('', { emitEvent: false });
-    } else {
-      idCtrl?.clearValidators();
-      nameCtrl?.setValidators([Validators.required]);
-      phoneCtrl?.setValidators([Validators.required]);
-      idCtrl?.setValue('', { emitEvent: false });
+  private setupDynamicValidations() {
+    // Destination Validation
+    const destTypeCtrl = this.registerForm.get('destinationType');
+    if (destTypeCtrl) {
+      destTypeCtrl.valueChanges.pipe(startWith(destTypeCtrl.value)).subscribe(type => {
+        this.syncDestinationValidators(type);
+      });
     }
-    [idCtrl, nameCtrl, phoneCtrl].forEach(c => c?.updateValueAndValidity({ emitEvent: false }));
   }
 
   private syncDestinationValidators(type: string | null) {
     const officeCtrl = this.registerForm.get('deliveryOfficeId');
     const cityCtrl = this.registerForm.get('deliveryCityId');
     const streetCtrl = this.registerForm.get('deliveryStreet');
+    const cityFilterCtrl = this.registerForm.get('deliveryCityFilterId');
 
     if (type === 'OFFICE') {
       officeCtrl?.setValidators([Validators.required]);
@@ -235,13 +235,15 @@ export class ClerkRegistration implements OnInit {
       streetCtrl?.clearValidators();
       cityCtrl?.setValue(null, { emitEvent: false });
       streetCtrl?.setValue('', { emitEvent: false });
+      cityFilterCtrl?.clearValidators(); // Clear validators for filter
     } else {
       officeCtrl?.clearValidators();
       cityCtrl?.setValidators([Validators.required]);
       streetCtrl?.setValidators([Validators.required]);
       officeCtrl?.setValue(null, { emitEvent: false });
+      cityFilterCtrl?.setValue(null, { emitEvent: false }); // Clear filter value
     }
-    [officeCtrl, cityCtrl, streetCtrl].forEach(c => c?.updateValueAndValidity({ emitEvent: false }));
+    [officeCtrl, cityCtrl, streetCtrl, cityFilterCtrl].forEach(c => c?.updateValueAndValidity({ emitEvent: false }));
   }
 
   private loadDropdownData() {
@@ -259,7 +261,9 @@ export class ClerkRegistration implements OnInit {
       })
     ).subscribe(result => {
       if (result) {
-        this.offices.set(result.officesRes.content || []);
+        this.allOffices = result.officesRes.content || [];
+        this.filteredDeliveryOffices.set(this.allOffices);
+
         this.cities.set(result.citiesRes.content || []);
         this.isLoadingLookups.set(false);
       }
@@ -276,20 +280,14 @@ export class ClerkRegistration implements OnInit {
         senderId: v.senderId!,
         type: v.type as ShipmentCreationDto.TypeEnum,
         weight: v.weight!,
-        paidBy: v.paidBy as ShipmentCreationDto.PaidByEnum
+        paidBy: v.paidBy as ShipmentCreationDto.PaidByEnum,
+        receiverName: v.receiverName!,
+        receiverPhone: v.receiverPhone!,
+        receiverEmail: v.receiverEmail || undefined
       };
 
       // We explicitly lock Origin to the Clerk's current office
       payload.originOfficeId = this.originOfficeId;
-
-      // Receiver
-      if (v.receiverType === 'REGISTERED') {
-        payload.receiverId = v.receiverId!;
-      } else {
-        payload.receiverName = v.receiverName!;
-        payload.receiverPhone = v.receiverPhone!;
-        if (v.receiverEmail) payload.receiverEmail = v.receiverEmail;
-      }
 
       // Destination - Omit the opposite to pass backend XOR validation
       if (v.destinationType === 'OFFICE') {

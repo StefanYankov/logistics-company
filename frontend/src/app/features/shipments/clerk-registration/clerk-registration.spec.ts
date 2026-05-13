@@ -63,8 +63,8 @@ describe('ClerkRegistration', () => {
     // Simulate user typing
     component.registerForm.patchValue({ senderSearchTerm: 'John' });
 
-    // Wait for the 300ms debounceTime to pass
-    await new Promise(resolve => setTimeout(resolve, 350));
+    // Wait for the 500ms debounceTime to pass
+    await new Promise(resolve => setTimeout(resolve, 550));
     fixture.detectChanges(); // Tell Angular to redraw the HTML now that the Signals have updated!
 
     expect(mockClientApi.searchClients).toHaveBeenCalledWith('John', { page: 0, size: 10 });
