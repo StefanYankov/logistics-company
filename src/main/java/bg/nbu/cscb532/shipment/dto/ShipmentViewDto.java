@@ -7,6 +7,7 @@ import lombok.Builder;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -60,6 +61,9 @@ public record ShipmentViewDto(
 
         // Employee summary
         UUID registeredById,
-        String registeredByName
+        String registeredByName,
+        
+        // Addons
+        List<String> appliedAddons
 ) {
 }

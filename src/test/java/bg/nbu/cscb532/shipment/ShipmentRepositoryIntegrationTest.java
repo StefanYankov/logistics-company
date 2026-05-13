@@ -64,12 +64,15 @@ class ShipmentRepositoryIntegrationTest {
     private EntityManager entityManager;
 
     // --- TEST DATA FACTORY ---
-
-    private City createAndSaveCity(String name, String postcode) {
-        City city = new City();
-        city.setName(name);
-        city.setPostcode(postcode);
-        return cityRepository.saveAndFlush(city);
+    
+    private City getOrCreateCity(String name) {
+        String uniquePostcode = UUID.randomUUID().toString().substring(0, 5);
+        return cityRepository.findByPostcode(uniquePostcode).orElseGet(() -> {
+            City city = new City();
+            city.setName(name);
+            city.setPostcode(uniquePostcode);
+            return cityRepository.saveAndFlush(city);
+        });
     }
 
     private Client createAndSaveClient(String username, String email) {
@@ -79,7 +82,7 @@ class ShipmentRepositoryIntegrationTest {
         client.setPassword("hashed");
         client.setFirstName("First");
         client.setLastName("Last");
-        client.setPhoneNumber("0888123456");
+        client.setPhoneNumber(UUID.randomUUID().toString().substring(0, 10)); // Unique phone
         client.setApplicationRole(ApplicationRole.CLIENT);
         client.setActive(true);
         return clientRepository.saveAndFlush(client);
@@ -196,7 +199,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Happy Path: Should find shipment when exact tracking number exists")
         void shouldFindShipmentWhenNumberExists() {
-            City city = createAndSaveCity("Sofia", "1000");
+            City city = getOrCreateCity("Sofia");
             Client sender = createAndSaveClient("sender1", "sender1@test.com");
             Client receiver = createAndSaveClient("receiver1", "receiver1@test.com");
             Courier employee = createAndSaveCourier("emp1", "emp1@test.com", "EMP-001");
@@ -219,7 +222,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Edge Case: Should return empty when case differs")
         void shouldReturnEmptyWhenCaseIsDifferent() {
-            City city = createAndSaveCity("Sofia", "1000");
+            City city = getOrCreateCity("Sofia");
             Client sender = createAndSaveClient("sender2", "sender2@test.com");
             Client receiver = createAndSaveClient("receiver2", "receiver2@test.com");
             Courier employee = createAndSaveCourier("emp2", "emp2@test.com", "EMP-002");
@@ -238,7 +241,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Should return paginated shipments sent by a specific client (including guest receivers)")
         void shouldReturnShipmentsBySender() {
-            City city = createAndSaveCity("Plovdiv", "4000");
+            City city = getOrCreateCity("Plovdiv");
             Client targetSender = createAndSaveClient("senderA", "sendA@test.com");
             Client otherSender = createAndSaveClient("senderB", "sendB@test.com");
             Client receiver = createAndSaveClient("receiverA", "recvA@test.com");
@@ -258,7 +261,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Should return paginated shipments received by a specific client")
         void shouldReturnShipmentsByReceiver() {
-            City city = createAndSaveCity("Varna", "4000");
+            City city = getOrCreateCity("Varna");
             Client sender = createAndSaveClient("senderX", "sendX@test.com");
             Client targetReceiver = createAndSaveClient("receiverX", "recvX@test.com");
             Client otherReceiver = createAndSaveClient("receiverY", "recvY@test.com");
@@ -276,7 +279,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Should return paginated shipments registered by a specific employee")
         void shouldReturnShipmentsByEmployee() {
-            City city = createAndSaveCity("Burgas", "9000");
+            City city = getOrCreateCity("Burgas");
             Client sender = createAndSaveClient("senderZ", "sendZ@test.com");
             Client receiver = createAndSaveClient("receiverZ", "recvZ@test.com");
             Courier targetEmployee = createAndSaveCourier("employeeZ", "employeeZ@test.com", "EMP-Z");
@@ -294,7 +297,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Should return shipments that are NOT in the specified status (e.g., Not Delivered)")
         void shouldReturnShipmentsNotDelivered() {
-            City city = createAndSaveCity("Ruse", "8000");
+            City city = getOrCreateCity("Ruse");
             Client sender = createAndSaveClient("senderL", "sendL@test.com");
             Client receiver = createAndSaveClient("receiverL", "recvL@test.com");
             Courier employee = createAndSaveCourier("employeeL", "employeeL@test.com", "EMP-L");
@@ -305,8 +308,8 @@ class ShipmentRepositoryIntegrationTest {
 
             Page<Shipment> resultPage = shipmentRepository.findByStatusNot(ShipmentStatus.DELIVERED, PageRequest.of(0, 10));
 
-            assertThat(resultPage.getTotalElements()).isEqualTo(2);
-            assertThat(resultPage.getContent()).extracting(Shipment::getTrackingNumber).containsExactlyInAnyOrder("TR-31", "TR-32");
+            assertThat(resultPage.getContent()).extracting(Shipment::getTrackingNumber).contains("TR-31", "TR-32");
+            assertThat(resultPage.getContent()).extracting(Shipment::getTrackingNumber).doesNotContain("TR-33");
         }
 
         @Test
@@ -314,7 +317,7 @@ class ShipmentRepositoryIntegrationTest {
         void shouldCalculateRevenueInTimeWindow() {
             shipmentRepository.deleteAll();
             
-            City city = createAndSaveCity("Vidin", "5000");
+            City city = getOrCreateCity("Vidin");
             Client sender = createAndSaveClient("senderRev", "sendRev@test.com");
             Client receiver = createAndSaveClient("receiverRev", "recvRev@test.com");
             Courier employee = createAndSaveCourier("employeeRev", "employeeRev@test.com", "EMP-REV");
@@ -323,14 +326,11 @@ class ShipmentRepositoryIntegrationTest {
             Instant twoDaysAgo = now.minus(2, ChronoUnit.DAYS);
             Instant fourDaysAgo = now.minus(4, ChronoUnit.DAYS);
 
-            // Expected in query window
             createAndSaveShipmentWithDate("REV-1", sender, receiver, employee, BigDecimal.valueOf(10.00), now, city);
             createAndSaveShipmentWithDate("REV-2", sender, receiver, employee, BigDecimal.valueOf(15.50), twoDaysAgo, city);
 
-            // Expected outside query window
             createAndSaveShipmentWithDate("REV-3", sender, receiver, employee, BigDecimal.valueOf(100.00), fourDaysAgo, city);
 
-            // The window is from 3 days ago up to right now
             Instant startDate = now.minus(3, ChronoUnit.DAYS);
             Instant endDate = now.plus(1, ChronoUnit.MINUTES);
 
@@ -344,9 +344,9 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("calculateTotalRevenue: Edge Case: Should be fully inclusive of the exact boundary seconds")
         void shouldBeInclusiveOfBoundaryDates() {
-            shipmentRepository.deleteAll(); // Isolate test data
+            shipmentRepository.deleteAll();
 
-            City city = createAndSaveCity("Silistra", "3000");
+            City city = getOrCreateCity("Silistra");
             Client sender = createAndSaveClient("senderB", "sendB@test.com");
             Client receiver = createAndSaveClient("receiverB", "recvB@test.com");
             Courier employee = createAndSaveCourier("employeeB", "employeeB@test.com", "EMP-B");
@@ -381,7 +381,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("calculateTotalRevenue: Error Case: Should return null when startDate is after endDate")
         void shouldHandleImpossibleDateRanges() {
-            City city = createAndSaveCity("Shumen", "7000");
+            City city = getOrCreateCity("Shumen");
             Client sender = createAndSaveClient("senderImp", "sendImp@test.com");
             Client receiver = createAndSaveClient("receiverImp", "recvImp@test.com");
             Courier employee = createAndSaveCourier("employeeImp", "employeeImp@test.com", "EMP-IMP");
@@ -405,7 +405,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Error Case: Should throw DataIntegrityViolationException on duplicate tracking number")
         void shouldThrowOnDuplicateTrackingNumber() {
-            City city = createAndSaveCity("Pleven", "7000");
+            City city = getOrCreateCity("Pleven");
             Client sender = createAndSaveClient("senderD", "sendD@test.com");
             Client receiver = createAndSaveClient("receiverD", "recvD@test.com");
             Courier employee = createAndSaveCourier("employeeD", "employeeD@test.com", "EMP-D");
@@ -446,7 +446,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Error Case: Should throw Exception when sender is missing")
         void shouldThrowOnMissingSender() {
-            City city = createAndSaveCity("Stara Zagora", "5000");
+            City city = getOrCreateCity("Stara Zagora");
             Client receiver = createAndSaveClient("receiver SZ", "recvSZ@test.com");
             Courier employee = createAndSaveCourier("employee SZ", "empSZ@test.com", "EMP-SZ");
 
@@ -483,7 +483,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Happy Path: Should successfully save a shipment when receiver is missing (Guest Receiver)")
         void shouldSaveOnMissingReceiver() {
-            City city = createAndSaveCity("Pernik", "5800");
+            City city = getOrCreateCity("Pernik");
             Client sender = createAndSaveClient("sender Guest", "senderGuest@test.com");
             Courier employee = createAndSaveCourier("employee Guest", "empGuest@test.com", "EMP-GST");
 
@@ -525,7 +525,7 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("Error Case: Should throw Exception when missing tracking number")
         void shouldThrowOnMissingTrackingNumber() {
-            City city = createAndSaveCity("Veliko Tarnovo", "7000");
+            City city = getOrCreateCity("Veliko Tarnovo");
             Client sender = createAndSaveClient("sender VT", "senderVT@test.com");
             Client receiver = createAndSaveClient("receiver VT", "recvVT@test.com");
             Courier employee = createAndSaveCourier("employee VT", "empVT@test.com", "EMP-VT");

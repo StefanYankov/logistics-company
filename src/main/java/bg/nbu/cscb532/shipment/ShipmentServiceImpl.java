@@ -31,8 +31,10 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -53,6 +55,8 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final OfficeRepository officeRepository;
     private final CityRepository cityRepository;
     private final PricingService pricingService;
+    private final ServiceCatalogRepository serviceCatalogRepository;
+    private final ShipmentAddonRepository shipmentAddonRepository;
 
     @Override
     @Transactional
@@ -162,6 +166,30 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .build();
 
         Shipment savedShipment = shipmentRepository.save(shipment);
+
+        // Process Addons
+        if (request.selectedServiceIds() != null && !request.selectedServiceIds().isEmpty()) {
+            Set<ServiceCatalog> selectedServices = new HashSet<>(serviceCatalogRepository.findAllById(request.selectedServiceIds()));
+
+            if (selectedServices.size() != request.selectedServiceIds().size()) {
+                throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+            }
+
+            for (ServiceCatalog service : selectedServices) {
+                ShipmentAddon addon = new ShipmentAddon();
+                addon.setShipment(savedShipment);
+                addon.setServiceCatalog(service);
+
+                BigDecimal appliedCost = BigDecimal.ZERO;
+                if (service.getPricingType() == PricingType.FIXED_AMOUNT) {
+                    appliedCost = service.getPricingValue();
+                } else if (service.getPricingType() == PricingType.PERCENTAGE_OF_BASE) {
+                     appliedCost = service.getPricingValue();
+                }
+                addon.setAppliedCost(appliedCost);
+                shipmentAddonRepository.save(addon);
+            }
+        }
 
         ShipmentStatusHistory initialHistory = ShipmentStatusHistory.builder()
                 .shipment(savedShipment)
@@ -457,6 +485,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .currentCourierName(currentCourierName)
                 .registeredById(shipment.getRegisteredBy() != null ? shipment.getRegisteredBy().getId() : null)
                 .registeredByName(registeredByName.trim())
+                // We're not mapping the addons back out to the view yet, but the data is saved
                 .build();
     }
 

@@ -55,18 +55,22 @@ public class OfficeClerkRepositoryIntegrationTest {
     private CityRepository cityRepository;
 
     // --- TEST DATA FACTORY ---
-    private Company createAndSaveCompany() {
-        Company company = new Company();
-        company.setName("Test Company");
-        company.setRegistrationNumber("TEST-REG-123");
-        return companyRepository.saveAndFlush(company);
+    private Company getOrCreateCompany() {
+        return companyRepository.findAll().stream().findFirst().orElseGet(() -> {
+            Company company = new Company();
+            company.setName("Test Company");
+            company.setRegistrationNumber("TEST-REG-123");
+            return companyRepository.saveAndFlush(company);
+        });
     }
 
-    private City createAndSaveCity(String name, String postcode) {
-        City city = new City();
-        city.setName(name);
-        city.setPostcode(postcode);
-        return cityRepository.saveAndFlush(city);
+    private City getOrCreateCity(String name, String postcode) {
+        return cityRepository.findByPostcode(postcode).orElseGet(() -> {
+            City city = new City();
+            city.setName(name);
+            city.setPostcode(postcode);
+            return cityRepository.saveAndFlush(city);
+        });
     }
 
     private Office createAndSaveOffice(Company company, City city) {
@@ -106,8 +110,8 @@ public class OfficeClerkRepositoryIntegrationTest {
         void shouldReturnClerksForOffice() {
 
             // Arrange
-            Company company = createAndSaveCompany();
-            City city = createAndSaveCity("Sofia", "1000");
+            Company company = getOrCreateCompany();
+            City city = getOrCreateCity("Test City 1", "TC100");
             Office office1 = createAndSaveOffice(company, city);
             Office office2 = createAndSaveOffice(company, city);
 
@@ -146,8 +150,8 @@ public class OfficeClerkRepositoryIntegrationTest {
         void shouldNotReturnClerksFromOtherOffices() {
 
             // Arrange
-            Company company = createAndSaveCompany();
-            City city = createAndSaveCity("Varna", "9000");
+            Company company = getOrCreateCompany();
+            City city = getOrCreateCity("Test City 2", "TC200");
 
             Office officeA = createAndSaveOffice(company, city);
             Office officeB = createAndSaveOffice(company, city);
