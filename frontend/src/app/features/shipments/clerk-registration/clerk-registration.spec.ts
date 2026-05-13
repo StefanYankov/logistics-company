@@ -15,8 +15,8 @@ describe('ClerkRegistration', () => {
 
   beforeEach(async () => {
     mockClientApi = {
-        getAllClients: vi.fn(),
-        searchClients: vi.fn(),
+        getAllClients: vi.fn().mockReturnValue(of({ content: [] })),
+        searchClients: vi.fn().mockReturnValue(of({ content: [] })),
         quickRegisterClient: vi.fn()
     };
     mockOfficeApi = { getAllOffices: vi.fn() };
