@@ -8,11 +8,17 @@
     <nav class="sidebar-nav">
       <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a>
 
-      <!-- Role-based Navigation Links (Future: @if based on decodedToken.role) -->
-      <a routerLink="/app/register-shipment" routerLinkActive="active">Register Shipment</a>
+      <!-- Role-based Navigation Links -->
+      @if (isClient()) {
+        <a routerLink="/app/send-package" routerLinkActive="active">Send Package</a>
+      }
 
-      <!-- Future Admin/Staff Links -->
-      <!-- <a routerLink="/app/shipments" routerLinkActive="active">All Shipments</a> -->
+      @if (isStaff()) {
+        <a routerLink="/app/register-shipment" routerLinkActive="active">Office Registration</a>
+        <a routerLink="/app/shipments" routerLinkActive="active">All Shipments</a>
+      }
+
+      <!-- Future Admin/Staff Links can go here -->
       <!-- <a routerLink="/app/offices" routerLinkActive="active">Offices</a> -->
     </nav>
   </aside>

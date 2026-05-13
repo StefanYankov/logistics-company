@@ -19,6 +19,8 @@ export interface ShipmentViewDto {
     width?: number;
     height?: number;
     totalPrice?: number;
+    paidBy?: ShipmentViewDto.PaidByEnum;
+    isPaid?: boolean;
     createdAt?: string;
     updatedAt?: string;
     senderId?: string;
@@ -27,9 +29,16 @@ export interface ShipmentViewDto {
     receiverId?: string;
     receiverName?: string;
     receiverPhone?: string;
+    originOfficeId?: number;
+    originOfficeName?: string;
+    originAddressString?: string;
     deliveryOfficeId?: number;
     deliveryOfficeName?: string;
     deliveryAddressString?: string;
+    currentOfficeId?: number;
+    currentOfficeName?: string;
+    currentCourierId?: string;
+    currentCourierName?: string;
     registeredById?: string;
     registeredByName?: string;
 }
@@ -49,6 +58,11 @@ export namespace ShipmentViewDto {
         Delivered: 'DELIVERED'
     } as const;
     export type StatusEnum = typeof StatusEnum[keyof typeof StatusEnum];
+    export const PaidByEnum = {
+        Sender: 'SENDER',
+        Receiver: 'RECEIVER'
+    } as const;
+    export type PaidByEnum = typeof PaidByEnum[keyof typeof PaidByEnum];
 }
 
 

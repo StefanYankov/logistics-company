@@ -1,6 +1,8 @@
 package bg.nbu.cscb532.client;
 
+import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
+import bg.nbu.cscb532.client.dto.ClientUpdateDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
@@ -104,6 +106,7 @@ class ClientServiceUnitTests {
 
             given(userRepository.findByUsername(dto.username())).willReturn(Optional.empty());
             given(userRepository.findByEmail(dto.email())).willReturn(Optional.empty());
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
             given(passwordEncoder.encode(dto.password())).willReturn("hashedPassword123");
             given(clientRepository.save(any(Client.class))).willReturn(savedClient);
 
@@ -137,6 +140,39 @@ class ClientServiceUnitTests {
 
             verify(userRepository).findByUsername(dto.username());
             verify(userRepository).findByEmail(dto.email());
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should merge with offline account when registering with existing phone")
+        void shouldMergeWithOfflineAccountWhenRegisteringWithExistingPhone() {
+            // Arrange
+            ClientRegistrationDto onlineDto = createValidRegistrationDto();
+            
+            Client offlineGrandma = new Client();
+            offlineGrandma.setId(UUID.randomUUID());
+            offlineGrandma.setPhoneNumber(onlineDto.phoneNumber());
+            offlineGrandma.setUsername("walkin_123");
+            offlineGrandma.setEmail(null);
+            offlineGrandma.setFirstName("Grandma");
+            
+            given(userRepository.findByUsername(onlineDto.username())).willReturn(Optional.empty());
+            given(userRepository.findByEmail(onlineDto.email())).willReturn(Optional.empty());
+            given(clientRepository.findByPhoneNumber(onlineDto.phoneNumber())).willReturn(Optional.of(offlineGrandma));
+            given(passwordEncoder.encode(onlineDto.password())).willReturn("newHashedPassword");
+            given(clientRepository.save(any(Client.class))).willReturn(offlineGrandma);
+
+            // Act
+            clientService.register(onlineDto);
+
+            // Assert
+            verify(clientRepository).save(clientCaptor.capture());
+            Client mergedClient = clientCaptor.getValue();
+
+            assertThat(mergedClient.getId()).isEqualTo(offlineGrandma.getId());
+            assertThat(mergedClient.getUsername()).isEqualTo(onlineDto.username());
+            assertThat(mergedClient.getEmail()).isEqualTo(onlineDto.email());
+            assertThat(mergedClient.getPassword()).isEqualTo("newHashedPassword");
+            assertThat(mergedClient.getFirstName()).isEqualTo(onlineDto.firstName());
         }
 
         @Test
@@ -204,6 +240,7 @@ class ClientServiceUnitTests {
 
             given(userRepository.findByUsername("spacedUser")).willReturn(Optional.empty());
             given(userRepository.findByEmail("upper@example.com")).willReturn(Optional.empty());
+            given(clientRepository.findByPhoneNumber("0888123456")).willReturn(Optional.empty());
             given(passwordEncoder.encode(anyString())).willReturn("hash");
             given(clientRepository.save(any(Client.class))).willReturn(savedClient);
 
@@ -220,6 +257,238 @@ class ClientServiceUnitTests {
             assertThat(capturedClient.getUsername()).isEqualTo("spacedUser");
             assertThat(capturedClient.getEmail()).isEqualTo("upper@example.com");
             assertThat(capturedClient.getFirstName()).isEqualTo("John");
+        }
+    }
+    
+    @Nested
+    @DisplayName("quickRegister(ClientQuickRegistrationDto) Tests")
+    class QuickRegisterTests {
+
+        @Test
+        @DisplayName("Happy Path: Should successfully create client without email and auto-generate credentials")
+        void shouldQuickRegisterSuccessfullyWithoutEmail() {
+            // Arrange
+            ClientQuickRegistrationDto dto = ClientQuickRegistrationDto.builder()
+                    .firstName("Grandma")
+                    .lastName("Smith")
+                    .phoneNumber("0888999111")
+                    .build();
+                    
+            Client savedClient = new Client();
+            savedClient.setId(UUID.randomUUID());
+            savedClient.setPhoneNumber(dto.phoneNumber());
+            
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
+            
+            given(passwordEncoder.encode(anyString())).willReturn("hashed-auto-password");
+            given(clientRepository.save(any(Client.class))).willReturn(savedClient);
+
+            // Act
+            ClientViewDto result = clientService.quickRegister(dto);
+
+            // Assert
+            assertThat(result).isNotNull();
+            
+            verify(clientRepository).save(clientCaptor.capture());
+            Client capturedClient = clientCaptor.getValue();
+            
+            assertThat(capturedClient.getFirstName()).isEqualTo("Grandma");
+            assertThat(capturedClient.getPhoneNumber()).isEqualTo("0888999111");
+            assertThat(capturedClient.getEmail()).isNull();
+            assertThat(capturedClient.getUsername()).startsWith("walkin_");
+            assertThat(capturedClient.getPassword()).isEqualTo("hashed-auto-password");
+            assertThat(capturedClient.getApplicationRole()).isEqualTo(ApplicationRole.CLIENT);
+            
+            verifyNoInteractions(verificationTokenRepository, emailService);
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should create client and trigger password reset if email is provided")
+        void shouldQuickRegisterAndTriggerResetWithEmail() {
+            // Arrange
+            ClientQuickRegistrationDto dto = ClientQuickRegistrationDto.builder()
+                    .firstName("Busy")
+                    .lastName("Mom")
+                    .phoneNumber("0888555444")
+                    .email("mom@example.com")
+                    .build();
+                    
+            Client savedClient = new Client();
+            savedClient.setId(UUID.randomUUID());
+            savedClient.setEmail(dto.email());
+            savedClient.setApplicationRole(ApplicationRole.CLIENT);
+            
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
+            
+            given(userRepository.findByEmail(dto.email())).willReturn(Optional.empty());
+            given(passwordEncoder.encode(anyString())).willReturn("hash");
+            given(clientRepository.save(any(Client.class))).willReturn(savedClient);
+            
+            reset(userRepository);
+            when(userRepository.findByEmail(dto.email()))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(savedClient));
+
+            // Act
+            clientService.quickRegister(dto);
+
+            // Assert
+            verify(clientRepository).save(clientCaptor.capture());
+            assertThat(clientCaptor.getValue().getEmail()).isEqualTo("mom@example.com");
+            
+            verify(verificationTokenRepository).save(any(VerificationToken.class));
+            verify(emailService).sendPasswordResetEmail(eq("mom@example.com"), anyString());
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw PHONE_DUPLICATE if phone number exists")
+        void shouldThrowIfPhoneDuplicate() {
+            // Arrange
+            ClientQuickRegistrationDto dto = ClientQuickRegistrationDto.builder()
+                    .firstName("Test")
+                    .lastName("User")
+                    .phoneNumber("0888111222")
+                    .build();
+                    
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.of(new Client()));
+
+            // Act and Assert
+            assertThatThrownBy(() -> clientService.quickRegister(dto))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.PHONE_DUPLICATE);
+                    
+            verifyNoInteractions(passwordEncoder, userRepository);
+            verify(clientRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw EMAIL_DUPLICATE if provided email exists")
+        void shouldThrowIfEmailDuplicate() {
+            // Arrange
+            ClientQuickRegistrationDto dto = ClientQuickRegistrationDto.builder()
+                    .firstName("Test")
+                    .lastName("User")
+                    .phoneNumber("0888111222")
+                    .email("existing@test.com")
+                    .build();
+                    
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
+            given(userRepository.findByEmail(dto.email())).willReturn(Optional.of(new Client()));
+
+            // Act and Assert
+            assertThatThrownBy(() -> clientService.quickRegister(dto))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.EMAIL_DUPLICATE);
+                    
+            verify(clientRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("updateClientProfile(UUID, ClientUpdateDto) Tests")
+    class UpdateClientProfileTests {
+
+        @Test
+        @DisplayName("Happy Path: Should successfully update client profile")
+        void shouldUpdateClientProfileSuccessfully() {
+            // Arrange
+            UUID clientId = UUID.randomUUID();
+            ClientUpdateDto dto = ClientUpdateDto.builder()
+                    .firstName("NewFirstName")
+                    .lastName("NewLastName")
+                    .phoneNumber("0888111222")
+                    .build();
+
+            Client existingClient = createMockSavedClient();
+            existingClient.setId(clientId);
+            existingClient.setPhoneNumber("0888000000");
+
+            given(clientRepository.findById(clientId)).willReturn(Optional.of(existingClient));
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
+            given(clientRepository.save(any(Client.class))).willReturn(existingClient);
+
+            // Act
+            ClientViewDto result = clientService.updateClientProfile(clientId, dto);
+
+            // Assert
+            assertThat(result).isNotNull();
+            verify(clientRepository).save(clientCaptor.capture());
+            
+            Client savedClient = clientCaptor.getValue();
+            assertThat(savedClient.getFirstName()).isEqualTo("NewFirstName");
+            assertThat(savedClient.getLastName()).isEqualTo("NewLastName");
+            assertThat(savedClient.getPhoneNumber()).isEqualTo("0888111222");
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should bypass duplicate phone check if phone number hasn't changed")
+        void shouldBypassDuplicateCheckIfPhoneUnchanged() {
+            // Arrange
+            UUID clientId = UUID.randomUUID();
+            ClientUpdateDto dto = ClientUpdateDto.builder()
+                    .firstName("NewFirstName")
+                    .lastName("NewLastName")
+                    .phoneNumber("0888123456")
+                    .build();
+
+            Client existingClient = createMockSavedClient();
+            existingClient.setId(clientId);
+
+            given(clientRepository.findById(clientId)).willReturn(Optional.of(existingClient));
+            given(clientRepository.save(any(Client.class))).willReturn(existingClient);
+
+            // Act
+            clientService.updateClientProfile(clientId, dto);
+
+            // Assert
+            verify(clientRepository, never()).findByPhoneNumber(anyString());
+            verify(clientRepository).save(any(Client.class));
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw PHONE_DUPLICATE if new phone number is taken by someone else")
+        void shouldThrowIfNewPhoneNumberIsDuplicate() {
+            // Arrange
+            UUID clientId = UUID.randomUUID();
+            ClientUpdateDto dto = ClientUpdateDto.builder()
+                    .firstName("NewFirstName")
+                    .lastName("NewLastName")
+                    .phoneNumber("0888111222")
+                    .build();
+
+            Client existingClient = createMockSavedClient();
+            existingClient.setId(clientId);
+            existingClient.setPhoneNumber("0888000000");
+
+            Client otherClient = new Client();
+            otherClient.setId(UUID.randomUUID());
+
+            given(clientRepository.findById(clientId)).willReturn(Optional.of(existingClient));
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.of(otherClient));
+
+            // Act and Assert
+            assertThatThrownBy(() -> clientService.updateClientProfile(clientId, dto))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.PHONE_DUPLICATE);
+
+            verify(clientRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw RESOURCE_NOT_FOUND if client does not exist")
+        void shouldThrowIfClientNotFound() {
+            UUID clientId = UUID.randomUUID();
+            ClientUpdateDto dto = ClientUpdateDto.builder().build();
+
+            given(clientRepository.findById(clientId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> clientService.updateClientProfile(clientId, dto))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 
@@ -471,6 +740,65 @@ class ClientServiceUnitTests {
             verifyNoInteractions(clientRepository);
             verifyNoInteractions(emailService);
 
+        }
+    }
+
+    @Nested
+    @DisplayName("searchClients(String, Pageable) Tests")
+    class SearchClientsTests {
+
+        @Test
+        @DisplayName("Happy Path: Should retrieve paginated list of matching clients")
+        void shouldSearchClientsSuccessfully() {
+            // Arrange
+            String term = "Doe";
+            Pageable pageable = PageRequest.of(0, 10);
+            Client mockClient = createMockSavedClient();
+            Page<Client> pagedResponse = new PageImpl<>(List.of(mockClient), pageable, 1);
+
+            given(clientRepository.searchClients(term, pageable)).willReturn(pagedResponse);
+
+            // Act
+            Page<ClientViewDto> result = clientService.searchClients(term, pageable);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isEqualTo(1);
+            assertThat(result.getContent().getFirst().lastName()).isEqualTo("Doe");
+
+            verify(clientRepository).searchClients(term, pageable);
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should trim term and search")
+        void shouldTrimTermAndSearch() {
+            // Arrange
+            String dirtyTerm = "  0888  ";
+            String cleanTerm = "0888";
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<Client> pagedResponse = new PageImpl<>(List.of(createMockSavedClient()), pageable, 1);
+
+            given(clientRepository.searchClients(cleanTerm, pageable)).willReturn(pagedResponse);
+
+            // Act
+            clientService.searchClients(dirtyTerm, pageable);
+
+            // Assert
+            verify(clientRepository).searchClients(cleanTerm, pageable);
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should return empty page if term is null or blank")
+        void shouldReturnEmptyPageIfTermBlank() {
+            // Arrange
+            Pageable pageable = PageRequest.of(0, 10);
+
+            // Act
+            Page<ClientViewDto> result = clientService.searchClients("   ", pageable);
+
+            // Assert
+            assertThat(result.isEmpty()).isTrue();
+            verifyNoInteractions(clientRepository);
         }
     }
 }

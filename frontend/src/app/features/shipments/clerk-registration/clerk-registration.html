@@ -1,0 +1,274 @@
+<div class="registration-container">
+  <div class="header">
+    <h2>Office Registration (Walk-in)</h2>
+    <p>Register a new shipment for a customer physically present at the office.</p>
+  </div>
+
+  @if (isLoadingLookups()) {
+    <div class="loading">Loading form data...</div>
+  } @else {
+    <form [formGroup]="registerForm" (submit)="onSubmit(); $event.preventDefault()">
+
+      <!-- ================= SENDER SECTION (Autocomplete) ================= -->
+      <fieldset class="form-section">
+        <legend>Sender Details</legend>
+
+        @if (registerForm.get('senderId')?.value) {
+          <!-- Selected Sender View -->
+          <div class="selected-sender">
+            <span class="selected-name">Selected: {{ registerForm.get('selectedSenderDisplay')?.value }}</span>
+            <button type="button" class="btn-clear" (click)="clearSender()">Change</button>
+          </div>
+        } @else {
+          <!-- Search View -->
+          <div class="search-container">
+            <label for="senderSearchTerm">Search Customer by Phone or Name</label>
+            <input
+              id="senderSearchTerm"
+              type="text"
+              formControlName="senderSearchTerm"
+              placeholder="Start typing..."
+              autocomplete="off"
+            />
+            @if (isSearchingSender()) {
+              <div class="search-indicator">Searching...</div>
+            }
+
+            @if (senderSearchResults().length > 0) {
+              <ul class="autocomplete-dropdown">
+                @for (client of senderSearchResults(); track client.id) {
+                  <li (click)="selectSender(client)">
+                    <strong>{{ client.phoneNumber }}</strong> - {{ client.firstName }} {{ client.lastName }}
+                  </li>
+                }
+              </ul>
+            } @else if (!isSearchingSender() && senderSearchResults().length === 0 && (registerForm.get('senderSearchTerm')?.value || '').length >= 3 && !showQuickRegister()) {
+              <!-- Show Quick Register Prompt -->
+              <div class="search-no-results">
+                No customers found.
+                <button type="button" class="btn-link" (click)="openQuickRegister()">+ Add New Customer</button>
+              </div>
+            }
+
+            @if (registerForm.get('senderId')?.invalid && registerForm.get('senderId')?.touched && !showQuickRegister()) {
+              <div class="error">You must select a valid sender from the search results.</div>
+            }
+          </div>
+        }
+      </fieldset>
+
+      <!-- ================= QUICK REGISTER PANEL ================= -->
+      @if (showQuickRegister() && !registerForm.get('senderId')?.value) {
+        <fieldset class="form-section quick-register-panel">
+          <legend>Add New Customer</legend>
+          <form [formGroup]="quickRegisterForm" (submit)="onQuickRegisterSubmit(); $event.preventDefault()">
+            <div class="form-row">
+              <div class="form-group half-width">
+                <label for="qrFirstName">First Name</label>
+                <input id="qrFirstName" type="text" formControlName="firstName" />
+                @if (quickRegisterForm.get('firstName')?.invalid && quickRegisterForm.get('firstName')?.touched) {
+                  <div class="error">First name is required.</div>
+                }
+              </div>
+              <div class="form-group half-width">
+                <label for="qrLastName">Last Name</label>
+                <input id="qrLastName" type="text" formControlName="lastName" />
+                @if (quickRegisterForm.get('lastName')?.invalid && quickRegisterForm.get('lastName')?.touched) {
+                  <div class="error">Last name is required.</div>
+                }
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group half-width">
+                <label for="qrPhone">Phone Number</label>
+                <input id="qrPhone" type="text" formControlName="phoneNumber" />
+                @if (quickRegisterForm.get('phoneNumber')?.invalid && quickRegisterForm.get('phoneNumber')?.touched) {
+                  <div class="error">Valid phone number is required.</div>
+                }
+              </div>
+              <div class="form-group half-width">
+                <label for="qrEmail">Email (Optional)</label>
+                <input id="qrEmail" type="email" formControlName="email" placeholder="Enables online account" />
+                @if (quickRegisterForm.get('email')?.invalid && quickRegisterForm.get('email')?.touched) {
+                  <div class="error">Must be a valid email format.</div>
+                }
+              </div>
+            </div>
+
+            @if (quickRegisterError()) {
+              <div class="error server-error">{{ quickRegisterError() }}</div>
+            }
+
+            <div class="form-actions small-actions">
+              <button type="button" class="btn-cancel" (click)="cancelQuickRegister()">Cancel</button>
+              <button type="submit" class="btn-submit" [disabled]="quickRegisterForm.invalid || isQuickRegistering()">
+                {{ isQuickRegistering() ? 'Saving...' : 'Save & Select' }}
+              </button>
+            </div>
+          </form>
+        </fieldset>
+      }
+
+      <!-- ================= RECEIVER SECTION ================= -->
+      <fieldset class="form-section">
+        <legend>Receiver Details</legend>
+
+        <div class="guest-inputs">
+          <div class="form-group half-width">
+            <label for="receiverName">Full Name</label>
+            <input id="receiverName" type="text" formControlName="receiverName" placeholder="e.g. Jane Doe" />
+            @if (registerForm.get('receiverName')?.invalid && registerForm.get('receiverName')?.touched) {
+              <div class="error">Name is required.</div>
+            }
+          </div>
+          <div class="form-group half-width">
+            <label for="receiverPhone">Phone Number</label>
+            <input id="receiverPhone" type="text" formControlName="receiverPhone" placeholder="e.g. 0888123456" />
+            @if (registerForm.get('receiverPhone')?.invalid && registerForm.get('receiverPhone')?.touched) {
+              <div class="error">Valid phone number is required.</div>
+            }
+          </div>
+          <div class="form-group full-width">
+            <label for="receiverEmail">Email (Optional)</label>
+            <input id="receiverEmail" type="email" formControlName="receiverEmail" placeholder="For tracking updates" />
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- ORIGIN IS INVISIBLE - Hardcoded to the Clerk's assigned office -->
+
+      <!-- ================= DESTINATION SECTION ================= -->
+      <fieldset class="form-section">
+        <legend>Destination (Where is it going?)</legend>
+
+        <div class="toggle-group">
+          <label class="radio-label">
+            <input type="radio" formControlName="destinationType" value="OFFICE"> To Office
+          </label>
+          <label class="radio-label">
+            <input type="radio" formControlName="destinationType" value="ADDRESS"> To Address
+          </label>
+        </div>
+
+        <div class="section-content">
+          @if (registerForm.get('destinationType')?.value === 'OFFICE') {
+            <div class="form-group full-width">
+              <label for="deliveryCityFilter">Select City</label>
+              <!-- TODO: Add city filter here for cascading dropdown -->
+              <div class="form-group full-width">
+                <label for="deliveryCityFilterId">Filter by City (Optional)</label>
+                <select id="deliveryCityFilterId" formControlName="deliveryCityFilterId">
+                  <option [ngValue]="null">-- Show All Cities --</option>
+                  @for (city of cities(); track city.id) {
+                    <option [value]="city.id">{{ city.name }} ({{ city.postcode }})</option>
+                  }
+                </select>
+              </div>
+              <div class="form-group full-width">
+                <label for="deliveryOfficeId">Select Office</label>
+                <select id="deliveryOfficeId" formControlName="deliveryOfficeId">
+                  <option [ngValue]="null" disabled selected>Choose destination office...</option>
+                  @for (office of filteredDeliveryOffices(); track office.id) {
+                    <option [value]="office.id">{{ office.cityName }} - {{ office.fullAddress }}</option>
+                  }
+                </select>
+                @if (registerForm.get('deliveryOfficeId')?.invalid && registerForm.get('deliveryOfficeId')?.touched) {
+                  <div class="error">Destination office is required.</div>
+                }
+                @if (filteredDeliveryOffices().length === 0 && registerForm.get('deliveryCityFilterId')?.value) {
+                  <div class="error">No offices found in this city.</div>
+                }
+              </div>
+              @if (registerForm.get('deliveryOfficeId')?.invalid && registerForm.get('deliveryOfficeId')?.touched) {
+                <div class="error">Destination office is required.</div>
+              }
+            </div>
+          } @else {
+            <div class="address-grid">
+              <div class="form-group full-width">
+                <label for="deliveryCityId">City</label>
+                <select id="deliveryCityId" formControlName="deliveryCityId">
+                  <option [ngValue]="null" disabled selected>Select City...</option>
+                  @for (city of cities(); track city.id) {
+                    <option [value]="city.id">{{ city.name }} ({{ city.postcode }})</option>
+                  }
+                </select>
+                @if (registerForm.get('deliveryCityId')?.invalid && registerForm.get('deliveryCityId')?.touched) {
+                  <div class="error">City is required.</div>
+                }
+              </div>
+              <div class="form-group half-width">
+                <label for="deliveryStreet">Street</label>
+                <input id="deliveryStreet" type="text" formControlName="deliveryStreet" />
+                @if (registerForm.get('deliveryStreet')?.invalid && registerForm.get('deliveryStreet')?.touched) {
+                  <div class="error">Street is required.</div>
+                }
+              </div>
+              <div class="form-group half-width">
+                <label for="deliveryDistrict">District (Optional)</label>
+                <input id="deliveryDistrict" type="text" formControlName="deliveryDistrict" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryBuilding">Building</label>
+                <input id="deliveryBuilding" type="text" formControlName="deliveryBuilding" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryEntrance">Ent.</label>
+                <input id="deliveryEntrance" type="text" formControlName="deliveryEntrance" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryFloor">Fl.</label>
+                <input id="deliveryFloor" type="text" formControlName="deliveryFloor" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryApartment">Ap.</label>
+                <input id="deliveryApartment" type="text" formControlName="deliveryApartment" />
+              </div>
+            </div>
+          }
+        </div>
+      </fieldset>
+
+      <!-- ================= PACKAGE & PAYMENT SECTION ================= -->
+      <fieldset class="form-section">
+        <legend>Package & Payment</legend>
+        <div class="form-row">
+          <div class="form-group third-width">
+            <label for="type">Shipment Type</label>
+            <select id="type" formControlName="type">
+              @for (type of shipmentTypes; track type) {
+                <option [value]="type">{{ type }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group third-width">
+            <label for="weight">Weight (kg)</label>
+            <input id="weight" type="number" step="0.1" min="0.1" formControlName="weight" />
+          </div>
+          <div class="form-group third-width">
+            <label for="paidBy">Who Pays?</label>
+            <select id="paidBy" formControlName="paidBy">
+              @for (option of paidByOptions; track option) {
+                <option [value]="option">{{ option }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </fieldset>
+
+      @if (errorMessage()) {
+        <div class="error server-error">
+          {{ errorMessage() }}
+        </div>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" routerLink="/app/shipments">Cancel</button>
+        <button type="submit" class="btn-submit" [disabled]="registerForm.invalid || isSubmitting() || showQuickRegister()">
+          {{ isSubmitting() ? 'Processing...' : 'Confirm Shipment' }}
+        </button>
+      </div>
+
+    </form>
+  }
+</div>

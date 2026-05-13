@@ -1,6 +1,8 @@
 package bg.nbu.cscb532.client;
 
+import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
+import bg.nbu.cscb532.client.dto.ClientUpdateDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.Constants;
 import bg.nbu.cscb532.shared.exception.BusinessException;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -50,6 +53,7 @@ public class ClientServiceImpl implements ClientService {
 
         String normalizedUsername = dto.username().trim();
         String normalizedEmail = dto.email().trim().toLowerCase();
+        String normalizedPhone = dto.phoneNumber().trim();
 
         if (userRepository.findByUsername(normalizedUsername).isPresent()) {
             log.warn("Registration failed. Username [{}] is already taken.", normalizedUsername);
@@ -63,21 +67,48 @@ public class ClientServiceImpl implements ClientService {
 
         String hashedPassword = passwordEncoder.encode(dto.password());
 
-        Client newClient = new Client();
-        newClient.setUsername(normalizedUsername);
-        newClient.setEmail(normalizedEmail);
-        newClient.setPassword(hashedPassword);
-        newClient.setFirstName(dto.firstName().trim());
-        newClient.setLastName(dto.lastName().trim());
-        newClient.setPhoneNumber(dto.phoneNumber().trim());
-        newClient.setApplicationRole(ApplicationRole.CLIENT);
-        newClient.setActive(true);
-        newClient.setEmailVerified(false);
+        // Claim Account Logic
+        // Check if an offline-only account already exists with this phone number
+        Optional<Client> existingClientOpt = clientRepository.findByPhoneNumber(normalizedPhone);
+        
+        Client targetClient;
 
-        Client savedClient = clientRepository.save(newClient);
+        if (existingClientOpt.isPresent()) {
+            Client existing = existingClientOpt.get();
+            // A pure offline account will have a null email and a generated username starting with "walkin_"
+            if (existing.getEmail() == null && existing.getUsername().startsWith("walkin_")) {
+                log.info("Found existing offline account for phone [{}]. Merging (claiming) account.", normalizedPhone);
+                targetClient = existing;
+                // Update the existing offline profile with the new digital credentials
+                targetClient.setUsername(normalizedUsername);
+                targetClient.setEmail(normalizedEmail);
+                targetClient.setPassword(hashedPassword);
+                targetClient.setFirstName(dto.firstName().trim());
+                targetClient.setLastName(dto.lastName().trim());
+                // Phone number is already set
+                targetClient.setEmailVerified(false);
+            } else {
+                // The phone number belongs to someone who already has a digital account or an email
+                log.warn("Registration failed. Phone number [{}] is already fully registered to another account.", normalizedPhone);
+                throw new BusinessException(ErrorCode.PHONE_DUPLICATE);
+            }
+        } else {
+            // Standard flow: create a brand new client
+            targetClient = new Client();
+            targetClient.setUsername(normalizedUsername);
+            targetClient.setEmail(normalizedEmail);
+            targetClient.setPassword(hashedPassword);
+            targetClient.setFirstName(dto.firstName().trim());
+            targetClient.setLastName(dto.lastName().trim());
+            targetClient.setPhoneNumber(normalizedPhone);
+            targetClient.setApplicationRole(ApplicationRole.CLIENT);
+            targetClient.setActive(true);
+            targetClient.setEmailVerified(false);
+        }
+
+        Client savedClient = clientRepository.save(targetClient);
 
         // Security best practice: If the user clicked resend, we invalidate older tokens
-        // Not strictly required on initial registration, but safe if front-end logic allows rapid double-clicks
         verificationTokenRepository.findFirstByUser_IdAndTokenTypeOrderByCreatedAtDesc(
                 savedClient.getId(), TokenType.EMAIL_VERIFICATION
         ).ifPresent(verificationTokenRepository::delete);
@@ -96,9 +127,114 @@ public class ClientServiceImpl implements ClientService {
 
         emailService.sendVerificationEmail(savedClient.getEmail(), rawToken);
 
-        log.info("Client registered in pending state. Verification email sent to: {}", savedClient.getEmail());
+        log.info("Client registered/claimed in pending state. Verification email sent to: {}", savedClient.getEmail());
 
         return mapToViewDto(savedClient);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public ClientViewDto quickRegister(ClientQuickRegistrationDto dto) {
+        log.debug("Attempting quick registration for walk-in client: {} {}", dto.firstName(), dto.lastName());
+
+        Objects.requireNonNull(dto, Constants.DeveloperErrors.DTO_NULL);
+        
+        String normalizedPhone = dto.phoneNumber().trim();
+        String normalizedEmail = dto.email() != null && !dto.email().isBlank() ? dto.email().trim().toLowerCase() : null;
+
+        // Check if phone number already exists
+        if (clientRepository.findByPhoneNumber(normalizedPhone).isPresent()) {
+             log.warn("Quick registration failed. Phone number [{}] is already registered.", normalizedPhone);
+             throw new BusinessException(ErrorCode.PHONE_DUPLICATE);
+        }
+
+        if (normalizedEmail != null && userRepository.findByEmail(normalizedEmail).isPresent()) {
+            log.warn("Quick registration failed. Email [{}] is already registered.", normalizedEmail);
+            throw new BusinessException(ErrorCode.EMAIL_DUPLICATE);
+        }
+
+        // Generate system defaults for required fields
+        String generatedUsername = "walkin_" + UUID.randomUUID().toString().substring(0, 8);
+        // Generate a random password
+        String generatedPassword = UUID.randomUUID().toString();
+        String hashedPassword = passwordEncoder.encode(generatedPassword);
+
+        Client newClient = new Client();
+        newClient.setUsername(generatedUsername);
+        newClient.setEmail(normalizedEmail); // Might be null
+        newClient.setPassword(hashedPassword);
+        newClient.setFirstName(dto.firstName().trim());
+        newClient.setLastName(dto.lastName().trim());
+        newClient.setPhoneNumber(normalizedPhone);
+        newClient.setApplicationRole(ApplicationRole.CLIENT);
+        newClient.setActive(true);
+        newClient.setEmailVerified(false);
+
+        Client savedClient = clientRepository.save(newClient);
+
+        log.info("Walk-in client successfully registered with system ID: {}", savedClient.getId());
+
+        // If an email was provided during quick registration, initiate the password reset flow
+        // so they can claim their account online.
+        if (normalizedEmail != null) {
+            log.debug("Email provided during quick registration. Initiating password reset flow to allow account claim.");
+            ForgotPasswordRequestDto resetRequest = new ForgotPasswordRequestDto();
+            resetRequest.setEmail(normalizedEmail);
+            this.requestPasswordReset(resetRequest);
+        }
+
+        return mapToViewDto(savedClient);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public ClientViewDto updateClientProfile(UUID id, ClientUpdateDto dto) {
+        log.debug("Attempting to update profile for client ID: {}", id);
+
+        Objects.requireNonNull(dto, Constants.DeveloperErrors.DTO_NULL);
+
+        Client client = clientRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        String normalizedPhone = dto.phoneNumber().trim();
+
+        // If they are changing their phone number, ensure it doesn't conflict with someone else
+        if (!client.getPhoneNumber().equals(normalizedPhone)) {
+            if (clientRepository.findByPhoneNumber(normalizedPhone).isPresent()) {
+                log.warn("Profile update failed. Phone number [{}] is already taken.", normalizedPhone);
+                throw new BusinessException(ErrorCode.PHONE_DUPLICATE);
+            }
+        }
+
+        client.setFirstName(dto.firstName().trim());
+        client.setLastName(dto.lastName().trim());
+        client.setPhoneNumber(normalizedPhone);
+
+        Client updatedClient = clientRepository.save(client);
+
+        log.info("Successfully updated profile for client ID: {}", id);
+
+        return mapToViewDto(updatedClient);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public ClientViewDto getClientById(UUID id) {
+        log.debug("Fetching client by ID: {}", id);
+
+        Client client = clientRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        return mapToViewDto(client);
     }
 
     /**
@@ -112,6 +248,24 @@ public class ClientServiceImpl implements ClientService {
         Objects.requireNonNull(pageable, Constants.DeveloperErrors.PAGEABLE_NULL);
 
         return clientRepository.findAll(pageable)
+                .map(this::mapToViewDto);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ClientViewDto> searchClients(String term, Pageable pageable) {
+        log.debug("Searching for clients with term: {}", term);
+
+        Objects.requireNonNull(pageable, Constants.DeveloperErrors.PAGEABLE_NULL);
+
+        if (term == null || term.isBlank()) {
+            return Page.empty(pageable);
+        }
+
+        return clientRepository.searchClients(term.trim(), pageable)
                 .map(this::mapToViewDto);
     }
 

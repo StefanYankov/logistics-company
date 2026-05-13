@@ -105,14 +105,54 @@ class ShipmentRepositoryIntegrationTest {
         deliveryAddress.setCity(deliveryCity);
         deliveryAddress.setStreet("Delivery Street 1");
 
+        PackageDetails packageDetails = PackageDetails.builder()
+                .type(ShipmentType.PARCEL)
+                .weight(BigDecimal.valueOf(2.5))
+                .build();
+
+        ShipmentFinancials financials = ShipmentFinancials.builder()
+                .totalPrice(BigDecimal.valueOf(10.50))
+                .paidBy(PaidBy.SENDER)
+                .isPaid(false)
+                .build();
+
         Shipment shipment = Shipment.builder()
                 .trackingNumber(trackingNumber)
                 .sender(sender)
                 .receiver(receiver)
                 .registeredBy(employee)
+                .packageDetails(packageDetails)
+                .financials(financials)
+                .status(status)
+                .deliveryAddressSnapshot(deliveryAddress)
+                .build();
+        shipmentRepository.saveAndFlush(shipment);
+    }
+
+    private void createAndSaveGuestShipment(String trackingNumber, Client sender, Courier employee, ShipmentStatus status, City deliveryCity) {
+        AddressDetails deliveryAddress = new AddressDetails();
+        deliveryAddress.setCity(deliveryCity);
+        deliveryAddress.setStreet("Delivery Street 1");
+
+        PackageDetails packageDetails = PackageDetails.builder()
                 .type(ShipmentType.PARCEL)
                 .weight(BigDecimal.valueOf(2.5))
+                .build();
+
+        ShipmentFinancials financials = ShipmentFinancials.builder()
                 .totalPrice(BigDecimal.valueOf(10.50))
+                .paidBy(PaidBy.SENDER)
+                .isPaid(false)
+                .build();
+
+        Shipment shipment = Shipment.builder()
+                .trackingNumber(trackingNumber)
+                .sender(sender)
+                .receiverName("Guest Mom")
+                .receiverPhone("0888999999")
+                .registeredBy(employee)
+                .packageDetails(packageDetails)
+                .financials(financials)
                 .status(status)
                 .deliveryAddressSnapshot(deliveryAddress)
                 .build();
@@ -120,20 +160,19 @@ class ShipmentRepositoryIntegrationTest {
     }
 
     private void createAndSaveShipmentWithDate(String trackingNumber, Client sender, Client receiver, Courier employee, BigDecimal price, Instant createdAt, City city) {
-        // Bypassing JPA Auditing and Repository save() entirely to forcefully set the historical date
         UUID newId = UUID.randomUUID();
-        
+        @SuppressWarnings("SqlResolve")
         String nativeQuery = """
             INSERT INTO shipments (
                 id, version, created_at, updated_at,
-                sender_id, receiver_id, registered_by_id, 
+                sender_id, receiver_id, registered_by_id,
                 tracking_number, shipment_type, weight, total_price, status,
-                city_id, delivery_street
+                city_id, delivery_street, paid_by, is_paid
             ) VALUES (
                 :id, 0, :createdAt, :updatedAt,
                 :senderId, :receiverId, :employeeId,
                 :trackingNumber, 'PARCEL', 2.500, :price, 'REGISTERED',
-                :cityId, 'Delivery Street'
+                :cityId, 'Delivery Street', 'SENDER', false
             )
         """;
 
@@ -197,7 +236,7 @@ class ShipmentRepositoryIntegrationTest {
     class ReportingQueriesTests {
 
         @Test
-        @DisplayName("Should return paginated shipments sent by a specific client")
+        @DisplayName("Should return paginated shipments sent by a specific client (including guest receivers)")
         void shouldReturnShipmentsBySender() {
             City city = createAndSaveCity("Plovdiv", "4000");
             Client targetSender = createAndSaveClient("senderA", "sendA@test.com");
@@ -208,11 +247,12 @@ class ShipmentRepositoryIntegrationTest {
             createAndSaveShipment("TR-01", targetSender, receiver, employee, ShipmentStatus.DELIVERED, city);
             createAndSaveShipment("TR-02", targetSender, receiver, employee, ShipmentStatus.IN_TRANSIT, city);
             createAndSaveShipment("TR-03", otherSender, receiver, employee, ShipmentStatus.REGISTERED, city);
+            createAndSaveGuestShipment("TR-04", targetSender, employee, ShipmentStatus.REGISTERED, city);
 
             Page<Shipment> resultPage = shipmentRepository.findBySender_Id(targetSender.getId(), PageRequest.of(0, 10));
 
-            assertThat(resultPage.getTotalElements()).isEqualTo(2);
-            assertThat(resultPage.getContent()).extracting(Shipment::getTrackingNumber).containsExactlyInAnyOrder("TR-01", "TR-02");
+            assertThat(resultPage.getTotalElements()).isEqualTo(3);
+            assertThat(resultPage.getContent()).extracting(Shipment::getTrackingNumber).containsExactlyInAnyOrder("TR-01", "TR-02", "TR-04");
         }
 
         @Test
@@ -272,6 +312,8 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("calculateTotalRevenue: Should sum total prices within the strict time boundaries")
         void shouldCalculateRevenueInTimeWindow() {
+            shipmentRepository.deleteAll();
+            
             City city = createAndSaveCity("Vidin", "5000");
             Client sender = createAndSaveClient("senderRev", "sendRev@test.com");
             Client receiver = createAndSaveClient("receiverRev", "recvRev@test.com");
@@ -290,10 +332,11 @@ class ShipmentRepositoryIntegrationTest {
 
             // The window is from 3 days ago up to right now
             Instant startDate = now.minus(3, ChronoUnit.DAYS);
-            Instant endDate = now.plus(1, ChronoUnit.MINUTES); // padding to ensure 'now' is caught
+            Instant endDate = now.plus(1, ChronoUnit.MINUTES);
 
             BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
 
+            // Assert
             // Expecting 10.00 + 15.50 = 25.50
             assertThat(revenue).isEqualByComparingTo(BigDecimal.valueOf(25.50));
         }
@@ -301,6 +344,8 @@ class ShipmentRepositoryIntegrationTest {
         @Test
         @DisplayName("calculateTotalRevenue: Edge Case: Should be fully inclusive of the exact boundary seconds")
         void shouldBeInclusiveOfBoundaryDates() {
+            shipmentRepository.deleteAll(); // Isolate test data
+
             City city = createAndSaveCity("Silistra", "3000");
             Client sender = createAndSaveClient("senderB", "sendB@test.com");
             Client receiver = createAndSaveClient("receiverB", "recvB@test.com");
@@ -309,25 +354,27 @@ class ShipmentRepositoryIntegrationTest {
             Instant startDate = Instant.parse("2026-01-01T00:00:00Z");
             Instant endDate = Instant.parse("2026-01-31T23:59:59Z");
 
-            // Exactly on the boundary
             createAndSaveShipmentWithDate("BOUND-1", sender, receiver, employee, BigDecimal.valueOf(50.00), startDate, city);
             createAndSaveShipmentWithDate("BOUND-2", sender, receiver, employee, BigDecimal.valueOf(20.00), endDate, city);
 
             BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
 
+            // Assert
             assertThat(revenue).isEqualByComparingTo(BigDecimal.valueOf(70.00));
         }
 
         @Test
         @DisplayName("calculateTotalRevenue: Edge Case: Should return null when no shipments found in window")
         void shouldReturnNullWhenNoRevenueInWindow() {
+            // Arrange
             Instant startDate = Instant.now().minus(10, ChronoUnit.DAYS);
             Instant endDate = Instant.now().minus(9, ChronoUnit.DAYS);
 
-            // DB has shipments, but none in this specific 1-day window
+            // Act
             BigDecimal revenue = shipmentRepository.calculateTotalRevenue(startDate, endDate);
 
-            // The SQL SUM() function natively returns NULL if no rows are found
+            // Assert
+            // The SQL SUM() function natively returns NULL
             assertThat(revenue).isNull();
         }
         
@@ -369,14 +416,24 @@ class ShipmentRepositoryIntegrationTest {
             deliveryAddress.setCity(city);
             deliveryAddress.setStreet("Delivery Street 1");
 
+            PackageDetails packageDetails = PackageDetails.builder()
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(5.0))
+                    .build();
+
+            ShipmentFinancials financials = ShipmentFinancials.builder()
+                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .paidBy(PaidBy.SENDER)
+                    .isPaid(false)
+                    .build();
+
             Shipment duplicateShipment = Shipment.builder()
                     .trackingNumber("DUPLICATE-TRACK")
                     .sender(sender)
                     .receiver(receiver)
                     .registeredBy(employee)
-                    .type(ShipmentType.PARCEL)
-                    .weight(BigDecimal.valueOf(5.0))
-                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .packageDetails(packageDetails)
+                    .financials(financials)
                     .status(ShipmentStatus.REGISTERED)
                     .deliveryAddressSnapshot(deliveryAddress)
                     .build();
@@ -397,20 +454,72 @@ class ShipmentRepositoryIntegrationTest {
             deliveryAddress.setCity(city);
             deliveryAddress.setStreet("Delivery Street 1");
 
+            PackageDetails packageDetails = PackageDetails.builder()
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(5.0))
+                    .build();
+
+            ShipmentFinancials financials = ShipmentFinancials.builder()
+                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .paidBy(PaidBy.SENDER)
+                    .isPaid(false)
+                    .build();
+
             Shipment invalidShipment = Shipment.builder()
                     .trackingNumber("TRACK-NO-SENDER")
                     .sender(null)
                     .receiver(receiver)
                     .registeredBy(employee)
-                    .type(ShipmentType.PARCEL)
-                    .weight(BigDecimal.valueOf(5.0))
-                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .packageDetails(packageDetails)
+                    .financials(financials)
                     .status(ShipmentStatus.REGISTERED)
                     .deliveryAddressSnapshot(deliveryAddress)
                     .build();
 
             assertThatThrownBy(() -> shipmentRepository.saveAndFlush(invalidShipment))
                     .isInstanceOf(Exception.class);
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should successfully save a shipment when receiver is missing (Guest Receiver)")
+        void shouldSaveOnMissingReceiver() {
+            City city = createAndSaveCity("Pernik", "5800");
+            Client sender = createAndSaveClient("sender Guest", "senderGuest@test.com");
+            Courier employee = createAndSaveCourier("employee Guest", "empGuest@test.com", "EMP-GST");
+
+            AddressDetails deliveryAddress = new AddressDetails();
+            deliveryAddress.setCity(city);
+            deliveryAddress.setStreet("Delivery Street 1");
+
+            PackageDetails packageDetails = PackageDetails.builder()
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(5.0))
+                    .build();
+
+            ShipmentFinancials financials = ShipmentFinancials.builder()
+                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .paidBy(PaidBy.SENDER)
+                    .isPaid(false)
+                    .build();
+
+            Shipment guestShipment = Shipment.builder()
+                    .trackingNumber("TRACK-GUEST")
+                    .sender(sender)
+                    .receiver(null)
+                    .receiverName("Guest Name")
+                    .receiverPhone("0888111222")
+                    .registeredBy(employee)
+                    .packageDetails(packageDetails)
+                    .financials(financials)
+                    .status(ShipmentStatus.REGISTERED)
+                    .deliveryAddressSnapshot(deliveryAddress)
+                    .build();
+
+            Shipment saved = shipmentRepository.saveAndFlush(guestShipment);
+            
+            assertThat(saved.getId()).isNotNull();
+            assertThat(saved.getReceiver()).isNull();
+            assertThat(saved.getReceiverName()).isEqualTo("Guest Name");
         }
 
         @Test
@@ -425,14 +534,24 @@ class ShipmentRepositoryIntegrationTest {
             deliveryAddress.setCity(city);
             deliveryAddress.setStreet("Delivery Street 1");
 
+            PackageDetails packageDetails = PackageDetails.builder()
+                    .type(ShipmentType.PARCEL)
+                    .weight(BigDecimal.valueOf(5.0))
+                    .build();
+
+            ShipmentFinancials financials = ShipmentFinancials.builder()
+                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .paidBy(PaidBy.SENDER)
+                    .isPaid(false)
+                    .build();
+
             Shipment invalidShipment = Shipment.builder()
                     .trackingNumber(null)
                     .sender(sender)
                     .receiver(receiver)
                     .registeredBy(employee)
-                    .type(ShipmentType.PARCEL)
-                    .weight(BigDecimal.valueOf(5.0))
-                    .totalPrice(BigDecimal.valueOf(20.00))
+                    .packageDetails(packageDetails)
+                    .financials(financials)
                     .status(ShipmentStatus.REGISTERED)
                     .deliveryAddressSnapshot(deliveryAddress)
                     .build();

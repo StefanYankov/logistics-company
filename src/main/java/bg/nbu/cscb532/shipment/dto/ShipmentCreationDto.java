@@ -1,6 +1,7 @@
 package bg.nbu.cscb532.shipment.dto;
 
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
+import bg.nbu.cscb532.shipment.PaidBy;
 import bg.nbu.cscb532.shipment.ShipmentType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -12,15 +13,25 @@ import java.util.UUID;
 
 /**
  * DTO for creating a new shipment.
+ * Supports sending to either a registered user (receiverId) OR a guest (receiverName + receiverPhone).
  * Requires either a deliveryOfficeId OR a deliveryAddress, but not both.
+ * Requires either an originOfficeId OR an originAddress, but not both.
  */
 @Builder
 public record ShipmentCreationDto(
         @NotNull(message = "{validation.shipment.sender.notnull}")
         UUID senderId,
 
-        @NotNull(message = "{validation.shipment.receiver.notnull}")
+        // Receiver can be a registered client OR a guest. 
+        // Validation is handled at the Service layer (XOR logic).
         UUID receiverId,
+        String receiverName,
+        String receiverPhone,
+        String receiverEmail,
+
+        // Origin details (Mutually Exclusive in business logic)
+        Long originOfficeId,
+        @Valid AddressDetailsDto originAddress,
 
         @NotNull(message = "{validation.shipment.type.notnull}")
         ShipmentType type,
@@ -41,6 +52,9 @@ public record ShipmentCreationDto(
 
         // Destination details (Mutually Exclusive in business logic)
         Long deliveryOfficeId,
-        @Valid AddressDetailsDto deliveryAddress
+        @Valid AddressDetailsDto deliveryAddress,
+
+        @NotNull(message = "Payment responsibility must be specified")
+        PaidBy paidBy
 ) {
 }

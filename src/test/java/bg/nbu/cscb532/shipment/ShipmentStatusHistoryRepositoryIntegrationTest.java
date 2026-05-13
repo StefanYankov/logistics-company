@@ -97,14 +97,24 @@ class ShipmentStatusHistoryRepositoryIntegrationTest {
         deliveryAddress.setCity(deliveryCity);
         deliveryAddress.setStreet("Delivery Street 1");
 
+        PackageDetails packageDetails = PackageDetails.builder()
+                .type(ShipmentType.PARCEL)
+                .weight(BigDecimal.valueOf(2.5))
+                .build();
+
+        ShipmentFinancials financials = ShipmentFinancials.builder()
+                .totalPrice(BigDecimal.valueOf(10.50))
+                .paidBy(PaidBy.SENDER)
+                .isPaid(false)
+                .build();
+
         Shipment shipment = Shipment.builder()
                 .trackingNumber(trackingNumber)
                 .sender(sender)
                 .receiver(receiver)
                 .registeredBy(employee)
-                .type(ShipmentType.PARCEL)
-                .weight(BigDecimal.valueOf(2.5))
-                .totalPrice(BigDecimal.valueOf(10.50))
+                .packageDetails(packageDetails)
+                .financials(financials)
                 .status(status)
                 .deliveryAddressSnapshot(deliveryAddress)
                 .build();

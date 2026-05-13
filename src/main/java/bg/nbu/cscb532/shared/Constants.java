@@ -32,6 +32,11 @@ public final class Constants {
         // Security
         public static final int MIN_PASSWORD_LENGTH = 8;
         public static final int MAX_PASSWORD_LENGTH = 128;
+        public static final int MAX_PHONE_LENGTH = 16;
+        public static final int MAX_EMAIL_LENGTH = 255;
+        
+        // Regex
+        public static final String PHONE_REGEX = "^\\+?[0-9]{8,15}$";
     }
 
     /**

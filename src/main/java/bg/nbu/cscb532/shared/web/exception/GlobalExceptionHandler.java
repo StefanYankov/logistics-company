@@ -1,6 +1,7 @@
 package bg.nbu.cscb532.shared.web.exception;
 
 import bg.nbu.cscb532.shared.exception.BusinessException;
+import io.jsonwebtoken.ExpiredJwtException;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
@@ -70,6 +71,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setTitle("Forbidden");
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
+    }
+
+    /**
+     * Handles Expired JWT Tokens to prevent 500 errors and trigger frontend logout flows.
+     */
+    @ExceptionHandler(ExpiredJwtException.class)
+    public ResponseEntity<ProblemDetail> handleExpiredJwtException(ExpiredJwtException ex) {
+        log.warn("JWT Expired: {}", ex.getMessage());
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Your session has expired. Please log in again.");
+        problem.setTitle("Token Expired");
+        problem.setType(URI.create("urn:logistics:token-expired"));
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
 
     /**
