@@ -2,6 +2,7 @@ package bg.nbu.cscb532.client;
 
 import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
+import bg.nbu.cscb532.client.dto.ClientUpdateDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
@@ -382,6 +383,112 @@ class ClientServiceUnitTests {
                     .isEqualTo(ErrorCode.EMAIL_DUPLICATE);
                     
             verify(clientRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("updateClientProfile(UUID, ClientUpdateDto) Tests")
+    class UpdateClientProfileTests {
+
+        @Test
+        @DisplayName("Happy Path: Should successfully update client profile")
+        void shouldUpdateClientProfileSuccessfully() {
+            // Arrange
+            UUID clientId = UUID.randomUUID();
+            ClientUpdateDto dto = ClientUpdateDto.builder()
+                    .firstName("NewFirstName")
+                    .lastName("NewLastName")
+                    .phoneNumber("0888111222")
+                    .build();
+
+            Client existingClient = createMockSavedClient();
+            existingClient.setId(clientId);
+            existingClient.setPhoneNumber("0888000000");
+
+            given(clientRepository.findById(clientId)).willReturn(Optional.of(existingClient));
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.empty());
+            given(clientRepository.save(any(Client.class))).willReturn(existingClient);
+
+            // Act
+            ClientViewDto result = clientService.updateClientProfile(clientId, dto);
+
+            // Assert
+            assertThat(result).isNotNull();
+            verify(clientRepository).save(clientCaptor.capture());
+            
+            Client savedClient = clientCaptor.getValue();
+            assertThat(savedClient.getFirstName()).isEqualTo("NewFirstName");
+            assertThat(savedClient.getLastName()).isEqualTo("NewLastName");
+            assertThat(savedClient.getPhoneNumber()).isEqualTo("0888111222");
+        }
+
+        @Test
+        @DisplayName("Edge Case: Should bypass duplicate phone check if phone number hasn't changed")
+        void shouldBypassDuplicateCheckIfPhoneUnchanged() {
+            // Arrange
+            UUID clientId = UUID.randomUUID();
+            ClientUpdateDto dto = ClientUpdateDto.builder()
+                    .firstName("NewFirstName")
+                    .lastName("NewLastName")
+                    .phoneNumber("0888123456")
+                    .build();
+
+            Client existingClient = createMockSavedClient();
+            existingClient.setId(clientId);
+
+            given(clientRepository.findById(clientId)).willReturn(Optional.of(existingClient));
+            given(clientRepository.save(any(Client.class))).willReturn(existingClient);
+
+            // Act
+            clientService.updateClientProfile(clientId, dto);
+
+            // Assert
+            verify(clientRepository, never()).findByPhoneNumber(anyString());
+            verify(clientRepository).save(any(Client.class));
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw PHONE_DUPLICATE if new phone number is taken by someone else")
+        void shouldThrowIfNewPhoneNumberIsDuplicate() {
+            // Arrange
+            UUID clientId = UUID.randomUUID();
+            ClientUpdateDto dto = ClientUpdateDto.builder()
+                    .firstName("NewFirstName")
+                    .lastName("NewLastName")
+                    .phoneNumber("0888111222")
+                    .build();
+
+            Client existingClient = createMockSavedClient();
+            existingClient.setId(clientId);
+            existingClient.setPhoneNumber("0888000000");
+
+            Client otherClient = new Client();
+            otherClient.setId(UUID.randomUUID());
+
+            given(clientRepository.findById(clientId)).willReturn(Optional.of(existingClient));
+            given(clientRepository.findByPhoneNumber(dto.phoneNumber())).willReturn(Optional.of(otherClient));
+
+            // Act and Assert
+            assertThatThrownBy(() -> clientService.updateClientProfile(clientId, dto))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.PHONE_DUPLICATE);
+
+            verify(clientRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw RESOURCE_NOT_FOUND if client does not exist")
+        void shouldThrowIfClientNotFound() {
+            UUID clientId = UUID.randomUUID();
+            ClientUpdateDto dto = ClientUpdateDto.builder().build();
+
+            given(clientRepository.findById(clientId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> clientService.updateClientProfile(clientId, dto))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 

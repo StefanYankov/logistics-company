@@ -1,47 +1,60 @@
 <div class="login-container">
-  <h2>Logistics Company Login</h2>
+  <h2>Welcome Back</h2>
+  <p class="subtitle">Enter your credentials to access your account</p>
 
-  <!-- We use a FormGroup to bind our HTML inputs to the TypeScript class -->
+  <!-- Error Banner -->
+  @if (errorMessage) {
+    <div class="error server-error">
+      {{ errorMessage }}
+    </div>
+  }
+
   <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
 
+    <!-- Username Field -->
     <div class="form-group">
       <label for="username">Username</label>
-      <!-- formControlName links this input to the 'username' control in our FormGroup -->
-      <input id="username" type="text" formControlName="username" />
-
-      <!-- Validation Feedback using modern @if syntax (Angular 17+) -->
+      <input
+        id="username"
+        type="text"
+        formControlName="username"
+        placeholder="e.g. john_doe"
+        autocomplete="username"
+        autofocus
+      />
+      <!-- Validation Feedback -->
       @if (loginForm.get('username')?.invalid && loginForm.get('username')?.touched) {
-        <div class="error">
-          Username is required.
-        </div>
+        <div class="error">Username is required</div>
       }
     </div>
 
+    <!-- Password Field -->
     <div class="form-group">
       <label for="password">Password</label>
-      <input id="password" type="password" formControlName="password" />
-
+      <input
+        id="password"
+        type="password"
+        formControlName="password"
+        placeholder="Enter your password"
+        autocomplete="current-password"
+      />
+      <!-- Validation Feedback -->
       @if (loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
-        <div class="error">
-          Password is required.
-        </div>
+        <div class="error">Password is required</div>
       }
     </div>
 
-    <!-- Display server-side errors (like 401 Unauthorized) -->
-    @if (errorMessage) {
-      <div class="error server-error">
-        {{ errorMessage }}
-      </div>
-    }
-
-    <button type="submit" [disabled]="loginForm.invalid || isLoading">
-      <!-- Modern ternary operator in templates -->
-      {{ isLoading ? 'Logging in...' : 'Login' }}
+    <!-- Submit Button -->
+    <button
+      type="submit"
+      class="btn-primary"
+      [disabled]="loginForm.invalid || isLoading">
+      {{ isLoading ? 'Logging in...' : 'Sign In' }}
     </button>
+
   </form>
 
-  <p class="register-link">
-    Don't have an account? <a routerLink="/register">Register here</a>
-  </p>
+  <div class="register-link">
+    <p>Don't have an account? <a routerLink="/register">Register here</a></p>
+  </div>
 </div>

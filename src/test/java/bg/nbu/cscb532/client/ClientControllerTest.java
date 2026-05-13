@@ -2,6 +2,7 @@ package bg.nbu.cscb532.client;
 
 import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
+import bg.nbu.cscb532.client.dto.ClientUpdateDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.config.SecurityConfig;
 import bg.nbu.cscb532.shared.exception.BusinessException;
@@ -42,6 +43,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -151,6 +153,129 @@ class ClientControllerTest {
                     .andExpect(status().isForbidden());
 
             verifyNoInteractions(clientService);
+        }
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when non-Client attempts to access /me endpoints")
+        void shouldReturn403WhenNonClientAccessesMeEndpoints() throws Exception {
+            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+            ClientUpdateDto dto = ClientUpdateDto.builder().firstName("John").lastName("Doe").phoneNumber("0888111222").build();
+
+            mockMvc.perform(get(BASE_URL + "/me").with(user(adminUser)))
+                    .andExpect(status().isForbidden());
+
+            mockMvc.perform(put(BASE_URL + "/me")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(dto))
+                            .with(user(adminUser)))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(clientService);
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/clients/me")
+    class GetMyProfileTests {
+
+        @Test
+        @DisplayName("Happy Path: Client should successfully retrieve their own profile")
+        void clientShouldRetrieveOwnProfileSuccessfully() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            CustomUserDetails clientUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+            ClientViewDto clientDto = createValidViewDto(clientId);
+
+            given(clientService.getClientById(clientId)).willReturn(clientDto);
+
+            mockMvc.perform(get(BASE_URL + "/me").with(user(clientUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(clientId.toString()))
+                    .andExpect(jsonPath("$.firstName").value("John"));
+
+            verify(clientService).getClientById(clientId);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should return 404 Not Found if client profile does not exist")
+        void shouldReturn404WhenClientNotFound() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            CustomUserDetails clientUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+
+            given(clientService.getClientById(clientId)).willThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+            mockMvc.perform(get(BASE_URL + "/me").with(user(clientUser)))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.RESOURCE_NOT_FOUND.getCode()));
+
+            verify(clientService).getClientById(clientId);
+        }
+    }
+
+    @Nested
+    @DisplayName("PUT /api/clients/me")
+    class UpdateMyProfileTests {
+
+        @Test
+        @DisplayName("Happy Path: Client should successfully update their own profile")
+        void clientShouldUpdateOwnProfileSuccessfully() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            CustomUserDetails clientUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+            ClientUpdateDto dto = ClientUpdateDto.builder()
+                    .firstName("Jane")
+                    .lastName("Doe")
+                    .phoneNumber("0888999888")
+                    .build();
+            ClientViewDto responseDto = new ClientViewDto(clientId, "newClient", "client@example.com", "Jane", "Doe", "0888999888", true, false);
+
+            given(clientService.updateClientProfile(eq(clientId), any(ClientUpdateDto.class))).willReturn(responseDto);
+
+            mockMvc.perform(put(BASE_URL + "/me")
+                            .with(user(clientUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.firstName").value("Jane"))
+                    .andExpect(jsonPath("$.phoneNumber").value("0888999888"));
+
+            verify(clientService).updateClientProfile(eq(clientId), any(ClientUpdateDto.class));
+        }
+
+        @Test
+        @DisplayName("Validation Error: Should return 400 when missing fields")
+        void shouldReturn400WhenMissingFields() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            CustomUserDetails clientUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+            // Missing phone number
+            ClientUpdateDto dto = ClientUpdateDto.builder().firstName("Jane").lastName("Doe").build();
+
+            mockMvc.perform(put(BASE_URL + "/me")
+                            .with(user(clientUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.phoneNumber").exists());
+
+            verifyNoInteractions(clientService);
+        }
+
+        @Test
+        @DisplayName("Business Conflict: Should return 409 Conflict when phone number is duplicate")
+        void shouldReturn409WhenPhoneIsDuplicate() throws Exception {
+            UUID clientId = UUID.randomUUID();
+            CustomUserDetails clientUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+            ClientUpdateDto dto = ClientUpdateDto.builder().firstName("Jane").lastName("Doe").phoneNumber("0888999888").build();
+
+            given(clientService.updateClientProfile(eq(clientId), any(ClientUpdateDto.class)))
+                    .willThrow(new BusinessException(ErrorCode.PHONE_DUPLICATE));
+
+            mockMvc.perform(put(BASE_URL + "/me")
+                            .with(user(clientUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(dto)))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.PHONE_DUPLICATE.getCode()));
+
+            verify(clientService).updateClientProfile(eq(clientId), any(ClientUpdateDto.class));
         }
     }
 

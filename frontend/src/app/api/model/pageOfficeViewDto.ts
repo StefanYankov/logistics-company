@@ -20,8 +20,8 @@ export interface PageOfficeViewDto {
     number?: number;
     first?: boolean;
     last?: boolean;
-    pageable?: PageableObject;
     numberOfElements?: number;
+    pageable?: PageableObject;
     sort?: SortObject;
     empty?: boolean;
 }

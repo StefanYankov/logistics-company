@@ -44,30 +44,12 @@ describe('ClientRegistration', () => {
     mockCityApi.getAllCities.mockReturnValue(of({ content: [] }));
 
     fixture.detectChanges();
-    await Promise.resolve();
+    await Promise.resolve(); // resolve the queueMicrotask
     fixture.detectChanges();
 
     expect(component).toBeTruthy();
     expect(component.isLoadingLookups()).toBe(false);
     expect(component.loggedInUserId).toBe('client-123');
-  });
-
-  it('should toggle receiver validation correctly', async () => {
-    mockClientApi.getAllClients.mockReturnValue(of({ content: [] }));
-    mockOfficeApi.getAllOffices.mockReturnValue(of({ content: [] }));
-    mockCityApi.getAllCities.mockReturnValue(of({ content: [] }));
-
-    fixture.detectChanges();
-    await Promise.resolve();
-
-    // Default is REGISTERED
-    expect(component.registerForm.get('receiverId')?.validator).toBeTruthy();
-    expect(component.registerForm.get('receiverName')?.validator).toBeNull();
-
-    // Switch to GUEST
-    component.registerForm.patchValue({ receiverType: 'GUEST' });
-    expect(component.registerForm.get('receiverId')?.validator).toBeNull();
-    expect(component.registerForm.get('receiverName')?.validator).toBeTruthy();
   });
 
   it('should toggle origin validation correctly', async () => {
@@ -86,5 +68,31 @@ describe('ClientRegistration', () => {
     component.registerForm.patchValue({ originType: 'ADDRESS' });
     expect(component.registerForm.get('originOfficeId')?.validator).toBeNull();
     expect(component.registerForm.get('originCityId')?.validator).toBeTruthy();
+  });
+
+  it('should require receiver name and valid phone number', async () => {
+    mockClientApi.getAllClients.mockReturnValue(of({ content: [] }));
+    mockOfficeApi.getAllOffices.mockReturnValue(of({ content: [] }));
+    mockCityApi.getAllCities.mockReturnValue(of({ content: [] }));
+
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    const nameCtrl = component.registerForm.get('receiverName');
+    const phoneCtrl = component.registerForm.get('receiverPhone');
+
+    // Initially invalid
+    expect(nameCtrl?.valid).toBe(false);
+    expect(phoneCtrl?.valid).toBe(false);
+
+    // Invalid phone pattern
+    phoneCtrl?.setValue('invalid');
+    expect(phoneCtrl?.valid).toBe(false);
+
+    // Valid data
+    nameCtrl?.setValue('Jane Doe');
+    phoneCtrl?.setValue('+359888123456');
+    expect(nameCtrl?.valid).toBe(true);
+    expect(phoneCtrl?.valid).toBe(true);
   });
 });

@@ -2,8 +2,10 @@ package bg.nbu.cscb532.client;
 
 import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
+import bg.nbu.cscb532.client.dto.ClientUpdateDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
+import bg.nbu.cscb532.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -15,8 +17,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -85,6 +89,40 @@ public class ClientController {
         return ResponseEntity
                 .created(location)
                 .body(createdClient);
+    }
+
+    @Operation(
+            summary = "Get current client's profile",
+            description = "Retrieves the profile details of the authenticated client. Accessible only by the client themselves."
+    )
+    @ApiResponse(responseCode = "200", description = "Client profile retrieved successfully")
+    @ApiResponse(responseCode = "403", description = "Forbidden - Not a client or not authorized")
+    @ApiResponse(responseCode = "404", description = "Client not found")
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<ClientViewDto> getMyProfile(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("API GET request for authenticated client's profile. User ID: {}", userDetails.getId());
+        ClientViewDto client = clientService.getClientById(userDetails.getId());
+        return ResponseEntity.ok(client);
+    }
+
+    @Operation(
+            summary = "Update current client's profile",
+            description = "Updates the profile details (first name, last name, phone number) of the authenticated client. Accessible only by the client themselves."
+    )
+    @ApiResponse(responseCode = "200", description = "Client profile updated successfully")
+    @ApiResponse(responseCode = "400", description = "Validation failed")
+    @ApiResponse(responseCode = "403", description = "Forbidden - Not a client or not authorized")
+    @ApiResponse(responseCode = "404", description = "Client not found")
+    @ApiResponse(responseCode = "409", description = "Conflict - Phone number already registered to another account")
+    @PutMapping("/me")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<ClientViewDto> updateMyProfile(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody ClientUpdateDto dto) {
+        log.info("API PUT request to update profile for authenticated client. User ID: {}", userDetails.getId());
+        ClientViewDto updatedClient = clientService.updateClientProfile(userDetails.getId(), dto);
+        return ResponseEntity.ok(updatedClient);
     }
 
     @Operation(

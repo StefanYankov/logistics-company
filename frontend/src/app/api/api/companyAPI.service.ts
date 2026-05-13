@@ -86,6 +86,8 @@ export class CompanyAPIService extends BaseService {
 
     const localVarTransferCache: boolean = options?.transferCache ?? true;
 
+
+    // to determine the Content-Type header
     const consumes: string[] = [
       'application/json'
     ];

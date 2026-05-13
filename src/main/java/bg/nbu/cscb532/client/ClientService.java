@@ -2,11 +2,14 @@ package bg.nbu.cscb532.client;
 
 import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
+import bg.nbu.cscb532.client.dto.ClientUpdateDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.user.dto.ForgotPasswordRequestDto;
 import bg.nbu.cscb532.user.dto.ResetPasswordRequestDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.util.UUID;
 
 /**
  * Service interface for managing the Client aggregate root.
@@ -31,6 +34,19 @@ public interface ClientService {
      * @return A view DTO of the newly created client.
      */
     ClientViewDto quickRegister(ClientQuickRegistrationDto dto);
+
+    /**
+     * Updates an existing client's profile information.
+     * @param id The UUID of the client to update.
+     * @param dto The updated profile details.
+     * @return The updated Client view DTO.
+     */
+    ClientViewDto updateClientProfile(UUID id, ClientUpdateDto dto);
+
+    /**
+     * Retrieves a single client by their ID.
+     */
+    ClientViewDto getClientById(UUID id);
 
     /**
      * Validates a time-bound, secure token to verify a client's email address.

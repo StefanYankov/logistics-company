@@ -2,6 +2,7 @@ package bg.nbu.cscb532.client;
 
 import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
+import bg.nbu.cscb532.client.dto.ClientUpdateDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
 import bg.nbu.cscb532.shared.Constants;
 import bg.nbu.cscb532.shared.exception.BusinessException;
@@ -163,7 +164,7 @@ public class ClientServiceImpl implements ClientService {
 
         Client newClient = new Client();
         newClient.setUsername(generatedUsername);
-        newClient.setEmail(normalizedEmail);
+        newClient.setEmail(normalizedEmail); // Might be null
         newClient.setPassword(hashedPassword);
         newClient.setFirstName(dto.firstName().trim());
         newClient.setLastName(dto.lastName().trim());
@@ -186,6 +187,54 @@ public class ClientServiceImpl implements ClientService {
         }
 
         return mapToViewDto(savedClient);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional
+    public ClientViewDto updateClientProfile(UUID id, ClientUpdateDto dto) {
+        log.debug("Attempting to update profile for client ID: {}", id);
+
+        Objects.requireNonNull(dto, Constants.DeveloperErrors.DTO_NULL);
+
+        Client client = clientRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        String normalizedPhone = dto.phoneNumber().trim();
+
+        // If they are changing their phone number, ensure it doesn't conflict with someone else
+        if (!client.getPhoneNumber().equals(normalizedPhone)) {
+            if (clientRepository.findByPhoneNumber(normalizedPhone).isPresent()) {
+                log.warn("Profile update failed. Phone number [{}] is already taken.", normalizedPhone);
+                throw new BusinessException(ErrorCode.PHONE_DUPLICATE);
+            }
+        }
+
+        client.setFirstName(dto.firstName().trim());
+        client.setLastName(dto.lastName().trim());
+        client.setPhoneNumber(normalizedPhone);
+
+        Client updatedClient = clientRepository.save(client);
+
+        log.info("Successfully updated profile for client ID: {}", id);
+
+        return mapToViewDto(updatedClient);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public ClientViewDto getClientById(UUID id) {
+        log.debug("Fetching client by ID: {}", id);
+
+        Client client = clientRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        return mapToViewDto(client);
     }
 
     /**
@@ -248,7 +297,7 @@ public class ClientServiceImpl implements ClientService {
 
         if (!verificationToken.isValid()) {
             log.warn("Email verification failed: Token has expired for user [{}]", verificationToken.getUser().getUsername());
-            verificationTokenRepository.delete(verificationToken);
+            verificationTokenRepository.delete(verificationToken); // Clean up the expired token
             throw new BusinessException(ErrorCode.EXPIRED_TOKEN);
         }
 
@@ -256,7 +305,7 @@ public class ClientServiceImpl implements ClientService {
         user.setEmailVerified(true);
         userRepository.save(user);
 
-        verificationTokenRepository.delete(verificationToken);
+        verificationTokenRepository.delete(verificationToken); // Consume the token (Single-use security)
 
         log.info("Successfully verified email for user [{}]", user.getUsername());
     }
@@ -275,6 +324,7 @@ public class ClientServiceImpl implements ClientService {
         User user = userRepository.findByEmail(normalizedEmail).orElse(null);
 
         // Security: Prevent User Enumeration. Do not throw an error if the email doesn't exist.
+        // We also explicitly restrict self-service resets to CLIENT roles only.
         if (user == null || user.getApplicationRole() != ApplicationRole.CLIENT) {
             log.warn("Password reset ignored: Email [{}] not found or user is not a Client.", normalizedEmail);
             return; 
@@ -291,7 +341,7 @@ public class ClientServiceImpl implements ClientService {
         VerificationToken resetToken = VerificationToken.builder()
                 .tokenHash(hashedToken)
                 .tokenType(TokenType.PASSWORD_RESET)
-                .expiryDate(Instant.now().plus(Duration.ofHours(1)))
+                .expiryDate(Instant.now().plus(Duration.ofHours(1))) // Reset tokens expire much faster than verification
                 .user(user)
                 .build();
 
@@ -339,7 +389,7 @@ public class ClientServiceImpl implements ClientService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        verificationTokenRepository.delete(tokenEntity);
+        verificationTokenRepository.delete(tokenEntity); // Burn the token
 
         log.info("Successfully reset password for user [{}]", user.getUsername());
     }

@@ -1,62 +1,106 @@
-<div class="list-container">
+<div class="shipment-list-container">
   <div class="header">
     <h2>All Shipments</h2>
-    <p>Manage and track all shipments in the logistics network.</p>
+    <p>Monitor and manage all packages in the network.</p>
   </div>
 
+  @if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  }
+
   @if (isLoading()) {
-    <div class="loading">Loading network data...</div>
-  } @else if (errorMessage()) {
-    <div class="error">{{ errorMessage() }}</div>
+    <div class="loading">Loading shipments...</div>
+  } @else if (shipments().length === 0) {
+    <div class="no-data">No shipments found in the system.</div>
   } @else {
-
-    <div class="table-stats">
-      Total Shipments: {{ totalElements() }}
+    <div class="table-responsive">
+      <table class="shipment-table">
+        <thead>
+          <tr>
+            <th>Tracking #</th>
+            <th>Status</th>
+            <th>Type & Weight</th>
+            <th>Sender</th>
+            <th>Receiver</th>
+            <th>Origin</th>
+            <th>Destination</th>
+            <th>Financials</th>
+            <th>Actions (Staff)</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (shipment of shipments(); track shipment.id) {
+            <tr>
+              <td class="tracking-col">
+                <strong>{{ shipment.trackingNumber }}</strong><br>
+                <small class="date-hint">{{ shipment.createdAt | date:'short' }}</small>
+              </td>
+              <td>
+                <span class="status-badge" [ngClass]="shipment.status ? shipment.status.toLowerCase() : ''">
+                  {{ shipment.status }}
+                </span>
+                @if (shipment.currentOfficeName) {
+                  <div class="location-hint">At: {{ shipment.currentOfficeName }}</div>
+                }
+                @if (shipment.currentCourierName) {
+                  <div class="location-hint">With: {{ shipment.currentCourierName }}</div>
+                }
+              </td>
+              <td>
+                {{ shipment.type }}<br>
+                <small>{{ shipment.weight }} kg</small>
+                @if (shipment.length && shipment.width && shipment.height) {
+                  <br><small class="dims-hint">{{ shipment.length }}x{{ shipment.width }}x{{ shipment.height }} cm</small>
+                }
+              </td>
+              <td>
+                {{ shipment.senderName }}<br>
+                <small>{{ shipment.senderPhone }}</small>
+              </td>
+              <td>
+                {{ shipment.receiverName }}<br>
+                <small>{{ shipment.receiverPhone }}</small>
+              </td>
+              <td>
+                @if (shipment.originOfficeName) {
+                   🏢 {{ shipment.originOfficeName }}
+                } @else {
+                   📍 {{ shipment.originAddressString }}
+                }
+              </td>
+              <td>
+                @if (shipment.deliveryOfficeName) {
+                   🏢 {{ shipment.deliveryOfficeName }}
+                } @else {
+                   📍 {{ shipment.deliveryAddressString }}
+                }
+              </td>
+              <td class="financials-col">
+                <strong>{{ shipment.totalPrice | currency:'BGN':'symbol-narrow' }}</strong><br>
+                <small>Paid by: {{ shipment.paidBy }}</small><br>
+                <span class="payment-badge" [class.paid]="shipment.isPaid" [class.unpaid]="!shipment.isPaid">
+                  {{ shipment.isPaid ? 'PAID' : 'UNPAID' }}
+                </span>
+              </td>
+              <td class="actions-col">
+                <!-- Actions logic relies on the user's role, but for the prototype we expose the transitions -->
+                @if (shipment.status === 'REGISTERED') {
+                   <button class="btn-action btn-transit" (click)="updateStatus(shipment.id!, 'IN_TRANSIT')">Mark In Transit</button>
+                }
+                @if (shipment.status === 'IN_TRANSIT') {
+                   <button class="btn-action btn-office" (click)="updateStatus(shipment.id!, 'AT_DELIVERY_OFFICE')">Arrived at Office</button>
+                }
+                @if (shipment.status === 'IN_TRANSIT' || shipment.status === 'AT_DELIVERY_OFFICE') {
+                   <button class="btn-action btn-out" (click)="updateStatus(shipment.id!, 'OUT_FOR_DELIVERY')">Out for Delivery</button>
+                }
+                @if (shipment.status === 'OUT_FOR_DELIVERY' || shipment.status === 'AT_DELIVERY_OFFICE') {
+                   <button class="btn-action btn-delivered" (click)="updateStatus(shipment.id!, 'DELIVERED')">Delivered</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
     </div>
-
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Tracking Number</th>
-          <th>Sender ID</th>
-          <th>Type</th>
-          <th>Weight</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (s of shipments(); track s.id) {
-          <tr>
-            <td><strong>{{ s.trackingNumber }}</strong></td>
-            <!-- Real app would resolve Sender ID to a Name, we display ID for simplicity -->
-            <td><span class="uuid-truncate" [title]="s.senderId">{{ s.senderId }}</span></td>
-            <td>{{ s.type }}</td>
-            <td>{{ s.weight }} kg</td>
-            <td><span class="status-badge" [ngClass]="s.status?.toLowerCase()">{{ s.status }}</span></td>
-            <td class="actions-cell">
-              <!-- State Machine Controls -->
-              @if (s.status === 'REGISTERED') {
-                <button class="btn-action btn-transit" (click)="updateStatus(s.id!, 'IN_TRANSIT')">
-                  Mark In Transit
-                </button>
-              }
-              @if (s.status === 'IN_TRANSIT') {
-                <button class="btn-action btn-deliver" (click)="updateStatus(s.id!, 'DELIVERED')">
-                  Mark Delivered
-                </button>
-              }
-              @if (s.status === 'DELIVERED') {
-                <span class="text-success">Completed</span>
-              }
-            </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="6" class="empty-state">No shipments found in the system.</td>
-          </tr>
-        }
-      </tbody>
-    </table>
   }
 </div>

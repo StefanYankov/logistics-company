@@ -2,8 +2,8 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
-import { LoginRequestDto } from '../api/model/loginRequestDto';
-import { LoginResponseDto } from '../api/model/loginResponseDto';
+import { LoginRequestDto } from '../api';
+import { LoginResponseDto } from '../api';
 
 export interface DecodedToken {
   sub: string; // The username
@@ -89,6 +89,20 @@ export class AuthService {
    */
   isLoggedIn(): boolean {
     return this.getToken() !== null;
+  }
+
+  /**
+   * Checks if the currently logged-in user possesses the specified role.
+   * @param expectedRole The exact string role to check (e.g., 'ROLE_CLIENT', 'ROLE_CLERK').
+   * @returns True if the user has the role, false otherwise.
+   */
+  hasRole(expectedRole: string): boolean {
+      const token = this.getDecodedToken();
+      if (!token || !token.role) {
+          return false;
+      }
+      // Spring Security maps singular roles directly or comma-separated if multiple
+      return token.role.includes(expectedRole);
   }
 
   /**

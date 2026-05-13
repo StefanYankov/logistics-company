@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { RouterModule, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../shared/auth.service';
 
@@ -15,6 +15,10 @@ import { AuthService } from '../../shared/auth.service';
 })
 export class AuthenticatedLayout {
   private authService = inject(AuthService);
+
+  // Expose role checks to the template as reactive computed signals
+  isClient = computed(() => this.authService.hasRole('ROLE_CLIENT'));
+  isStaff = computed(() => this.authService.hasRole('ROLE_CLERK') || this.authService.hasRole('ROLE_COURIER') || this.authService.hasRole('ROLE_ADMIN'));
 
   logout(): void {
     this.authService.logout();
