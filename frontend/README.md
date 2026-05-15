@@ -1,59 +1,61 @@
-# Frontend
+# Logistics Company Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.5.
+This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.x and serves as the presentation layer for the Logistics Company System.
+
+## Architecture
+
+This application is built using modern Angular practices:
+*   **Standalone Components:** We do not use `NgModules`. All components, directives, and pipes are standalone.
+*   **Signals:** State management and reactivity are heavily reliant on Angular Signals (`signal()`, `computed()`, `effect()`) for fine-grained updates and zoneless compatibility.
+*   **Reactive Forms:** Complex forms (like shipment registration) use strongly typed `FormBuilder`.
+*   **OpenAPI Generation:** The entire data access layer (`src/app/api`) is auto-generated from the Spring Boot backend's Swagger/OpenAPI specification.
+
+## Setup & OpenAPI Generation
+
+Before running the application, you **must** generate the API client. If the backend API contract changes, you must re-run this step.
+
+1. Ensure your Spring Boot backend is running locally on `http://localhost:8080`.
+2. Run the generator script:
+   ```bash
+   npm run generate-api
+   ```
+   *This command uses `@openapitools/openapi-generator-cli` to fetch the `/v3/api-docs` JSON from the backend and builds the strongly-typed TypeScript services and DTOs into the `src/app/api` folder.*
 
 ## Development server
 
 To start a local development server, run:
 
 ```bash
-ng serve
+npm start
 ```
+*(This is an alias for `ng serve`)*
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files. The application is configured to proxy API requests to `http://localhost:8080/api`.
 
-## Code scaffolding
+## Running unit tests
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+To execute unit tests with the [Vitest](https://vitest.dev/) test runner (which is significantly faster than Karma/Jasmine and natively supports ESM), use the following command:
 
 ```bash
-ng generate component component-name
+npm test
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
+*Note: We heavily utilize `async/await` and `fixture.whenStable()` in our component tests to accurately simulate Angular's lifecycle and avoid `ExpressionChangedAfterItHasBeenCheckedError`.*
 
 ## Building
 
 To build the project run:
 
 ```bash
-ng build
+npm run build
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+This will compile your project and store the build artifacts in the `dist/` directory.
 
-## Running unit tests
+## Code scaffolding
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
 
 ```bash
-ng test
+ng generate component features/my-new-feature
 ```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.

@@ -41,6 +41,7 @@ export interface ShipmentViewDto {
     currentCourierName?: string;
     registeredById?: string;
     registeredByName?: string;
+    appliedAddons?: Array<string>;
 }
 export namespace ShipmentViewDto {
     export const TypeEnum = {

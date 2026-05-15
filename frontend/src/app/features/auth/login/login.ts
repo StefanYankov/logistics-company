@@ -1,9 +1,8 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '../../../shared/auth.service';
-import { LoginRequestDto } from '../../../api';
 
 /**
  * Component handling user authentication.
@@ -11,15 +10,16 @@ import { LoginRequestDto } from '../../../api';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './login.html',
-  styleUrl: './login.css',
+  styleUrl: './login.css'
 })
 export class Login {
+  private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private router = inject(Router);
 
-  loginForm = inject(FormBuilder).group({
+  loginForm = this.fb.group({
     username: ['', Validators.required],
     password: ['', Validators.required]
   });
@@ -35,26 +35,33 @@ export class Login {
       this.isLoading = true;
       this.errorMessage = null;
 
-      const credentials: LoginRequestDto = this.loginForm.value as LoginRequestDto;
+      const credentials = {
+        username: this.loginForm.value.username!,
+        password: this.loginForm.value.password!
+      };
 
       this.authService.login(credentials).subscribe({
         next: () => {
-          // Success: Navigate to the main authenticated area
-          this.router.navigate(['/app']);
+          this.isLoading = false;
+          // The authService automatically stores the token.
+          // Route the user to the authenticated area.
+          const token = this.authService.getDecodedToken();
+
+          if (token && token.role === 'ROLE_CLIENT') {
+             this.router.navigate(['/app/send-package']);
+          } else {
+             this.router.navigate(['/app/shipments']); // Default for clerks/admins/couriers
+          }
         },
         error: (err) => {
           this.isLoading = false;
-          // Map standard HTTP status codes from the backend to user-friendly messages
           if (err.status === 401) {
-             this.errorMessage = 'Invalid username or password.';
+            this.errorMessage = 'Invalid username or password.';
           } else {
-             this.errorMessage = 'An unexpected server error occurred. Please try again later.';
+            this.errorMessage = 'An error occurred during login.';
           }
         }
       });
-    } else {
-      // If the user clicks submit without filling out the form, trigger validation feedback
-      this.loginForm.markAllAsTouched();
     }
   }
 }

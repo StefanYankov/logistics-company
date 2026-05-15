@@ -20,9 +20,9 @@ export interface PageClientViewDto {
     number?: number;
     first?: boolean;
     last?: boolean;
-    numberOfElements?: number;
     pageable?: PageableObject;
     sort?: SortObject;
+    numberOfElements?: number;
     empty?: boolean;
 }
 

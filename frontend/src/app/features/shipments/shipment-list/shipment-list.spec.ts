@@ -36,7 +36,7 @@ describe('ShipmentList', () => {
   it('should create and load shipments', () => {
     // Arrange
     const mockResponse = {
-      content: [{ id: '1', trackingNumber: 'TRK-1', status: 'REGISTERED' }],
+      content: [{ id: '1', trackingNumber: 'TRK-1', status: 'REGISTERED', appliedAddons: ['Fragile', 'SMS Notification'] }],
       totalElements: 1
     };
     mockShipmentApi.getAllShipments.mockReturnValue(of(mockResponse));

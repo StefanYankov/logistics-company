@@ -4,8 +4,8 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { forkJoin, of, EMPTY, Observable } from 'rxjs';
 import { catchError, startWith, concatMap, tap } from 'rxjs/operators';
-import { ShipmentAPIService, OfficeAPIService, CityAPIService, ClientAPIService } from '../../../api';
-import { OfficeViewDto, CityViewDto, ShipmentCreationDto, ClientUpdateDto } from '../../../api';
+import { ShipmentAPIService, OfficeAPIService, CityAPIService, ClientAPIService, ServiceCatalogAPIService } from '../../../api';
+import { OfficeViewDto, CityViewDto, ShipmentCreationDto, ClientUpdateDto, ServiceCatalogViewDto } from '../../../api';
 import { AuthService } from '../../../shared/auth.service';
 
 @Component({
@@ -21,6 +21,7 @@ export class ClientRegistration implements OnInit {
   private clientApi = inject(ClientAPIService);
   private officeApi = inject(OfficeAPIService);
   private cityApi = inject(CityAPIService);
+  private serviceCatalogApi = inject(ServiceCatalogAPIService);
   private authService = inject(AuthService);
   private router = inject(Router);
 
@@ -31,6 +32,7 @@ export class ClientRegistration implements OnInit {
   // Source of truth
   allOffices: OfficeViewDto[] = [];
   cities = signal<CityViewDto[]>([]);
+  availableServices = signal<ServiceCatalogViewDto[]>([]);
 
   // Filtered lists for the UI
   filteredOriginOffices = signal<OfficeViewDto[]>([]);
@@ -40,6 +42,9 @@ export class ClientRegistration implements OnInit {
   paidByOptions = Object.values(ShipmentCreationDto.PaidByEnum);
 
   loggedInUserId: string = '';
+
+  // Track selected addon IDs
+  selectedServiceIds = signal<Set<number>>(new Set());
 
   senderProfileForm = this.fb.group({
       firstName: ['', Validators.required],
@@ -190,38 +195,79 @@ export class ClientRegistration implements OnInit {
     [officeCtrl, cityCtrl, streetCtrl, cityFilterCtrl].forEach(c => c?.updateValueAndValidity({ emitEvent: false }));
   }
 
-  private loadDropdownData() {
+  private async loadDropdownData() {
     this.isLoadingLookups.set(true);
     const pageParams = { page: 0, size: 500 };
 
     forkJoin({
       profileRes: this.clientApi.getMyProfile(),
       officesRes: this.officeApi.getAllOffices(pageParams),
-      citiesRes: this.cityApi.getAllCities(pageParams)
+      citiesRes: this.cityApi.getAllCities(pageParams),
+      servicesRes: this.serviceCatalogApi.getAllServices()
     }).pipe(
-      catchError(() => {
+      catchError((err) => {
+        console.error("Failed to load initial form data", err);
         this.errorMessage.set('Failed to load form data. Please try again.');
         this.isLoadingLookups.set(false);
         return of(null);
       })
-    ).subscribe(result => {
+    ).subscribe(async (result) => { // Mark handler as async
       if (result) {
+        try {
+          // Pre-fill profile (already parses correctly as object)
+          this.senderProfileForm.patchValue({
+            firstName: result.profileRes.firstName,
+            lastName: result.profileRes.lastName,
+            phoneNumber: result.profileRes.phoneNumber
+          });
 
-        // Pre-fill profile
-        this.senderProfileForm.patchValue({
-             firstName: result.profileRes.firstName,
-             lastName: result.profileRes.lastName,
-             phoneNumber: result.profileRes.phoneNumber
-        });
+          // Unpack Blobs safely into structured data
+          const officesData = await this.parseBlobResponse(result.officesRes);
+          const citiesData = await this.parseBlobResponse(result.citiesRes);
+          const servicesData = await this.parseBlobResponse(result.servicesRes);
 
-        this.allOffices = result.officesRes.content || [];
-        // Initially, show all offices
-        this.filteredOriginOffices.set(this.allOffices);
-        this.filteredDeliveryOffices.set(this.allOffices);
+          this.allOffices = officesData?.content || [];
 
-        this.cities.set(result.citiesRes.content || []);
-        this.isLoadingLookups.set(false);
+          // Apply changes to signals outside the constructor flow
+          this.filteredOriginOffices.set(this.allOffices);
+          this.filteredDeliveryOffices.set(this.allOffices);
+          this.cities.set(citiesData?.content || []);
+          this.availableServices.set(Array.isArray(servicesData) ? servicesData : []);
+
+          console.log("DEBUG: availableServices signal successfully set to:", this.availableServices());
+        } catch (parseError) {
+          console.error("Failed to process API Blob response payloads:", parseError);
+          this.errorMessage.set('Data corruption error. Please reload.');
+        } finally {
+          this.isLoadingLookups.set(false);
+        }
       }
+    });
+  }
+
+  /**
+   * Helper utility to convert openapi generated Blob response streams to runtime JSON.
+   */
+  private async parseBlobResponse(response: any): Promise<any> {
+    if (response instanceof Blob) {
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    }
+    return response; // Fallback if the client layer later returns objects directly
+  }
+
+  toggleService(serviceId: number | undefined, event: Event) {
+    if (!serviceId) return;
+    const isChecked = (event.target as HTMLInputElement).checked;
+
+    this.selectedServiceIds.update(set => {
+      const newSet = new Set(set);
+      if (isChecked) {
+        newSet.add(serviceId);
+      } else {
+        newSet.delete(serviceId);
+      }
+      return newSet;
     });
   }
 
@@ -230,7 +276,6 @@ export class ClientRegistration implements OnInit {
       this.isSubmitting.set(true);
       this.errorMessage.set(null);
 
-      // Phase 2: If profile changed, update it first. Otherwise, proceed directly.
       const profileUpdate$: Observable<any> = this.senderProfileForm.dirty
           ? this.clientApi.updateMyProfile(this.senderProfileForm.value as ClientUpdateDto)
           : of(null);
@@ -245,7 +290,8 @@ export class ClientRegistration implements OnInit {
                 paidBy: v.paidBy as ShipmentCreationDto.PaidByEnum,
                 receiverName: v.receiverName!,
                 receiverPhone: v.receiverPhone!,
-                receiverEmail: v.receiverEmail || undefined
+                receiverEmail: v.receiverEmail || undefined,
+                selectedServiceIds: this.selectedServiceIds().size > 0 ? this.selectedServiceIds() : undefined
               };
 
               // Origin
