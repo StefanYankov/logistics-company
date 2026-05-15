@@ -26,6 +26,7 @@ import org.testcontainers.utility.DockerImageName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -57,11 +58,14 @@ class ShipmentStatusHistoryRepositoryIntegrationTest {
 
     // --- TEST DATA FACTORY ---
 
-    private City createAndSaveCity(String name, String postcode) {
-        City city = new City();
-        city.setName(name);
-        city.setPostcode(postcode);
-        return cityRepository.saveAndFlush(city);
+    private City getOrCreateCity(String name) {
+        String uniquePostcode = UUID.randomUUID().toString().substring(0, 5);
+        return cityRepository.findByPostcode(uniquePostcode).orElseGet(() -> {
+            City city = new City();
+            city.setName(name);
+            city.setPostcode(uniquePostcode);
+            return cityRepository.saveAndFlush(city);
+        });
     }
 
     private Client createAndSaveClient(String username, String email) {
@@ -71,7 +75,7 @@ class ShipmentStatusHistoryRepositoryIntegrationTest {
         client.setPassword("hashed");
         client.setFirstName("First");
         client.setLastName("Last");
-        client.setPhoneNumber("0888123456");
+        client.setPhoneNumber(UUID.randomUUID().toString().substring(0, 10));
         client.setApplicationRole(ApplicationRole.CLIENT);
         client.setActive(true);
         return clientRepository.saveAndFlush(client);
@@ -138,7 +142,7 @@ class ShipmentStatusHistoryRepositoryIntegrationTest {
         @DisplayName("Happy Path: Should retrieve complete chronological history for a specific shipment")
         void shouldRetrieveChronologicalHistory() throws InterruptedException {
             // Arrange
-            City city = createAndSaveCity("Sofia", "1000");
+            City city = getOrCreateCity("Sofia");
             Client sender = createAndSaveClient("sender1", "sender1@test.com");
             Client receiver = createAndSaveClient("receiver1", "receiver1@test.com");
             Courier employee = createAndSaveCourier("emp1", "emp1@test.com", "EMP-001");
@@ -171,7 +175,7 @@ class ShipmentStatusHistoryRepositoryIntegrationTest {
         @DisplayName("Edge Case: Should return empty list when shipment has no history or does not exist")
         void shouldReturnEmptyListWhenNoHistory() {
             // Arrange
-            City city = createAndSaveCity("Plovdiv", "4000");
+            City city = getOrCreateCity("Plovdiv");
             Client sender = createAndSaveClient("sender2", "sender2@test.com");
             Client receiver = createAndSaveClient("receiver2", "receiver2@test.com");
             Courier employee = createAndSaveCourier("emp2", "emp2@test.com", "EMP-002");

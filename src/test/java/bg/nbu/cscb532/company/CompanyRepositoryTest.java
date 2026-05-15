@@ -18,6 +18,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,10 +40,10 @@ class CompanyRepositoryTest {
 
     // --- DATA FACTORY ---
 
-    private Company createCompanyEntity(String name, String reg) {
+    private Company createUniqueCompanyEntity(String name) {
         return Company.builder()
                 .name(name)
-                .registrationNumber(reg)
+                .registrationNumber("REG-" + UUID.randomUUID().toString().substring(0, 8))
                 .build();
     }
 
@@ -54,7 +55,7 @@ class CompanyRepositoryTest {
         @DisplayName("Should save valid company and populate auditing fields")
         void shouldSaveAndAuditCompany() {
             // Arrange
-            Company company = createCompanyEntity("Speedy Logistics", "BG123456789");
+            Company company = createUniqueCompanyEntity("Speedy Logistics");
 
             // Act
             Company saved = companyRepository.saveAndFlush(company);
@@ -74,7 +75,7 @@ class CompanyRepositoryTest {
         @DisplayName("Happy Path: Should retrieve company by unique name")
         void shouldFindByName() {
             // Arrange
-            companyRepository.saveAndFlush(createCompanyEntity("DHL Express", "REG-1"));
+            companyRepository.saveAndFlush(createUniqueCompanyEntity("DHL Express"));
 
             // Act
             Optional<Company> found = companyRepository.findByName("DHL Express");
@@ -88,7 +89,7 @@ class CompanyRepositoryTest {
         @DisplayName("Edge Case: Should be case-sensitive for name lookups")
         void shouldBeCaseSensitiveForName() {
             // Arrange
-            companyRepository.saveAndFlush(createCompanyEntity("FedEx", "REG-2"));
+            companyRepository.saveAndFlush(createUniqueCompanyEntity("FedEx"));
 
             // Act and Assert
             assertThat(companyRepository.findByName("fedex")).isEmpty();
@@ -99,14 +100,15 @@ class CompanyRepositoryTest {
         @DisplayName("Happy Path: Should retrieve company by registration number")
         void shouldFindByRegistrationNumber() {
             // Arrange
-            companyRepository.saveAndFlush(createCompanyEntity("Econt", "BG987654321"));
+            Company savedCompany = companyRepository.saveAndFlush(createUniqueCompanyEntity("Econt"));
+            String regNumber = savedCompany.getRegistrationNumber();
 
             // Act
-            Optional<Company> found = companyRepository.findByRegistrationNumber("BG987654321");
+            Optional<Company> found = companyRepository.findByRegistrationNumber(regNumber);
 
             // Assert
             assertThat(found).isPresent();
-            assertThat(found.get().getRegistrationNumber()).isEqualTo("BG987654321");
+            assertThat(found.get().getRegistrationNumber()).isEqualTo(regNumber);
         }
     }
 
@@ -118,8 +120,14 @@ class CompanyRepositoryTest {
         @DisplayName("Constraint: Should throw exception on duplicate registration number")
         void shouldThrowOnDuplicateReg() {
             // Arrange
-            companyRepository.saveAndFlush(createCompanyEntity("Company A", "UNIQUE-REG"));
-            Company duplicate = createCompanyEntity("Company B", "UNIQUE-REG");
+            Company companyA = createUniqueCompanyEntity("Company A");
+            String uniqueReg = companyA.getRegistrationNumber();
+            companyRepository.saveAndFlush(companyA);
+            
+            Company duplicate = Company.builder()
+                    .name("Company B")
+                    .registrationNumber(uniqueReg)
+                    .build();
 
             // Act and Assert
             assertThatThrownBy(() -> companyRepository.saveAndFlush(duplicate))
@@ -131,7 +139,10 @@ class CompanyRepositoryTest {
         @DisplayName("Constraint: Should throw exception when name is null")
         void shouldThrowOnNullName() {
             // Arrange
-            Company invalid = createCompanyEntity(null, "REG-NULL");
+            Company invalid = Company.builder()
+                    .name(null)
+                    .registrationNumber("REG-NULL")
+                    .build();
 
             // Act and Assert
             assertThatThrownBy(() -> companyRepository.saveAndFlush(invalid))
@@ -143,7 +154,7 @@ class CompanyRepositoryTest {
         void shouldThrowOnLongName() {
             // Arrange
             String longName = "A".repeat(Constants.Validation.MAX_NAME_LENGTH + 1);
-            Company invalid = createCompanyEntity(longName, "REG-LONG");
+            Company invalid = createUniqueCompanyEntity(longName);
 
             // Act and Assert
             assertThatThrownBy(() -> companyRepository.saveAndFlush(invalid))

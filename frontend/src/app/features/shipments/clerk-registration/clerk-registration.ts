@@ -2,10 +2,10 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, startWith, switchMap, tap } from 'rxjs/operators';
-import { ShipmentAPIService, ClientAPIService, OfficeAPIService, CityAPIService } from '../../../api';
-import { ClientViewDto, OfficeViewDto, CityViewDto, ShipmentCreationDto, ClientQuickRegistrationDto } from '../../../api';
+import {delay, forkJoin, of} from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, startWith, switchMap, tap, observeOn } from 'rxjs/operators';
+import { ShipmentAPIService, ClientAPIService, OfficeAPIService, CityAPIService, ServiceCatalogAPIService } from '../../../api';
+import { ClientViewDto, OfficeViewDto, CityViewDto, ShipmentCreationDto, ClientQuickRegistrationDto, ServiceCatalogViewDto } from '../../../api';
 
 @Component({
   selector: 'app-clerk-registration',
@@ -20,6 +20,7 @@ export class ClerkRegistration implements OnInit {
   private clientApi = inject(ClientAPIService);
   private officeApi = inject(OfficeAPIService);
   private cityApi = inject(CityAPIService);
+  private serviceCatalogApi = inject(ServiceCatalogAPIService); // Inject new service
   private router = inject(Router);
 
   isLoadingLookups = signal(true);
@@ -38,6 +39,7 @@ export class ClerkRegistration implements OnInit {
   // Source of truth
   allOffices: OfficeViewDto[] = [];
   cities = signal<CityViewDto[]>([]);
+  availableServices = signal<ServiceCatalogViewDto[]>([]); // New signal for services
 
   // Filtered lists for the UI
   filteredDeliveryOffices = signal<OfficeViewDto[]>([]);
@@ -47,6 +49,9 @@ export class ClerkRegistration implements OnInit {
 
   // Hardcoded for now. In reality, get this from the Clerk's profile.
   originOfficeId = 1;
+
+  // Track selected addon IDs
+  selectedServiceIds = signal<number[]>([]); // New signal for selected addon IDs
 
   registerForm = this.fb.group({
     // Sender Configuration (Autocomplete)
@@ -82,7 +87,7 @@ export class ClerkRegistration implements OnInit {
     firstName: ['', Validators.required],
     lastName: ['', Validators.required],
     phoneNumber: ['', [Validators.required, Validators.pattern(/^\+?[0-9]{8,15}$/)]],
-    email: ['', Validators.email] // Optional but must be valid if provided
+    email: ['', Validators.email]
   });
 
   ngOnInit() {
@@ -98,19 +103,19 @@ export class ClerkRegistration implements OnInit {
     const senderSearchTermCtrl = this.registerForm.get('senderSearchTerm');
     if (senderSearchTermCtrl) {
       senderSearchTermCtrl.valueChanges.pipe(
-        debounceTime(500), // Increased debounce
+        debounceTime(500),
         distinctUntilChanged(),
         tap(() => {
-            this.isSearchingSender.set(true);
-            this.showQuickRegister.set(false); // Hide quick register if they start typing again
+          // Sync UI states that belong to the input event pass
+          this.isSearchingSender.set(true);
+          this.showQuickRegister.set(false);
 
-            // Clear senderId to enforce re-selection
-            this.registerForm.get('senderId')?.setValue('', { emitEvent: false });
-            this.registerForm.get('senderId')?.markAsTouched();
-            this.registerForm.get('senderId')?.updateValueAndValidity({ emitEvent: false });
+          this.registerForm.get('senderId')?.setValue('', { emitEvent: false });
+          this.registerForm.get('senderId')?.markAsTouched();
+          this.registerForm.get('senderId')?.updateValueAndValidity({ emitEvent: false });
         }),
         switchMap(term => {
-          if (!term || term.length < 3) { // Increased min length
+          if (!term || term.length < 3) {
             this.senderSearchResults.set([]);
             this.isSearchingSender.set(false);
             return of(null);
@@ -120,10 +125,14 @@ export class ClerkRegistration implements OnInit {
           );
         })
       ).subscribe(result => {
-        this.isSearchingSender.set(false);
-        if (result && result.content) {
-          this.senderSearchResults.set(result.content);
-        }
+        // Safe Microtask Isolation: Defer the signal array assignment to the next macro-frame.
+        // This ensures the input change pass completes cleanly before the template handles results.
+        setTimeout(() => {
+          this.isSearchingSender.set(false);
+          if (result && result.content) {
+            this.senderSearchResults.set(result.content);
+          }
+        }, 0);
       });
     }
   }
@@ -147,70 +156,73 @@ export class ClerkRegistration implements OnInit {
   }
 
   openQuickRegister() {
-      // Pre-fill phone number if they searched for one
-      const searchTerm = this.registerForm.get('senderSearchTerm')?.value || '';
-      if (/^\+?[0-9]+$/.test(searchTerm)) {
-          this.quickRegisterForm.patchValue({ phoneNumber: searchTerm });
-      }
-      this.showQuickRegister.set(true);
+    // Pre-fill phone number if they searched for one
+    const searchTerm = this.registerForm.get('senderSearchTerm')?.value || '';
+    if (/^\+?[0-9]+$/.test(searchTerm)) {
+      this.quickRegisterForm.patchValue({ phoneNumber: searchTerm });
+    }
+    this.showQuickRegister.set(true);
   }
 
   cancelQuickRegister() {
-      this.showQuickRegister.set(false);
-      this.quickRegisterForm.reset();
-      this.quickRegisterError.set(null);
+    this.showQuickRegister.set(false);
+    this.quickRegisterForm.reset();
+    this.quickRegisterError.set(null);
   }
 
   onQuickRegisterSubmit() {
-      if (this.quickRegisterForm.valid) {
-          this.isQuickRegistering.set(true);
-          this.quickRegisterError.set(null);
+    if (this.quickRegisterForm.valid) {
+      this.isQuickRegistering.set(true);
+      this.quickRegisterError.set(null);
 
-          const formVal = this.quickRegisterForm.value;
-          const payload: ClientQuickRegistrationDto = {
-            firstName: formVal.firstName!,
-            lastName: formVal.lastName!,
-            phoneNumber: formVal.phoneNumber!,
-            email: formVal.email || undefined
-          };
+      const formVal = this.quickRegisterForm.value;
+      const payload: ClientQuickRegistrationDto = {
+        firstName: formVal.firstName!,
+        lastName: formVal.lastName!,
+        phoneNumber: formVal.phoneNumber!,
+        email: formVal.email || undefined
+      };
 
-          this.clientApi.quickRegisterClient(payload).subscribe({
-              next: (newClient) => {
-                  this.isQuickRegistering.set(false);
-                  // Automatically select the new client
-                  this.selectSender(newClient);
-                  this.cancelQuickRegister();
-              },
-              error: (err) => {
-                  this.isQuickRegistering.set(false);
-                  if (err.status === 409 && err.error?.errorCode) {
-                      this.quickRegisterError.set(err.error.detail || 'This user already exists.');
-                  } else if (err.status === 400 && err.error?.detail) {
-                      this.quickRegisterError.set(err.error.detail);
-                  } else {
-                      this.quickRegisterError.set('Failed to register customer. Please try again.');
-                  }
-              }
-          });
-      } else {
-          this.quickRegisterForm.markAllAsTouched();
-      }
+      this.clientApi.quickRegisterClient(payload).subscribe({
+        next: (newClient) => {
+          this.isQuickRegistering.set(false);
+          // Automatically select the new client
+          this.selectSender(newClient);
+          this.cancelQuickRegister();
+        },
+        error: (err) => {
+          this.isQuickRegistering.set(false);
+          if (err.status === 409 && err.error?.errorCode) {
+            this.quickRegisterError.set(err.error.detail || 'This user already exists.');
+          } else if (err.status === 400 && err.error?.detail) {
+            this.quickRegisterError.set(err.error.detail);
+          } else {
+            this.quickRegisterError.set('Failed to register customer. Please try again.');
+          }
+        }
+      });
+    } else {
+      this.quickRegisterForm.markAllAsTouched();
+    }
   }
 
   private setupCascadingDropdowns() {
     // Watch Delivery City Filter
-    this.registerForm.get('deliveryCityFilterId')?.valueChanges.subscribe(cityId => {
-      // Reset the selected office when the city changes
-      this.registerForm.get('deliveryOfficeId')?.setValue(null, { emitEvent: false });
+    const deliveryCityFilterCtrl = this.registerForm.get('deliveryCityFilterId');
+    if (deliveryCityFilterCtrl) {
+      deliveryCityFilterCtrl.valueChanges.subscribe(cityId => {
+        // Reset the selected office when the city changes
+        this.registerForm.get('deliveryOfficeId')?.setValue(null, { emitEvent: false });
 
-      if (!cityId) {
-        this.filteredDeliveryOffices.set(this.allOffices);
-        return;
-      }
+        if (!cityId) {
+          this.filteredDeliveryOffices.set(this.allOffices);
+          return;
+        }
 
-      const filtered = this.allOffices.filter(o => o.cityName === this.cities().find(c => c.id == cityId)?.name);
-      this.filteredDeliveryOffices.set(filtered);
-    });
+        const filtered = this.allOffices.filter(o => o.cityName === this.cities().find(c => c.id == cityId)?.name);
+        this.filteredDeliveryOffices.set(filtered);
+      });
+    }
   }
 
   private setupDynamicValidations() {
@@ -246,28 +258,64 @@ export class ClerkRegistration implements OnInit {
     [officeCtrl, cityCtrl, streetCtrl, cityFilterCtrl].forEach(c => c?.updateValueAndValidity({ emitEvent: false }));
   }
 
-  private loadDropdownData() {
+  private async loadDropdownData() {
     this.isLoadingLookups.set(true);
     const pageParams = { page: 0, size: 500 };
 
     forkJoin({
       officesRes: this.officeApi.getAllOffices(pageParams),
-      citiesRes: this.cityApi.getAllCities(pageParams)
+      citiesRes: this.cityApi.getAllCities(pageParams),
+      servicesRes: this.serviceCatalogApi.getAllServices()
     }).pipe(
-      catchError(() => {
+      catchError((err) => {
+        console.error("Failed to load initial form data", err);
         this.errorMessage.set('Failed to load form data. Please try again.');
         this.isLoadingLookups.set(false);
         return of(null);
       })
-    ).subscribe(result => {
+    ).subscribe(async (result) => {
       if (result) {
-        this.allOffices = result.officesRes.content || [];
-        this.filteredDeliveryOffices.set(this.allOffices);
+        try {
+          // Unpack network blobs into clean objects
+          const officesData = await this.parseBlobResponse(result.officesRes);
+          const citiesData = await this.parseBlobResponse(result.citiesRes);
+          const servicesData = await this.parseBlobResponse(result.servicesRes);
 
-        this.cities.set(result.citiesRes.content || []);
-        this.isLoadingLookups.set(false);
+          this.allOffices = officesData?.content || [];
+          this.filteredDeliveryOffices.set(this.allOffices);
+          this.cities.set(citiesData?.content || []);
+          this.availableServices.set(Array.isArray(servicesData) ? servicesData : []);
+        } catch (parseError) {
+          console.error("Data deserialization error:", parseError);
+          this.errorMessage.set('Data corruption encountered. Please refresh.');
+        } finally {
+          this.isLoadingLookups.set(false);
+        }
       }
     });
+  }
+
+  // New method to toggle selected services
+  toggleService(serviceId: number | undefined, event: Event) {
+    if (!serviceId) return;
+    const isChecked = (event.target as HTMLInputElement).checked;
+    const current = this.selectedServiceIds();
+    if (isChecked) {
+      this.selectedServiceIds.set([...current, serviceId]);
+    } else {
+      this.selectedServiceIds.set(current.filter(id => id !== serviceId));
+    }
+  }
+
+  /**
+   * Helper utility to convert openapi generated Blob response streams to runtime JSON.
+   */
+  private async parseBlobResponse(response: any): Promise<any> {
+    if (response instanceof Blob) {
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    }
+    return response;
   }
 
   onSubmit() {
@@ -283,7 +331,8 @@ export class ClerkRegistration implements OnInit {
         paidBy: v.paidBy as ShipmentCreationDto.PaidByEnum,
         receiverName: v.receiverName!,
         receiverPhone: v.receiverPhone!,
-        receiverEmail: v.receiverEmail || undefined
+        receiverEmail: v.receiverEmail || undefined,
+        selectedServiceIds: this.selectedServiceIds().length > 0 ? new Set(this.selectedServiceIds()) : undefined
       };
 
       // We explicitly lock Origin to the Clerk's current office

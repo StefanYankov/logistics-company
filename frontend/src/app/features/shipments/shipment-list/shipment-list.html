@@ -81,6 +81,14 @@
                 <span class="payment-badge" [class.paid]="shipment.isPaid" [class.unpaid]="!shipment.isPaid">
                   {{ shipment.isPaid ? 'PAID' : 'UNPAID' }}
                 </span>
+                <!-- Addon Badges -->
+                @if (shipment.appliedAddons && shipment.appliedAddons.length > 0) {
+                  <div class="addon-badges">
+                    @for (addon of shipment.appliedAddons; track addon) {
+                      <span class="addon-badge">{{ addon }}</span>
+                    }
+                  </div>
+                }
               </td>
               <td class="actions-col">
                 <!-- Actions logic relies on the user's role, but for the prototype we expose the transitions -->

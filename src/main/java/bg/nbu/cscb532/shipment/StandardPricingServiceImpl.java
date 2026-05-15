@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Implementation of the Pricing Strategy using dynamic database configuration.
@@ -18,6 +20,7 @@ import java.math.BigDecimal;
 public class StandardPricingServiceImpl implements PricingService {
 
     private final PricingConfigRepository pricingConfigRepository;
+    private final ServiceCatalogRepository serviceCatalogRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -25,8 +28,6 @@ public class StandardPricingServiceImpl implements PricingService {
         if (request == null || request.weight() == null) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
-
-        // Protect against negative math bugs
         if (request.weight().compareTo(BigDecimal.ZERO) < 0) {
              throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
@@ -40,7 +41,6 @@ public class StandardPricingServiceImpl implements PricingService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
 
-        // Fetch the active pricing configuration from the database dynamically
         PricingConfig activeConfig = pricingConfigRepository.findByActiveToIsNull()
                 .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
 
@@ -57,6 +57,23 @@ public class StandardPricingServiceImpl implements PricingService {
             finalPrice = finalPrice.add(activeConfig.getAddressSurcharge());
         } else if (request.deliveryOfficeId() == null) {
              throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        if (request.selectedServiceIds() != null && !request.selectedServiceIds().isEmpty()) {
+            Set<ServiceCatalog> selectedServices = new HashSet<>(serviceCatalogRepository.findAllById(request.selectedServiceIds()));
+
+            if (selectedServices.size() != request.selectedServiceIds().size()) {
+                throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+            }
+
+            for (ServiceCatalog service : selectedServices) {
+                if (service.getPricingType() == PricingType.FIXED_AMOUNT) {
+                    finalPrice = finalPrice.add(service.getPricingValue());
+                } else if (service.getPricingType() == PricingType.PERCENTAGE_OF_BASE) {
+                    BigDecimal surcharge = finalPrice.multiply(service.getPricingValue());
+                    finalPrice = finalPrice.add(surcharge);
+                }
+            }
         }
 
         return finalPrice;

@@ -19,7 +19,7 @@ The **Logistics Company System** is a Java-based web application developed as a 
 - [Installation & Setup](#installation-and-setup)
 - [Implemented Features](#implemented-features)
 - [Project Structure](#project-structure)
-- [Contributing](#contributing)
+- [Test Credentials](#test-credentials)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 - [Repository](#repository)
@@ -28,7 +28,7 @@ The **Logistics Company System** is a Java-based web application developed as a 
 - **Backend**: Spring Boot 4.0 / Java 25 (utilizing Virtual Threads)
 - **Frontend**: Angular 19+ (Standalone Architecture)
 - **Database**: PostgreSQL 17
-- **Migrations**: Flyway
+- **Migrations**: Flyway (Seeds reference data on startup)
 - **Containerization**: Docker & Docker Compose
 - **Security**: Stateless JWT Authentication with Spring Security 7
 - **API Pattern**: RESTful with DTO/Entity separation, OpenAPI (Swagger) for documentation and client generation
@@ -41,7 +41,7 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
 *   **System Foundation**:
     *   Centralized RFC 9457 ProblemDetail exception handling (`GlobalExceptionHandler`).
     *   JSR-380 input validation.
-    *   Automated Flyway database migrations.
+    *   Automated Flyway database migrations (including Cities, Offices, and Service Catalog seed data).
 *   **Company Domain**:
     *   CRUD operations for the core `Company` entity.
     *   Data integrity checks (Unique registration numbers).
@@ -62,7 +62,8 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
     *   Admin-only management endpoints.
 *   **Shipment Domain**:
     *   Full shipment registration workflow (accessible to staff and clients).
-    *   Dynamic, versioned pricing engine for calculating shipping costs.
+    *   **Service Addons**: Flexible addon system (e.g., "Fragile", "Express") with dynamic Fixed/Percentage pricing.
+    *   Dynamic, versioned pricing engine for calculating shipping costs based on weight, distance, and addons.
     *   Shipment lifecycle management via a State Machine.
     *   Comprehensive audit trail via `ShipmentStatusHistory`.
     *   Public tracking number lookup.
@@ -87,8 +88,8 @@ The Angular frontend is built with a standalone component architecture and follo
 *   **Authenticated Zone:**
     *   `AuthenticatedLayout`: Provides a shared sidebar navigation and top bar (with Logout) for authenticated users.
     *   `Dashboard`: Client-specific view displaying sent and received shipments.
-    *   `RegisterShipment`: Form for staff (and clients) to register new shipments.
-    *   `ShipmentList`: Master view for staff to see all shipments and update their status.
+    *   `ClientRegistration` & `ClerkRegistration`: Role-specific forms for registering new shipments, including sender lookup and addon selection.
+    *   `ShipmentList`: Master view for staff to see all shipments, applied addons, and update their status.
 
 ## Project Structure
 The project follows a **Package-by-Feature** (Modular Monolith) structure to ensure high cohesion and prepare for potential future microservice extraction.
@@ -111,7 +112,7 @@ LogisticsCompany/
 │   │   │   ├── 📂 employee/      # Staff (Couriers, Clerks) management
 │   │   │   ├── 📂 office/        # Physical locations and cities
 │   │   │   ├── 📂 shared/        # Cross-cutting concerns (Security, Exceptions, Config)
-│   │   │   ├── 📂 shipment/      # Core logistics process
+│   │   │   ├── 📂 shipment/      # Core logistics process & Addon Pricing
 │   │   │   └── 📂 user/          # IAM, Authentication, JWT logic
 │   │   └── 📂 resources/
 │   │       ├── 📂 db/migration/  # Flyway SQL scripts
@@ -137,22 +138,26 @@ LogisticsCompany/
     *   Open the project in IntelliJ IDEA.
     *   Run the `LogisticsCompanyApplication.java` file.
     *   Ensure the backend is running on `http://localhost:8080`.
+    *   *Note: Flyway will automatically seed reference data on startup.*
 
 3. **Generate Frontend API Client**:
     *   Navigate to the `frontend/` directory in your terminal.
     *   Run `npm install` to install dependencies.
-    *   Run `npm run generate-api` to create the TypeScript API client from the running backend.
+    *   **CRITICAL:** Run `npm run generate-api` to create the TypeScript API client from the running backend. This must be done whenever the backend API contract changes.
 
 4. **Run Frontend**:
     *   Navigate to the `frontend/` directory in your terminal.
     *   Run `npm start`.
     *   Open your browser to `http://localhost:4200`.
 
+## Test Credentials
+
+The `DataSeeder.java` class automatically creates the following staff accounts on startup with the password `password123`:
+*   **Admin:** `admin`
+*   **Clerk:** `clerk`
+*   **Courier:** `courier`
+
 ---
-
-## Contributing
-
-As this is a university course project, contributing is generally not required.
 
 ## License
 

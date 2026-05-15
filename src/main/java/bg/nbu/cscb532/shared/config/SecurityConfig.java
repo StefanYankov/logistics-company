@@ -42,7 +42,7 @@ public class SecurityConfig {
      * This is the entry point for all security-related decisions.
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -51,6 +51,7 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/clients/register",
                                 "/api/clients/verify",
+                                "/api/services",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
@@ -97,7 +98,7 @@ public class SecurityConfig {
      * We need this bean injected into our AuthController to programmatically trigger the authentication flow.
      */
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
         return config.getAuthenticationManager();
     }
 

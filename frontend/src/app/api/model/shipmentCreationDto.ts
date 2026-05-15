@@ -26,6 +26,7 @@ export interface ShipmentCreationDto {
     deliveryOfficeId?: number;
     deliveryAddress?: AddressDetailsDto;
     paidBy: ShipmentCreationDto.PaidByEnum;
+    selectedServiceIds?: Set<number>;
 }
 export namespace ShipmentCreationDto {
     export const TypeEnum = {

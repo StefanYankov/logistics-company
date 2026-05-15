@@ -22,6 +22,9 @@ export interface ConfigurationParameters {
     /**
      * Override the default method for encoding path parameters in various
      * <a href="https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#style-values">styles</a>.
+     * <p>
+     * See {@link README.md} for more details
+     * </p>
      */
     encodeParam?: (param: Param) => string;
     /**
@@ -52,6 +55,9 @@ export class Configuration {
     /**
      * Encoding of various path parameter
      * <a href="https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#style-values">styles</a>.
+     * <p>
+     * See {@link README.md} for more details
+     * </p>
      */
     encodeParam: (param: Param) => string;
     /**

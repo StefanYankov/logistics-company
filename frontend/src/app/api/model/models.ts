@@ -29,6 +29,7 @@ export * from './pageableObject';
 export * from './problemDetail';
 export * from './resetPasswordRequestDto';
 export * from './revenueReportDto';
+export * from './serviceCatalogViewDto';
 export * from './shipmentCreationDto';
 export * from './shipmentStatusUpdateDto';
 export * from './shipmentViewDto';

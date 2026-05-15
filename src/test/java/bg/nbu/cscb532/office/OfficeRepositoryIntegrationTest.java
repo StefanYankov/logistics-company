@@ -20,6 +20,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,20 +53,20 @@ class OfficeRepositoryIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // We must persist the parent entities first to satisfy the Foreign Key constraints
-        savedCompany = companyRepository.saveAndFlush(Company.builder()
+        // Persisting the parent entities first to satisfy the FK constraints
+        savedCompany = companyRepository.findAll().stream().findFirst().orElseGet(() -> companyRepository.saveAndFlush(Company.builder()
                 .name("Speedy Logistics")
                 .registrationNumber("BG123")
-                .build());
+                .build()));
 
         savedSofia = cityRepository.saveAndFlush(City.builder()
                 .name("Sofia")
-                .postcode("1000")
+                .postcode(UUID.randomUUID().toString().substring(0, 5))
                 .build());
 
         savedPlovdiv = cityRepository.saveAndFlush(City.builder()
                 .name("Plovdiv")
-                .postcode("4000")
+                .postcode(UUID.randomUUID().toString().substring(0, 5))
                 .build());
     }
 
@@ -130,23 +131,24 @@ class OfficeRepositoryIntegrationTest {
             // Target Location: Sofia Center (approx 42.697, 23.321)
             double userLat = 42.697;
             double userLon = 23.321;
-
-            Office closestOffice = createOfficeEntity(savedSofia, "NDK", 42.695, 23.319); // ~0.3km away
-            Office furtherOffice = createOfficeEntity(savedSofia, "Mladost", 42.650, 23.380); // ~7km away
-            Office outOfBoundsOffice = createOfficeEntity(savedPlovdiv, "Plovdiv Center", 42.140, 24.740); // ~130km away
             
-            // This office has no coordinates and should be completely ignored by the math query
-            Office missingCoordsOffice = createOfficeEntity(savedSofia, "Unknown Location", null, null); 
+            // Clean up existing seeded offices for pure isolation
+            officeRepository.deleteAllInBatch();
+
+            Office closestOffice = createOfficeEntity(savedSofia, "NDK", 42.695, 23.319);
+            Office furtherOffice = createOfficeEntity(savedSofia, "Mladost", 42.650, 23.380);
+            Office outOfBoundsOffice = createOfficeEntity(savedPlovdiv, "Plovdiv Center", 42.140, 24.740);
+            
+            Office missingCoordsOffice = createOfficeEntity(savedSofia, "Unknown Location", null, null);
 
             officeRepository.saveAllAndFlush(List.of(furtherOffice, outOfBoundsOffice, missingCoordsOffice, closestOffice));
 
-            // Act: Find within 10 km
+            // Act
             List<Office> results = officeRepository.findNearestOfficesWithinRadius(userLat, userLon, 10.0);
 
             // Assert
             assertThat(results).hasSize(2);
             
-            // Proves sorting works: NDK (0.3km) should be first, Mladost (7km) should be second
             assertThat(results.get(0).getAddressDetails().getStreet()).isEqualTo("NDK");
             assertThat(results.get(1).getAddressDetails().getStreet()).isEqualTo("Mladost");
         }
@@ -155,10 +157,11 @@ class OfficeRepositoryIntegrationTest {
         @DisplayName("Should return empty list when no offices are within radius")
         void shouldReturnEmptyWhenNoneInRadius() {
             // Arrange
+            officeRepository.deleteAllInBatch();
             Office plovdivOffice = createOfficeEntity(savedPlovdiv, "Plovdiv Center", 42.140, 24.740); 
             officeRepository.saveAndFlush(plovdivOffice);
 
-            // Act: User is in Sofia (42.697, 23.321), radius is only 5km
+            // Act
             List<Office> results = officeRepository.findNearestOfficesWithinRadius(42.697, 23.321, 5.0);
 
             // Assert

@@ -19,6 +19,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -28,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Testcontainers
 @ActiveProfiles("test")
 @Import(JpaConfig.class)
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE) // can work without this as we have @ServiceConnection, but good to have so we do not default to H2 and flyway migration fail
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class CityRepositoryIntegrationTest {
 
     @Container
@@ -37,6 +38,13 @@ class CityRepositoryIntegrationTest {
 
     @Autowired
     private CityRepository cityRepository;
+
+    private City createUniqueCity(String name) {
+        return City.builder()
+                .name(name)
+                .postcode(UUID.randomUUID().toString().substring(0, 5))
+                .build();
+    }
 
     @Nested
     @DisplayName("findByPostcode(String) Tests")
@@ -47,36 +55,31 @@ class CityRepositoryIntegrationTest {
         void shouldFindCityWhenExactMatchExists() {
 
             // Arrange:
-            var city = City.builder()
-                    .name("Troyan")
-                    .postcode("5600")
-                    .build();
+            var city = createUniqueCity("Troyan");
+            String savedPostcode = city.getPostcode();
             cityRepository.save(city);
 
             // Act:
-            Optional<City> result = cityRepository.findByPostcode("5600");
+            Optional<City> result = cityRepository.findByPostcode(savedPostcode);
 
             // Assert:
             assertThat(result).isPresent();
             assertThat(result.get().getName()).isEqualTo("Troyan");
-            assertThat(result.get().getPostcode()).isEqualTo("5600");
+            assertThat(result.get().getPostcode()).isEqualTo(savedPostcode);
         }
 
         @Test
         @DisplayName("Error Case: Should return empty when postcode does not exist")
         void shouldReturnEmptyWhenPostcodeNotFound() {
 
-            // Arrange:
-            var city = City.builder()
-                    .name("Troyan")
-                    .postcode("5600")
-                    .build();
+            // Arrange
+            City city = createUniqueCity("Troyan");
             cityRepository.save(city);
 
-            // Act:
-            Optional<City> result = cityRepository.findByPostcode("6491");
+            // Act
+            Optional<City> result = cityRepository.findByPostcode("99999");
 
-            // Assert:
+            // Assert
             assertThat(result).isEmpty();
         }
     }
@@ -89,35 +92,29 @@ class CityRepositoryIntegrationTest {
         @DisplayName("Happy Path: Should return all cities with the exact same name")
         void shouldReturnMultipleCitiesWhenSameNameExists() {
 
-            // Arrange: The "Two Troyans" scenario
-            City city1 = City.builder()
-                    .name("Troyan")
-                    .postcode("5600") // Lovech province
-                    .build();
-            City city2 = City.builder()
-                    .name("Troyan")
-                    .postcode("6491") // Haskovo province
-                    .build();
+            // Arrange
+            City city1 = createUniqueCity("Troyan");
+            City city2 = createUniqueCity("Troyan");
                     
             cityRepository.saveAll(List.of(city1, city2));
 
-            // Act:
+            // Act
             var results = cityRepository.findAllByName("Troyan");
 
-            // Assert:
+            // Assert
             assertThat(results).hasSize(2);
             assertThat(results).extracting(City::getPostcode)
-                    .containsExactlyInAnyOrder("5600", "6491");
+                    .containsExactlyInAnyOrder(city1.getPostcode(), city2.getPostcode());
         }
 
         @Test
         @DisplayName("Error Case: Should return empty list when name does not exist")
         void shouldReturnEmptyListWhenNameNotFound() {
 
-            // Act:
+            // Act
             var results = cityRepository.findAllByName("Atlantis");
 
-            // Assert:
+            // Assert
             assertThat(results).isEmpty();
         }
     }
@@ -130,15 +127,15 @@ class CityRepositoryIntegrationTest {
         @DisplayName("Happy Path: Should allow saving two cities with the same name if postcodes differ")
         void shouldAllowSameNameDifferentPostcode() {
 
-            // Arrange:
-            City city1 = City.builder().name("Troyan").postcode("5600").build();
-            City city2 = City.builder().name("Troyan").postcode("6491").build();
+            // Arrange
+            City city1 = createUniqueCity("Troyan");
+            City city2 = createUniqueCity("Troyan");
 
-            // Act & Assert:
+            // Act and Assert
             cityRepository.saveAndFlush(city1);
             cityRepository.saveAndFlush(city2); 
             
-            assertThat(cityRepository.count()).isEqualTo(2);
+            assertThat(cityRepository.count()).isGreaterThanOrEqualTo(2);
         }
 
         @Test
@@ -146,14 +143,13 @@ class CityRepositoryIntegrationTest {
         void shouldThrowExceptionOnDuplicatePostcode() {
 
             // Arrange
-            City city1 = City.builder().name("Lovech").postcode("5600").build();
+            String duplicatePostcode = "99999";
+            City city1 = City.builder().name("Lovech").postcode(duplicatePostcode).build();
             cityRepository.saveAndFlush(city1);
 
-            City city2 = City.builder().name("Troyan").postcode("5600").build();
+            City city2 = City.builder().name("Troyan").postcode(duplicatePostcode).build();
 
-            // Act & Assert:
-            // Proves that uk_city_postcode is actively enforced by PostgreSQL, 
-            // blocking two different cities from claiming the same postcode!
+            // Act and Assert
             assertThatThrownBy(() -> cityRepository.saveAndFlush(city2))
                     .isInstanceOf(DataIntegrityViolationException.class)
                     .hasMessageContaining("duplicate key value violates unique constraint");
@@ -163,11 +159,11 @@ class CityRepositoryIntegrationTest {
         @DisplayName("Error Case: Should throw Exception when postcode exceeds max length")
         void shouldThrowExceptionWhenPostcodeTooLong() {
 
-            // Arrange:
+            // Arrange
             String invalidPostcode = "1".repeat(Constants.Validation.MAX_POSTAL_CODE_LENGTH + 1);
             City city = City.builder().name("Sofia").postcode(invalidPostcode).build();
 
-            // Act & Assert:
+            // Act and Assert
             assertThatThrownBy(() -> cityRepository.saveAndFlush(city))
                     .isInstanceOf(DataIntegrityViolationException.class)
                     .hasMessageContaining("value too long for type character varying");
