@@ -9,6 +9,14 @@ import lombok.Setter;
  * Root entity for the application's user hierarchy, acting as the principal for Spring Security.
  * Implements a JOINED inheritance strategy, meaning shared authentication data is stored here,
  * while specific role data (like salary for employees) is stored in sub-tables.
+ *
+ * TODO (Tech Debt): Re-evaluate JOINED inheritance strategy.
+ * Current issue: To allow walk-in Clients to register without an email, we had to make the `email`
+ * column nullable at the root User level. This weakens data integrity for Employees, who SHOULD
+ * always have an email.
+ * FMO Solution: Refactor to "Composition over Inheritance". Create a base `UserCredentials` entity
+ * mapped 1:1 with isolated `ClientProfile` and `EmployeeProfile` entities to allow strictly typed column
+ * constraints for each domain.
  */
 @Entity
 @Table(name = "users")
@@ -20,7 +28,7 @@ public abstract class User extends BaseUUIDEntity {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String email;
 
     @Column(nullable = false)
