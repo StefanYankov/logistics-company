@@ -93,16 +93,23 @@
               <td class="actions-col">
                 <!-- Actions logic relies on the user's role, but for the prototype we expose the transitions -->
                 @if (shipment.status === 'REGISTERED') {
-                   <button class="btn-action btn-transit" (click)="updateStatus(shipment.id!, 'IN_TRANSIT')">Mark In Transit</button>
+                  <button class="btn-action btn-transit" (click)="updateStatus(shipment.id!, 'IN_TRANSIT')">Mark In Transit</button>
                 }
                 @if (shipment.status === 'IN_TRANSIT') {
-                   <button class="btn-action btn-office" (click)="updateStatus(shipment.id!, 'AT_DELIVERY_OFFICE')">Arrived at Office</button>
+                  <button class="btn-action btn-office" (click)="updateStatus(shipment.id!, 'AT_DELIVERY_OFFICE')">Arrived at Office</button>
                 }
                 @if (shipment.status === 'IN_TRANSIT' || shipment.status === 'AT_DELIVERY_OFFICE') {
-                   <button class="btn-action btn-out" (click)="updateStatus(shipment.id!, 'OUT_FOR_DELIVERY')">Out for Delivery</button>
+                  <button class="btn-action btn-out" (click)="updateStatus(shipment.id!, 'OUT_FOR_DELIVERY')">Out for Delivery</button>
                 }
-                @if (shipment.status === 'OUT_FOR_DELIVERY' || shipment.status === 'AT_DELIVERY_OFFICE') {
-                   <button class="btn-action btn-delivered" (click)="updateStatus(shipment.id!, 'DELIVERED')">Delivered</button>
+
+                <!-- NEW CLERK/OFFICE PICKUP BUTTON -->
+                @if (shipment.status === 'AT_DELIVERY_OFFICE') {
+                  <button class="btn-action btn-pickup" (click)="updateStatus(shipment.id!, 'DELIVERED')">Deliver (Pickup)</button>
+                }
+
+                <!-- STANDARD COURIER DELIVERY BUTTON -->
+                @if (shipment.status === 'OUT_FOR_DELIVERY') {
+                  <button class="btn-action btn-delivered" (click)="updateStatus(shipment.id!, 'DELIVERED')">Delivered</button>
                 }
               </td>
             </tr>

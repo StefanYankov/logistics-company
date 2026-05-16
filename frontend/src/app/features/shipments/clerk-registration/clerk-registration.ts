@@ -2,8 +2,8 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import {delay, forkJoin, of} from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, startWith, switchMap, tap, observeOn } from 'rxjs/operators';
+import {forkJoin, of} from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, startWith, switchMap, tap } from 'rxjs/operators';
 import { ShipmentAPIService, ClientAPIService, OfficeAPIService, CityAPIService, ServiceCatalogAPIService } from '../../../api';
 import { ClientViewDto, OfficeViewDto, CityViewDto, ShipmentCreationDto, ClientQuickRegistrationDto, ServiceCatalogViewDto } from '../../../api';
 
@@ -332,7 +332,7 @@ export class ClerkRegistration implements OnInit {
         receiverName: v.receiverName!,
         receiverPhone: v.receiverPhone!,
         receiverEmail: v.receiverEmail || undefined,
-        selectedServiceIds: this.selectedServiceIds().length > 0 ? new Set(this.selectedServiceIds()) : undefined
+        selectedServiceIds: this.selectedServiceIds().length > 0 ? Array.from(this.selectedServiceIds()) as unknown as Set<number> : undefined
       };
 
       // We explicitly lock Origin to the Clerk's current office

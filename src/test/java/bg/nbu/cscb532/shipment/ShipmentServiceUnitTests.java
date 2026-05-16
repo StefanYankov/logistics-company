@@ -227,12 +227,12 @@ class ShipmentServiceUnitTests {
             
             ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
                     .newStatus(ShipmentStatus.AT_DELIVERY_OFFICE)
-                    .locationOfficeId(officeId)
+                    .locationOfficeId(officeId) // Scan location provided
                     .build();
 
             Shipment existingShipment = createValidShipment();
             existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT);
+            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT); // Valid previous state
 
             Office locationOffice = createMockOffice(officeId, createMockCity(1L, "Varna", "9000"));
 
@@ -284,6 +284,38 @@ class ShipmentServiceUnitTests {
             assertThat(savedShipment.getDeliveredBy()).isNotNull();
             assertThat(savedShipment.getDeliveredBy().getId()).isEqualTo(courierId);
         }
+
+        @Test
+        @DisplayName("Happy Path: Clerk should be able to mark AT_DELIVERY_OFFICE shipment as DELIVERED (Office Pickup)")
+        void clerkShouldBeAbleToDeliverAtOffice() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            UUID clerkId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(clerkId, ApplicationRole.CLERK);
+            
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
+                    .newStatus(ShipmentStatus.DELIVERED)
+                    .build();
+
+            Shipment existingShipment = createValidShipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.AT_DELIVERY_OFFICE); 
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
+
+            // Act
+            ShipmentViewDto result = shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
+
+            // Assert
+            assertThat(result.status()).isEqualTo(ShipmentStatus.DELIVERED);
+
+            verify(shipmentRepository).save(shipmentCaptor.capture());
+            Shipment savedShipment = shipmentCaptor.getValue();
+            assertThat(savedShipment.getStatus()).isEqualTo(ShipmentStatus.DELIVERED);
+            // Clerk office pickup doesn't set a deliveredBy courier right now
+            assertThat(savedShipment.getDeliveredBy()).isNull();
+        }
         
         @Test
         @DisplayName("Happy Path: Courier should be assigned as currentCourier when marking as OUT_FOR_DELIVERY")
@@ -300,7 +332,7 @@ class ShipmentServiceUnitTests {
             Shipment existingShipment = createValidShipment();
             existingShipment.setId(shipmentId);
             existingShipment.setStatus(ShipmentStatus.AT_DELIVERY_OFFICE);
-            existingShipment.setCurrentOffice(new Office());
+            existingShipment.setCurrentOffice(new Office()); // Should be cleared
 
             Courier courierEntity = createMockEmployee(courierId, "John", "Courier");
 
@@ -316,7 +348,7 @@ class ShipmentServiceUnitTests {
             Shipment savedShipment = shipmentCaptor.getValue();
             assertThat(savedShipment.getCurrentCourier()).isNotNull();
             assertThat(savedShipment.getCurrentCourier().getId()).isEqualTo(courierId);
-            assertThat(savedShipment.getCurrentOffice()).isNull();
+            assertThat(savedShipment.getCurrentOffice()).isNull(); // Office should be cleared when on the road
         }
 
         @ParameterizedTest(name = "Current Status: {0} -> Target Status: {1}")
@@ -363,6 +395,30 @@ class ShipmentServiceUnitTests {
             Shipment existingShipment = createValidShipment();
             existingShipment.setId(shipmentId);
             existingShipment.setStatus(ShipmentStatus.AT_DELIVERY_OFFICE);
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+
+            // Act & Assert
+            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(shipmentId, dto, clerkUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+
+            verify(shipmentRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Security: Should throw VALIDATION_FAILED if Clerk attempts to DELIVER a shipment not AT_DELIVERY_OFFICE")
+        void shouldRejectClerkDeliveringInTransitShipment() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder().newStatus(ShipmentStatus.DELIVERED).build();
+
+            Shipment existingShipment = createValidShipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT); // Not at office
 
             given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
 
@@ -490,7 +546,7 @@ class ShipmentServiceUnitTests {
             
             ShipmentCreationDto dto = ShipmentCreationDto.builder()
                     .senderId(senderId)
-                    .receiverName("Guest Mom")
+                    .receiverName("Guest Mom") // Will be ignored because phone matches
                     .receiverPhone(matchingPhone)
                     .type(ShipmentType.PARCEL)
                     .weight(BigDecimal.valueOf(2.5))
@@ -501,6 +557,7 @@ class ShipmentServiceUnitTests {
 
             Client sender = createMockClient(senderId, "Sender", "One");
             
+            // The existing client that should be auto-matched
             UUID matchedReceiverId = UUID.randomUUID();
             Client matchedReceiver = createMockClient(matchedReceiverId, "Real", "Mom");
             
@@ -513,10 +570,12 @@ class ShipmentServiceUnitTests {
             given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
             given(officeRepository.findById(5L)).willReturn(Optional.of(originOffice));
             given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
+            
+            // This is the key mock for the auto-match logic
             given(clientRepository.findByPhoneNumber(matchingPhone)).willReturn(Optional.of(matchedReceiver));
 
             Shipment savedShipment = createValidShipment();
-            savedShipment.setReceiver(matchedReceiver);
+            savedShipment.setReceiver(matchedReceiver); // Should be matched
             savedShipment.setDeliveryOffice(destOffice);
 
             given(shipmentRepository.save(any(Shipment.class))).willReturn(savedShipment);
@@ -528,9 +587,10 @@ class ShipmentServiceUnitTests {
             verify(shipmentRepository).save(shipmentCaptor.capture());
             Shipment capturedShipment = shipmentCaptor.getValue();
             
+            // The guest fields should be ignored, and the actual matched receiver entity should be used
             assertThat(capturedShipment.getReceiver()).isNotNull();
             assertThat(capturedShipment.getReceiver().getId()).isEqualTo(matchedReceiverId);
-            assertThat(capturedShipment.getReceiverName()).isNull();
+            assertThat(capturedShipment.getReceiverName()).isNull(); // Guest name not used
         }
 
         @Test
@@ -565,6 +625,8 @@ class ShipmentServiceUnitTests {
             given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
             given(cityRepository.findById(cityId)).willReturn(Optional.of(city));
             given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
+            
+            // Mock empty phone lookup so it stays a guest
             given(clientRepository.findByPhoneNumber("0888123456")).willReturn(Optional.empty());
 
             Shipment savedShipment = createValidShipment();
@@ -699,6 +761,8 @@ class ShipmentServiceUnitTests {
             assertThat(savedAddons).hasSize(2);
             assertThat(savedAddons).extracting(addon -> addon.getServiceCatalog().getName())
                     .containsExactlyInAnyOrder("Fragile", "SMS");
+                    
+            // Verify costs were captured
             assertThat(savedAddons).extracting(ShipmentAddon::getAppliedCost)
                     .containsExactlyInAnyOrder(BigDecimal.valueOf(5.00), BigDecimal.valueOf(0.50));
         }
@@ -714,7 +778,7 @@ class ShipmentServiceUnitTests {
 
             ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
                     .deliveryOfficeId(destOfficeId)
-                    .selectedServiceIds(Set.of(1L, 999L))
+                    .selectedServiceIds(Set.of(1L, 999L)) // 999 is invalid
                     .build();
 
             Client sender = createMockClient(senderId, "Sender", "One");
@@ -734,6 +798,7 @@ class ShipmentServiceUnitTests {
             ServiceCatalog fragileService = new ServiceCatalog();
             fragileService.setId(1L);
 
+            // Only returns 1 of the 2 requested
             given(serviceCatalogRepository.findAllById(dto.selectedServiceIds()))
                     .willReturn(List.of(fragileService));
 
@@ -791,6 +856,7 @@ class ShipmentServiceUnitTests {
 
             ShipmentCreationDto dto = ShipmentCreationDto.builder()
                     .senderId(senderId)
+                    // missing both receiver ID and guest name/phone
                     .type(ShipmentType.PARCEL)
                     .weight(BigDecimal.valueOf(2.5))
                     .build();
@@ -880,7 +946,7 @@ class ShipmentServiceUnitTests {
 
             ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
                     .deliveryOfficeId(10L)
-                    .deliveryAddress(addressDto)
+                    .deliveryAddress(addressDto) // BOTH DESTINATIONS!
                     .build();
 
             given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
@@ -940,7 +1006,7 @@ class ShipmentServiceUnitTests {
                     .type(ShipmentType.PARCEL)
                     .weight(BigDecimal.valueOf(2.5))
                     .paidBy(PaidBy.SENDER)
-                    .originOfficeId(10L)
+                    .originOfficeId(10L) // BOTH ORIGINS!
                     .originAddress(originDto)
                     .deliveryOfficeId(5L)
                     .build();

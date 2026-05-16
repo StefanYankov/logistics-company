@@ -87,6 +87,7 @@
   cursor: pointer;
   color: white;
   transition: background-color 0.2s;
+  margin-bottom: 4px;
 }
 
 .btn-transit {
@@ -95,10 +96,26 @@
 }
 .btn-transit:hover { background-color: #e0a800; }
 
-.btn-deliver {
+.btn-office {
+  background-color: #17a2b8;
+}
+.btn-office:hover { background-color: #138496; }
+
+.btn-out {
+  background-color: #fd7e14;
+}
+.btn-out:hover { background-color: #e26b0a; }
+
+.btn-delivered {
   background-color: #28a745;
 }
-.btn-deliver:hover { background-color: #218838; }
+.btn-delivered:hover { background-color: #218838; }
+
+.btn-pickup {
+  background-color: #0dcaf0;
+  color: #000;
+}
+.btn-pickup:hover { background-color: #31d2f2; }
 
 .text-success {
   color: #198754;

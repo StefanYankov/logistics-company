@@ -170,7 +170,7 @@ class ShipmentRepositoryIntegrationTest {
                 id, version, created_at, updated_at,
                 sender_id, receiver_id, registered_by_id,
                 tracking_number, shipment_type, weight, total_price, status,
-                city_id, delivery_street, paid_by, is_paid
+                delivery_city_id, delivery_street, paid_by, is_paid
             ) VALUES (
                 :id, 0, :createdAt, :updatedAt,
                 :senderId, :receiverId, :employeeId,

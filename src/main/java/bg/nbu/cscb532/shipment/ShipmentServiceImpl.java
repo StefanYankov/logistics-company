@@ -217,23 +217,37 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         validateStatusTransition(shipment.getStatus(), request.newStatus());
 
-        if (request.newStatus() == ShipmentStatus.DELIVERED || request.newStatus() == ShipmentStatus.OUT_FOR_DELIVERY) {
-            if (userDetails.getApplicationRole() != ApplicationRole.COURIER) {
-                log.warn("Non-courier user {} attempted to mark shipment {} as {}", userDetails.getId(), shipmentId, request.newStatus());
-                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
-            }
-            if (request.newStatus() == ShipmentStatus.DELIVERED) {
+        // Authorization logic for DELIVERED status
+        if (request.newStatus() == ShipmentStatus.DELIVERED) {
+            if (userDetails.getApplicationRole() == ApplicationRole.COURIER) {
+                // Couriers can deliver (usually from OUT_FOR_DELIVERY)
                 Employee employee = employeeRepository.findById(userDetails.getId())
                         .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
                 shipment.setDeliveredBy((Courier) employee);
+            } else if (userDetails.getApplicationRole() == ApplicationRole.CLERK) {
+                // Clerks can ONLY deliver if the shipment is currently at an office
+                if (shipment.getStatus() != ShipmentStatus.AT_DELIVERY_OFFICE && shipment.getStatus() != ShipmentStatus.DELIVERED) {
+                     log.warn("Clerk user {} attempted to mark shipment {} as DELIVERED while it is not at an office (Current status: {})", userDetails.getId(), shipmentId, shipment.getStatus());
+                     throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+                }
+                // Office clerks directly hand over packages to clients, so we don't set a deliveredBy courier.
+                // The ShipmentStatusHistory will record which user performed the transition.
+            } else {
+                log.warn("Unauthorized role {} attempted to mark shipment {} as DELIVERED", userDetails.getApplicationRole(), shipmentId);
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
             }
-            
-            if (request.newStatus() == ShipmentStatus.OUT_FOR_DELIVERY) {
-                 Employee employee = employeeRepository.findById(userDetails.getId())
-                        .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
-                 shipment.setCurrentCourier((Courier) employee);
-                 shipment.setCurrentOffice(null);
+        }
+
+        // Authorization logic for OUT_FOR_DELIVERY status
+        if (request.newStatus() == ShipmentStatus.OUT_FOR_DELIVERY) {
+            if (userDetails.getApplicationRole() != ApplicationRole.COURIER) {
+                log.warn("Non-courier user {} attempted to mark shipment {} as OUT_FOR_DELIVERY", userDetails.getId(), shipmentId);
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED);
             }
+            Employee employee = employeeRepository.findById(userDetails.getId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
+            shipment.setCurrentCourier((Courier) employee);
+            shipment.setCurrentOffice(null);
         }
 
         Office locationOffice = null;
@@ -485,7 +499,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .currentCourierName(currentCourierName)
                 .registeredById(shipment.getRegisteredBy() != null ? shipment.getRegisteredBy().getId() : null)
                 .registeredByName(registeredByName.trim())
-                // We're not mapping the addons back out to the view yet, but the data is saved
+                .appliedAddons(shipment.getAddons().stream().map(a -> a.getServiceCatalog().getName()).collect(Collectors.toList()))
                 .build();
     }
 
