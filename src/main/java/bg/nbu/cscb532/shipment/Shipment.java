@@ -76,7 +76,6 @@ public class Shipment extends BaseUUIDEntity {
             @AttributeOverride(name = "longitude", column = @Column(name = "origin_longitude"))
     })
     @AssociationOverrides({
-            // Fix: Specify the exact column definition to prevent Liquibase/JPA Buddy generation errors
             @AssociationOverride(name = "city", joinColumns = @JoinColumn(name = "origin_city_id", columnDefinition = "bigint"))
     })
     private AddressDetails originAddressSnapshot;
@@ -98,8 +97,7 @@ public class Shipment extends BaseUUIDEntity {
             @AttributeOverride(name = "longitude", column = @Column(name = "delivery_longitude"))
     })
     @AssociationOverrides({
-            // Fix: Specify the exact column definition to prevent Liquibase/JPA Buddy generation errors
-            @AssociationOverride(name = "city", joinColumns = @JoinColumn(name = "city_id", columnDefinition = "bigint"))
+            @AssociationOverride(name = "city", joinColumns = @JoinColumn(name = "delivery_city_id", columnDefinition = "bigint"))
     })
     private AddressDetails deliveryAddressSnapshot;
 

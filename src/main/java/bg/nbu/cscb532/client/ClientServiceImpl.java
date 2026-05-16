@@ -68,7 +68,10 @@ public class ClientServiceImpl implements ClientService {
         String hashedPassword = passwordEncoder.encode(dto.password());
 
         // Claim Account Logic
-        // Check if an offline-only account already exists with this phone number
+        // TODO: (Tech Debt) Account claiming currently relies solely on matching a phone number.
+        // This is vulnerable to identity spoofing (IDOR). To safely allow a user to claim historical
+        // "walk-in" or "guest receiver" shipments, we MUST implement an SMS OTP (One-Time Password)
+        // verification flow to cryptographically prove phone number ownership before merging accounts.
         Optional<Client> existingClientOpt = clientRepository.findByPhoneNumber(normalizedPhone);
         
         Client targetClient;
