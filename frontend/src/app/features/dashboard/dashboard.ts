@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
@@ -17,6 +18,7 @@ import { AuthService } from '../../shared/auth.service';
 export class Dashboard implements OnInit {
   private shipmentApi = inject(ShipmentAPIService);
   private authService = inject(AuthService);
+  private router = inject(Router);
 
   sentShipments = signal<ShipmentViewDto[]>([]);
   receivedShipments = signal<ShipmentViewDto[]>([]);
@@ -29,6 +31,11 @@ export class Dashboard implements OnInit {
 
   private loadClientShipments() {
     const decodedToken = this.authService.getDecodedToken();
+
+    if (decodedToken && (decodedToken.role === 'ROLE_CLERK' || decodedToken.role === 'ROLE_COURIER' || decodedToken.role === 'ROLE_ADMIN')) {
+       this.router.navigate(['/app/shipments']);
+       return;
+    }
 
     if (!decodedToken || decodedToken.role !== 'ROLE_CLIENT') {
        this.isLoading.set(false);

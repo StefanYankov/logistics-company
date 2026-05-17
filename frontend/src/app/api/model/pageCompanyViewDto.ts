@@ -13,16 +13,16 @@ import { CompanyViewDto } from './companyViewDto';
 
 
 export interface PageCompanyViewDto { 
-    totalElements?: number;
     totalPages?: number;
+    totalElements?: number;
     size?: number;
     content?: Array<CompanyViewDto>;
     number?: number;
     first?: boolean;
     last?: boolean;
-    pageable?: PageableObject;
     sort?: SortObject;
     numberOfElements?: number;
+    pageable?: PageableObject;
     empty?: boolean;
 }
 

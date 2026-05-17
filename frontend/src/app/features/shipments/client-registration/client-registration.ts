@@ -29,12 +29,10 @@ export class ClientRegistration implements OnInit {
   isSubmitting = signal(false);
   errorMessage = signal<string | null>(null);
 
-  // Source of truth
   allOffices: OfficeViewDto[] = [];
   cities = signal<CityViewDto[]>([]);
   availableServices = signal<ServiceCatalogViewDto[]>([]);
 
-  // Filtered lists for the UI
   filteredOriginOffices = signal<OfficeViewDto[]>([]);
   filteredDeliveryOffices = signal<OfficeViewDto[]>([]);
 
@@ -43,7 +41,6 @@ export class ClientRegistration implements OnInit {
 
   loggedInUserId: string = '';
 
-  // Track selected addon IDs
   selectedServiceIds = signal<Set<number>>(new Set());
 
   senderProfileForm = this.fb.group({
@@ -53,14 +50,13 @@ export class ClientRegistration implements OnInit {
   });
 
   registerForm = this.fb.group({
-    // Receiver Configuration
     receiverName: ['', Validators.required],
     receiverPhone: ['', [Validators.required, Validators.pattern(/^\+?[0-9]{8,15}$/)]],
     receiverEmail: ['', Validators.email],
 
     // Origin Configuration
     originType: ['OFFICE', Validators.required],
-    originCityFilterId: [null as number | null], // New filter control
+    originCityFilterId: [null as number | null],
     originOfficeId: [null as number | null],
     originCityId: [null as number | null],
     originStreet: [''],
@@ -72,7 +68,7 @@ export class ClientRegistration implements OnInit {
 
     // Destination Configuration
     destinationType: ['OFFICE', Validators.required],
-    deliveryCityFilterId: [null as number | null], // New filter control
+    deliveryCityFilterId: [null as number | null],
     deliveryOfficeId: [null as number | null],
     deliveryCityId: [null as number | null],
     deliveryStreet: [''],
@@ -97,32 +93,25 @@ export class ClientRegistration implements OnInit {
     this.loggedInUserId = token.userId;
 
     this.setupDynamicValidations();
-    this.setupCascadingDropdowns(); // New setup
+    this.setupCascadingDropdowns();
 
-    // Production-grade microtask deferral
     queueMicrotask(() => this.loadDropdownData());
   }
 
   private setupCascadingDropdowns() {
-    // Watch Origin City Filter
     this.registerForm.get('originCityFilterId')?.valueChanges.subscribe(cityId => {
-      // Reset the selected office when the city changes
       this.registerForm.get('originOfficeId')?.setValue(null, { emitEvent: false });
 
       if (!cityId) {
-        // If no city selected, show all offices
         this.filteredOriginOffices.set(this.allOffices);
         return;
       }
 
-      // We assume cityId comes in as a string from the HTML select, so we use loose equality or parseInt
       const filtered = this.allOffices.filter(o => o.cityName === this.cities().find(c => c.id == cityId)?.name);
       this.filteredOriginOffices.set(filtered);
     });
 
-    // Watch Delivery City Filter
     this.registerForm.get('deliveryCityFilterId')?.valueChanges.subscribe(cityId => {
-      // Reset the selected office when the city changes
       this.registerForm.get('deliveryOfficeId')?.setValue(null, { emitEvent: false });
 
       if (!cityId) {
@@ -161,13 +150,13 @@ export class ClientRegistration implements OnInit {
       streetCtrl?.clearValidators();
       cityCtrl?.setValue(null, { emitEvent: false });
       streetCtrl?.setValue('', { emitEvent: false });
-      cityFilterCtrl?.clearValidators(); // Clear validators for filter
+      cityFilterCtrl?.clearValidators();
     } else {
       officeCtrl?.clearValidators();
       cityCtrl?.setValidators([Validators.required]);
       streetCtrl?.setValidators([Validators.required]);
       officeCtrl?.setValue(null, { emitEvent: false });
-      cityFilterCtrl?.setValue(null, { emitEvent: false }); // Clear filter value
+      cityFilterCtrl?.setValue(null, { emitEvent: false });
     }
     [officeCtrl, cityCtrl, streetCtrl, cityFilterCtrl].forEach(c => c?.updateValueAndValidity({ emitEvent: false }));
   }
@@ -176,7 +165,7 @@ export class ClientRegistration implements OnInit {
     const officeCtrl = this.registerForm.get('deliveryOfficeId');
     const cityCtrl = this.registerForm.get('deliveryCityId');
     const streetCtrl = this.registerForm.get('deliveryStreet');
-    const cityFilterCtrl = this.registerForm.get('deliveryCityFilterId'); // New control
+    const cityFilterCtrl = this.registerForm.get('deliveryCityFilterId');
 
     if (type === 'OFFICE') {
       officeCtrl?.setValidators([Validators.required]);
@@ -184,18 +173,18 @@ export class ClientRegistration implements OnInit {
       streetCtrl?.clearValidators();
       cityCtrl?.setValue(null, { emitEvent: false });
       streetCtrl?.setValue('', { emitEvent: false });
-      cityFilterCtrl?.clearValidators(); // Clear validators for filter
+      cityFilterCtrl?.clearValidators();
     } else {
       officeCtrl?.clearValidators();
       cityCtrl?.setValidators([Validators.required]);
       streetCtrl?.setValidators([Validators.required]);
       officeCtrl?.setValue(null, { emitEvent: false });
-      cityFilterCtrl?.setValue(null, { emitEvent: false }); // Clear filter value
+      cityFilterCtrl?.setValue(null, { emitEvent: false });
     }
     [officeCtrl, cityCtrl, streetCtrl, cityFilterCtrl].forEach(c => c?.updateValueAndValidity({ emitEvent: false }));
   }
 
-  private async loadDropdownData() {
+  private loadDropdownData() {
     this.isLoadingLookups.set(true);
     const pageParams = { page: 0, size: 500 };
 
@@ -211,49 +200,25 @@ export class ClientRegistration implements OnInit {
         this.isLoadingLookups.set(false);
         return of(null);
       })
-    ).subscribe(async (result) => { // Mark handler as async
+    ).subscribe((result) => {
       if (result) {
-        try {
-          // Pre-fill profile (already parses correctly as object)
-          this.senderProfileForm.patchValue({
-            firstName: result.profileRes.firstName,
-            lastName: result.profileRes.lastName,
-            phoneNumber: result.profileRes.phoneNumber
-          });
+        this.senderProfileForm.patchValue({
+          firstName: result.profileRes.firstName,
+          lastName: result.profileRes.lastName,
+          phoneNumber: result.profileRes.phoneNumber
+        });
 
-          // Unpack Blobs safely into structured data
-          const officesData = await this.parseBlobResponse(result.officesRes);
-          const citiesData = await this.parseBlobResponse(result.citiesRes);
-          const servicesData = await this.parseBlobResponse(result.servicesRes);
+        this.allOffices = result.officesRes.content || [];
+        this.filteredOriginOffices.set(this.allOffices);
+        this.filteredDeliveryOffices.set(this.allOffices);
+        this.cities.set(result.citiesRes.content || []);
 
-          this.allOffices = officesData?.content || [];
+        const services = Array.isArray(result.servicesRes) ? result.servicesRes : [];
+        this.availableServices.set(services);
 
-          // Apply changes to signals outside the constructor flow
-          this.filteredOriginOffices.set(this.allOffices);
-          this.filteredDeliveryOffices.set(this.allOffices);
-          this.cities.set(citiesData?.content || []);
-          this.availableServices.set(Array.isArray(servicesData) ? servicesData : []);
-
-          console.log("DEBUG: availableServices signal successfully set to:", this.availableServices());
-        } catch (parseError) {
-          console.error("Failed to process API Blob response payloads:", parseError);
-          this.errorMessage.set('Data corruption error. Please reload.');
-        } finally {
-          this.isLoadingLookups.set(false);
-        }
+        this.isLoadingLookups.set(false);
       }
     });
-  }
-
-  /**
-   * Helper utility to convert openapi generated Blob response streams to runtime JSON.
-   */
-  private async parseBlobResponse(response: any): Promise<any> {
-    if (response instanceof Blob) {
-      const text = await response.text();
-      return text ? JSON.parse(text) : null;
-    }
-    return response; // Fallback if the client layer later returns objects directly
   }
 
   toggleService(serviceId: number | undefined, event: Event) {
@@ -284,14 +249,14 @@ export class ClientRegistration implements OnInit {
           concatMap(() => {
               const v = this.registerForm.value;
               const payload: ShipmentCreationDto = {
-                senderId: this.loggedInUserId, // Implicitly set
+                senderId: this.loggedInUserId,
                 type: v.type as ShipmentCreationDto.TypeEnum,
                 weight: v.weight!,
                 paidBy: v.paidBy as ShipmentCreationDto.PaidByEnum,
                 receiverName: v.receiverName!,
                 receiverPhone: v.receiverPhone!,
                 receiverEmail: v.receiverEmail || undefined,
-                selectedServiceIds: this.selectedServiceIds().size > 0 ? this.selectedServiceIds() : undefined
+                selectedServiceIds: this.selectedServiceIds().size > 0 ? Array.from(this.selectedServiceIds()) as unknown as Set<number> : undefined
               };
 
               // Origin
@@ -333,7 +298,6 @@ export class ClientRegistration implements OnInit {
           catchError((err) => {
             this.isSubmitting.set(false);
             if (err.status === 409 && err.error?.errorCode === 'E3005') {
-                 // E3005 is our new PHONE_DUPLICATE error code
                  this.errorMessage.set('The phone number you provided is already registered to another account.');
             } else if (err.status === 400 && err.error?.detail) {
                  this.errorMessage.set(err.error.detail);

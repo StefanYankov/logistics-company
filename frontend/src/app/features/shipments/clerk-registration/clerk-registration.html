@@ -7,14 +7,13 @@
   @if (isLoadingLookups()) {
     <div class="loading" aria-live="polite">Loading form data...</div>
   } @else {
-    <!-- Explicit Form Level Binding -->
     <form [formGroup]="registerForm" (submit)="onSubmit(); $event.preventDefault()">
 
-      <!-- ================= SENDER SECTION (Autocomplete) ================= -->
+      <!-- ================= SENDER SECTION ================= -->
       <fieldset class="form-section">
         <legend>Sender Details</legend>
 
-        @if (registerForm.get('senderId')?.value; as selectedSenderId) {
+        @if (registerForm.get('senderId')?.value) {
           <!-- Selected Sender View -->
           <div class="selected-sender">
             <span class="selected-name">Selected: {{ registerForm.get('selectedSenderDisplay')?.value }}</span>
@@ -35,21 +34,20 @@
               <div class="search-indicator" aria-live="polite">Searching...</div>
             }
 
-          @if (senderSearchResults().length > 0) {
-            <ul class="autocomplete-dropdown">
-              @for (client of senderSearchResults(); track client.id) {
-                <li (click)="selectSender(client)" role="button" tabindex="0">
-                  <strong>{{ client.phoneNumber }}</strong> - {{ client.firstName }} {{ client.lastName }}
-                </li>
-              }
-            </ul>
-          } @else if (!isSearchingSender() && senderSearchResults().length === 0 && (registerForm.get('senderSearchTerm')?.value || '').length >= 3 && !showQuickRegister()) {
-            <!-- Show Quick Register Prompt -->
-            <div class="search-no-results">
-              No customers found.
-              <button type="button" class="btn-link" (click)="openQuickRegister()">+ Add New Customer</button>
-            </div>
-          }
+            @if (senderSearchResults().length > 0) {
+              <ul class="autocomplete-dropdown">
+                @for (client of senderSearchResults(); track client.id) {
+                  <li (click)="selectSender(client)" role="button" tabindex="0">
+                    <strong>{{ client.phoneNumber }}</strong> - {{ client.firstName }} {{ client.lastName }}
+                  </li>
+                }
+              </ul>
+            } @else if (!isSearchingSender() && senderSearchResults().length === 0 && (registerForm.get('senderSearchTerm')?.value || '').length >= 3 && !showQuickRegister()) {
+              <div class="search-no-results">
+                No customers found.
+                <button type="button" class="btn-link" (click)="openQuickRegister()">+ Add New Customer</button>
+              </div>
+            }
 
             @if (registerForm.get('senderId')?.invalid && registerForm.get('senderId')?.touched && !showQuickRegister()) {
               <div class="error" role="alert">You must select a valid sender from the search results.</div>
@@ -59,7 +57,6 @@
       </fieldset>
 
       <!-- ================= QUICK REGISTER PANEL ================= -->
-      <!-- Isolating the structural template form nesting issue: inner form handles its own submit lifecycle context -->
       @if (showQuickRegister() && !registerForm.get('senderId')?.value) {
         <fieldset class="form-section quick-register-panel" [formGroup]="quickRegisterForm">
           <legend>Add New Customer</legend>
@@ -112,7 +109,6 @@
       <!-- ================= RECEIVER SECTION ================= -->
       <fieldset class="form-section">
         <legend>Receiver Details</legend>
-
         <div class="guest-inputs">
           <div class="form-group half-width">
             <label for="receiverName">Full Name</label>
@@ -135,12 +131,9 @@
         </div>
       </fieldset>
 
-      <!-- ORIGIN IS INVISIBLE - Hardcoded to the Clerk's assigned office -->
-
       <!-- ================= DESTINATION SECTION ================= -->
       <fieldset class="form-section">
         <legend>Destination (Where is it going?)</legend>
-
         <div class="toggle-group">
           <label class="radio-label">
             <input type="radio" formControlName="destinationType" value="OFFICE"> To Office
@@ -151,76 +144,74 @@
         </div>
 
         <div class="section-content">
-          @if (registerForm.get('destinationType')?.value; as destType) {
-            @if (destType === 'OFFICE') {
+          @if (registerForm.get('destinationType')?.value === 'OFFICE') {
+            <div class="form-group full-width">
+              <label for="deliveryCityFilterId">Filter by City (Optional)</label>
+              <select id="deliveryCityFilterId" formControlName="deliveryCityFilterId">
+                <option [ngValue]="null">-- Show All Cities --</option>
+                @for (city of cities(); track city.id) {
+                  <option [value]="city.id">{{ city.name }} ({{ city.postcode }})</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="deliveryOfficeId">Select Office</label>
+              <select id="deliveryOfficeId" formControlName="deliveryOfficeId">
+                <option [ngValue]="null" disabled selected>Choose destination office...</option>
+                @for (office of filteredDeliveryOffices(); track office.id) {
+                  <option [value]="office.id">{{ office.cityName }} - {{ office.fullAddress }}</option>
+                }
+              </select>
+              @if (registerForm.get('deliveryOfficeId')?.invalid && registerForm.get('deliveryOfficeId')?.touched) {
+                <div class="error" role="alert">Destination office is required.</div>
+              }
+              @if (filteredDeliveryOffices().length === 0 && registerForm.get('deliveryCityFilterId')?.value) {
+                <div class="error" role="alert">No offices found in this city.</div>
+              }
+            </div>
+          } @else {
+            <div class="address-grid">
               <div class="form-group full-width">
-                <label for="deliveryCityFilterId">Filter by City (Optional)</label>
-                <select id="deliveryCityFilterId" formControlName="deliveryCityFilterId">
-                  <option [ngValue]="null">-- Show All Cities --</option>
+                <label for="deliveryCityId">City</label>
+                <select id="deliveryCityId" formControlName="deliveryCityId">
+                  <option [ngValue]="null" disabled selected>Select City...</option>
                   @for (city of cities(); track city.id) {
                     <option [value]="city.id">{{ city.name }} ({{ city.postcode }})</option>
                   }
                 </select>
-              </div>
-
-              <div class="form-group full-width">
-                <label for="deliveryOfficeId">Select Office</label>
-                <select id="deliveryOfficeId" formControlName="deliveryOfficeId">
-                  <option [ngValue]="null" disabled selected>Choose destination office...</option>
-                  @for (office of filteredDeliveryOffices(); track office.id) {
-                    <option [value]="office.id">{{ office.cityName }} - {{ office.fullAddress }}</option>
-                  }
-                </select>
-                @if (registerForm.get('deliveryOfficeId')?.invalid && registerForm.get('deliveryOfficeId')?.touched) {
-                  <div class="error" role="alert">Destination office is required.</div>
-                }
-                @if (filteredDeliveryOffices().length === 0 && registerForm.get('deliveryCityFilterId')?.value) {
-                  <div class="error" role="alert">No offices found in this city.</div>
+                @if (registerForm.get('deliveryCityId')?.invalid && registerForm.get('deliveryCityId')?.touched) {
+                  <div class="error" role="alert">City is required.</div>
                 }
               </div>
-            } @else {
-              <div class="address-grid">
-                <div class="form-group full-width">
-                  <label for="deliveryCityId">City</label>
-                  <select id="deliveryCityId" formControlName="deliveryCityId">
-                    <option [ngValue]="null" disabled selected>Select City...</option>
-                    @for (city of cities(); track city.id) {
-                      <option [value]="city.id">{{ city.name }} ({{ city.postcode }})</option>
-                    }
-                  </select>
-                  @if (registerForm.get('deliveryCityId')?.invalid && registerForm.get('deliveryCityId')?.touched) {
-                    <div class="error" role="alert">City is required.</div>
-                  }
-                </div>
-                <div class="form-group half-width">
-                  <label for="deliveryStreet">Street</label>
-                  <input id="deliveryStreet" type="text" formControlName="deliveryStreet" />
-                  @if (registerForm.get('deliveryStreet')?.invalid && registerForm.get('deliveryStreet')?.touched) {
-                    <div class="error" role="alert">Street is required.</div>
-                  }
-                </div>
-                <div class="form-group half-width">
-                  <label for="deliveryDistrict">District (Optional)</label>
-                  <input id="deliveryDistrict" type="text" formControlName="deliveryDistrict" />
-                </div>
-                <div class="form-group quarter-width">
-                  <label for="deliveryBuilding">Building</label>
-                  <input id="deliveryBuilding" type="text" formControlName="deliveryBuilding" />
-                </div>
-                <div class="form-group quarter-width">
-                  <label for="deliveryEntrance">Ent.</label>
-                  <input id="deliveryEntrance" type="text" formControlName="deliveryEntrance" />
-                </div>
-                <div class="form-group quarter-width">
-                  <label for="deliveryFloor">Fl.</label>
-                  <input id="deliveryFloor" type="text" formControlName="deliveryFloor" />
-                </div>
-                <div class="form-group quarter-width">
-                  <label for="deliveryApartment">Ap.</label>
-                  <input id="deliveryApartment" type="text" formControlName="deliveryApartment" />
-                </div>
+              <div class="form-group half-width">
+                <label for="deliveryStreet">Street</label>
+                <input id="deliveryStreet" type="text" formControlName="deliveryStreet" />
+                @if (registerForm.get('deliveryStreet')?.invalid && registerForm.get('deliveryStreet')?.touched) {
+                  <div class="error" role="alert">Street is required.</div>
+                }
               </div>
-            }
+              <div class="form-group half-width">
+                <label for="deliveryDistrict">District (Optional)</label>
+                <input id="deliveryDistrict" type="text" formControlName="deliveryDistrict" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryBuilding">Building</label>
+                <input id="deliveryBuilding" type="text" formControlName="deliveryBuilding" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryEntrance">Ent.</label>
+                <input id="deliveryEntrance" type="text" formControlName="deliveryEntrance" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryFloor">Fl.</label>
+                <input id="deliveryFloor" type="text" formControlName="deliveryFloor" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryApartment">Ap.</label>
+                <input id="deliveryApartment" type="text" formControlName="deliveryApartment" />
+              </div>
+            </div>
           }
         </div>
       </fieldset>

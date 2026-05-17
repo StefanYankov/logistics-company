@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -34,7 +35,7 @@ import java.net.URI;
  */
 @Slf4j
 @RestController
-@RequestMapping(value = "/api/clients", produces = "application/json")
+@RequestMapping(value = "/api/clients", produces = MediaType.APPLICATION_JSON_VALUE)
 @ApiStandardResponses
 @RequiredArgsConstructor
 @Tag(name = "Client API", description = "Endpoints for managing logistics clients.")
@@ -49,7 +50,7 @@ public class ClientController {
     @ApiResponse(responseCode = "201", description = "Client registered successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., missing fields or invalid email/phone format)")
     @ApiResponse(responseCode = "409", description = "Conflict - Username or email is already taken")
-    @PostMapping(value = "/register", consumes = "application/json")
+    @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ClientViewDto> registerClient(@Valid @RequestBody ClientRegistrationDto dto) {
         log.info("API POST request to register a new client with username: {}", dto.username());
 
@@ -73,7 +74,7 @@ public class ClientController {
     @ApiResponse(responseCode = "201", description = "Client registered successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed")
     @ApiResponse(responseCode = "409", description = "Conflict - Phone number or email already registered")
-    @PostMapping(value = "/quick-register", consumes = "application/json")
+    @PostMapping(value = "/quick-register", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN', 'CLERK')")
     public ResponseEntity<ClientViewDto> quickRegisterClient(@Valid @RequestBody ClientQuickRegistrationDto dto) {
         log.info("API POST request for quick registration. Phone: {}", dto.phoneNumber());

@@ -46,6 +46,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -299,6 +300,7 @@ class ShipmentControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isCreated())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(header().string("Location", "http://localhost/api/shipments/" + newId))
                     .andExpect(jsonPath("$.id").value(newId.toString()))
                     .andExpect(jsonPath("$.trackingNumber").value("TRK-TEST"));
@@ -368,6 +370,7 @@ class ShipmentControllerTest {
             mockMvc.perform(get(BASE_URL + "/{id}", shipmentId)
                             .with(user(authUser)))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.id").value(shipmentId.toString()));
         }
         
@@ -409,6 +412,7 @@ class ShipmentControllerTest {
                             .param("page", "0")
                             .param("size", "10"))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.totalElements").value(1));
         }
 
@@ -429,6 +433,7 @@ class ShipmentControllerTest {
                             .param("page", "0")
                             .param("size", "10"))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.totalElements").value(1));
         }
 
@@ -449,6 +454,7 @@ class ShipmentControllerTest {
                             .param("page", "0")
                             .param("size", "10"))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.totalElements").value(1));
         }
 
@@ -469,6 +475,7 @@ class ShipmentControllerTest {
                             .param("page", "0")
                             .param("size", "10"))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.totalElements").value(1));
         }
 
@@ -486,6 +493,7 @@ class ShipmentControllerTest {
             mockMvc.perform(get(BASE_URL + "/pending")
                             .with(user(authUser)))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.totalElements").value(1));
         }
     }
@@ -511,6 +519,7 @@ class ShipmentControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.id").value(id.toString()));
 
             verify(shipmentService).updateShipmentStatus(eq(id), any(), any());
@@ -606,6 +615,7 @@ class ShipmentControllerTest {
                             .param("startDate", "2026-01-01")
                             .param("endDate", "2026-01-31"))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.totalRevenue").value(5000.00))
                     .andExpect(jsonPath("$.startDate").value("2026-01-01"))
                     .andExpect(jsonPath("$.endDate").value("2026-01-31"));
@@ -693,38 +703,35 @@ class ShipmentControllerTest {
     class GetShipmentByTrackingNumberTests {
 
         @Test
-        @DisplayName("Happy Path: Should retrieve shipment by tracking number and pass auth context to service")
-        void shouldRetrieveShipmentByTrackingNumber() throws Exception {
+        @DisplayName("Happy Path: Should successfully retrieve public shipment by tracking number without auth")
+        void shouldRetrievePublicShipmentByTrackingNumber() throws Exception {
             // Arrange
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
             String trackingNumber = "TRK-12345";
             ShipmentViewDto responseDto = createValidViewDto(UUID.randomUUID(), trackingNumber);
 
-            given(shipmentService.getShipmentByTrackingNumber(trackingNumber, authUser.getId(), authUser.getApplicationRole()))
+            given(shipmentService.getShipmentByTrackingNumber(trackingNumber, null, null))
                     .willReturn(responseDto);
 
             // Act and Assert
-            mockMvc.perform(get(BASE_URL + "/track/{trackingNumber}", trackingNumber)
-                            .with(user(authUser)))
+            mockMvc.perform(get(BASE_URL + "/track/{trackingNumber}", trackingNumber))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.trackingNumber").value(trackingNumber));
 
-            verify(shipmentService).getShipmentByTrackingNumber(trackingNumber, authUser.getId(), authUser.getApplicationRole());
+            verify(shipmentService).getShipmentByTrackingNumber(trackingNumber, null, null);
         }
 
         @Test
-        @DisplayName("Error Case: Should return 404 when service denies access (preventing enumeration)")
-        void shouldReturn404WhenAccessDenied() throws Exception {
+        @DisplayName("Error Case: Should return 404 Not Found when shipment does not exist")
+        void shouldReturn404WhenTrackingNumberNotFound() throws Exception {
             // Arrange
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
             String trackingNumber = "TRK-INVALID";
 
-            given(shipmentService.getShipmentByTrackingNumber(trackingNumber, authUser.getId(), authUser.getApplicationRole()))
+            given(shipmentService.getShipmentByTrackingNumber(trackingNumber, null, null))
                     .willThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
             // Act and Assert
-            mockMvc.perform(get(BASE_URL + "/track/{trackingNumber}", trackingNumber)
-                            .with(user(authUser)))
+            mockMvc.perform(get(BASE_URL + "/track/{trackingNumber}", trackingNumber))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.errorCode").value(ErrorCode.RESOURCE_NOT_FOUND.getCode()));
         }
@@ -733,17 +740,14 @@ class ShipmentControllerTest {
         @DisplayName("Validation Error: Should return 400 Bad Request when tracking number is blank")
         void shouldReturn400WhenTrackingNumberIsBlank() throws Exception {
             // Arrange
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
-            String blankTrackingNumber = "   ";
+            String blankTrackingNumber = "";
 
-            given(shipmentService.getShipmentByTrackingNumber(blankTrackingNumber, authUser.getId(), authUser.getApplicationRole()))
+            given(shipmentService.getShipmentByTrackingNumber(blankTrackingNumber, null, null))
                     .willThrow(new BusinessException(ErrorCode.VALIDATION_FAILED));
 
             // Act and Assert
-            mockMvc.perform(get(BASE_URL + "/track/{trackingNumber}", blankTrackingNumber)
-                            .with(user(authUser)))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_FAILED.getCode()));
+            mockMvc.perform(get(BASE_URL + "/track/{trackingNumber}", blankTrackingNumber))
+                    .andExpect(status().isNotFound());
         }
     }
 

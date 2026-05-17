@@ -16,11 +16,47 @@
       </div>
 
       <div class="details-grid">
-        <!-- The OpenAPI generator flattened the DTOs, so sender is just an ID now based on our backend design -->
-        <div><strong>Sender ID:</strong> {{ s.senderId }}</div>
-        <div><strong>Receiver ID:</strong> {{ s.receiverId }}</div>
+        <!-- Sender/Receiver Details -->
+        <div><strong>Sender:</strong> {{ s.senderName }} <small>({{ s.senderPhone }})</small></div>
+        <div><strong>Receiver:</strong> {{ s.receiverName }} <small>({{ s.receiverPhone }})</small></div>
+
+        <!-- Package Details -->
+        <div><strong>Type:</strong> {{ s.type }}</div>
         <div><strong>Weight:</strong> {{ s.weight }} kg</div>
-        <div><strong>Total Price:</strong> {{ s.totalPrice | currency:'USD' }}</div>
+        @if(s.length && s.width && s.height) {
+            <div><strong>Dimensions:</strong> {{ s.length }}x{{ s.width }}x{{ s.height }} cm</div>
+        }
+
+        <!-- Location Details -->
+        <div><strong>Origin:</strong> {{ s.originOfficeName || s.originAddressString }}</div>
+        <div><strong>Destination:</strong> {{ s.deliveryOfficeName || s.deliveryAddressString }}</div>
+
+        <!-- Real-time Location -->
+        @if(s.currentOfficeName) {
+            <div><strong>Currently At:</strong> {{ s.currentOfficeName }}</div>
+        }
+        @if(s.currentCourierName) {
+            <div><strong>With Courier:</strong> {{ s.currentCourierName }}</div>
+        }
+
+        <!-- Financials -->
+        <div><strong>Total Price:</strong> {{ s.totalPrice | currency:'BGN' }}</div>
+        <div><strong>Payment:</strong> {{ s.paidBy }} ({{ s.isPaid ? 'PAID' : 'UNPAID' }})</div>
+
+        <!-- Addons -->
+        @if (s.appliedAddons && s.appliedAddons.length > 0) {
+            <div class="addons-section">
+                <strong>Services:</strong>
+                <div class="addon-badges" style="margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px;">
+                    @for (addon of s.appliedAddons; track addon) {
+                      <span class="badge" style="background-color: #e9ecef; color: #495057; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; border: 1px solid #ced4da;">
+                        {{ addon }}
+                      </span>
+                    }
+                </div>
+            </div>
+        }
+
         <div><strong>Registered At:</strong> {{ s.createdAt | date:'medium' }}</div>
       </div>
     </div>

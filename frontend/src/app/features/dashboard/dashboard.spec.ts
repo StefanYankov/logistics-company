@@ -5,12 +5,14 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { AuthService } from '../../shared/auth.service';
 import { ShipmentAPIService } from '../../api';
 import { of, throwError } from 'rxjs';
+import { Router } from '@angular/router';
 
 describe('Dashboard', () => {
   let component: Dashboard;
   let fixture: ComponentFixture<Dashboard>;
   let mockAuthService: any;
   let mockShipmentApi: any;
+  let mockRouter: any;
 
   beforeEach(async () => {
     // 1. Create simple mock objects for our services using Vitest's vi.fn()
@@ -23,6 +25,10 @@ describe('Dashboard', () => {
       getShipmentsByReceiver: vi.fn()
     };
 
+    mockRouter = {
+      navigate: vi.fn()
+    };
+
     await TestBed.configureTestingModule({
       imports: [Dashboard],
       providers: [
@@ -30,7 +36,8 @@ describe('Dashboard', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: AuthService, useValue: mockAuthService },
-        { provide: ShipmentAPIService, useValue: mockShipmentApi }
+        { provide: ShipmentAPIService, useValue: mockShipmentApi },
+        { provide: Router, useValue: mockRouter }
       ]
     }).compileComponents();
 
@@ -42,7 +49,7 @@ describe('Dashboard', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should stop loading immediately if user is not a CLIENT', () => {
+  it('should redirect staff to /app/shipments', () => {
     // Arrange: Simulate a CLERK logging in
     mockAuthService.getDecodedToken.mockReturnValue({ role: 'ROLE_CLERK' });
 
@@ -50,8 +57,7 @@ describe('Dashboard', () => {
     fixture.detectChanges();
 
     // Assert: We should not make any API calls and loading should be false
-    expect(component.isLoading()).toBe(false);
-    expect(mockShipmentApi.getShipmentsBySender).not.toHaveBeenCalled();
+    expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/shipments']);
   });
 
   it('should fetch and display sent and received shipments for a CLIENT', () => {

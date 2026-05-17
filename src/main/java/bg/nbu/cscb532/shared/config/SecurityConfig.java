@@ -52,6 +52,7 @@ public class SecurityConfig {
                                 "/api/clients/register",
                                 "/api/clients/verify",
                                 "/api/services",
+                                "/api/shipments/track/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"

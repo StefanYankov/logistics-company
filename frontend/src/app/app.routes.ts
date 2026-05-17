@@ -20,8 +20,6 @@ export const routes: Routes = [
       { path: '', component: Home },
       { path: 'login', component: Login },
       { path: 'register', component: Register },
-      // Route parameter :trackingNumber allows dynamic lookups
-      { path: 'track/:trackingNumber', component: Tracking }
     ]
   },
   {
@@ -36,5 +34,7 @@ export const routes: Routes = [
       { path: 'shipments', component: ShipmentList }
     ]
   },
+  { path: 'track/:trackingNumber', component: Tracking }
+  ,
   { path: '**', redirectTo: '' }
 ];

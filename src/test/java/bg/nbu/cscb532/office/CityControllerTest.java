@@ -111,6 +111,7 @@ public class CityControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isCreated())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(header().string("Location", "http://localhost/api/cities/1"))
                     .andExpect(jsonPath("$.id").value(VALID_CITY_ID))
                     .andExpect(jsonPath("$.name").value(VALID_CITY_NAME))
@@ -185,6 +186,7 @@ public class CityControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.name").value(VALID_CITY_NAME));
         }
 
@@ -341,6 +343,7 @@ public class CityControllerTest {
                             .with(user(createMockUser(ApplicationRole.CLIENT)))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.id").value(VALID_CITY_ID))
                     .andExpect(jsonPath("$.name").value(VALID_CITY_NAME))
                     .andExpect(jsonPath("$.postcode").value(VALID_POSTCODE));
@@ -406,6 +409,7 @@ public class CityControllerTest {
                             .param("name", VALID_CITY_NAME)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.length()").value(2))
                     .andExpect(jsonPath("$[0].id").value(VALID_CITY_ID))
                     .andExpect(jsonPath("$[1].postcode").value("6491"));
@@ -465,6 +469,7 @@ public class CityControllerTest {
                     .with(user(createMockUser(ApplicationRole.CLIENT)))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.content.length()").value(1))
                     .andExpect(jsonPath("$.content[0].name").value(VALID_CITY_NAME))
                     .andExpect(jsonPath("$.totalElements").value(1));
@@ -490,6 +495,7 @@ public class CityControllerTest {
                             .param("sort", "name,desc")
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.content.length()").value(1));
 
             verify(cityService).getAll(any());

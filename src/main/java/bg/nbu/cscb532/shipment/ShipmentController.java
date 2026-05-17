@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -139,20 +140,19 @@ public class ShipmentController {
 
     @Operation(
             summary = "Get shipment by tracking number",
-            description = "Retrieves a specific shipment using its public tracking number. Clients can only view shipments where they are the sender or receiver."
+            description = "Retrieves a specific shipment using its public tracking number. Accessible without authentication."
     )
-    @ApiResponse(responseCode = "200", description = "Shipment found and authorized")
+    @ApiResponse(responseCode = "200", description = "Shipment found")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., tracking number is blank)")
-    @ApiResponse(responseCode = "404", description = "Shipment not found or access denied")
-    @GetMapping("/track/{trackingNumber}")
-    @PreAuthorize("isAuthenticated()")
+    @ApiResponse(responseCode = "404", description = "Shipment not found")
+    @GetMapping(value = "/track/{trackingNumber}", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ShipmentViewDto> getShipmentByTrackingNumber(
-            @Parameter(description = "The alphanumeric tracking number of the shipment") @PathVariable String trackingNumber,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @Parameter(description = "The alphanumeric tracking number of the shipment") @PathVariable String trackingNumber) {
         
-        log.info("API GET request for shipment tracking number: {} from user ID: {}", trackingNumber, userDetails.getId());
+        log.info("API GET request for shipment tracking number: {} (Public)", trackingNumber);
         
-        ShipmentViewDto shipment = shipmentService.getShipmentByTrackingNumber(trackingNumber, userDetails.getId(), userDetails.getApplicationRole());
+        // Pass null for userDetails since it's a public endpoint
+        ShipmentViewDto shipment = shipmentService.getShipmentByTrackingNumber(trackingNumber, null, null);
         return ResponseEntity.ok(shipment);
     }
 
@@ -161,7 +161,7 @@ public class ShipmentController {
             description = "Retrieves a paginated list of all shipments in the system. Restricted to staff roles."
     )
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
-    @GetMapping
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
     public ResponseEntity<Page<ShipmentViewDto>> getAllShipments(Pageable pageable) {
         log.info("API GET request for all shipments. Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
@@ -173,7 +173,7 @@ public class ShipmentController {
             description = "Retrieves a paginated list of shipments where the specified client is the sender. Accessible to staff and the specific client."
     )
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
-    @GetMapping("/sender/{senderId}")
+    @GetMapping(value = "/sender/{senderId}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<ShipmentViewDto>> getShipmentsBySender(
             @Parameter(description = "The UUID of the sending client") @PathVariable UUID senderId,
@@ -196,7 +196,7 @@ public class ShipmentController {
             description = "Retrieves a paginated list of shipments where the specified client is the receiver. Accessible to staff and the specific client."
     )
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
-    @GetMapping("/receiver/{receiverId}")
+    @GetMapping(value = "/receiver/{receiverId}", produces = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<ShipmentViewDto>> getShipmentsByReceiver(
             @Parameter(description = "The UUID of the receiving client") @PathVariable UUID receiverId,
