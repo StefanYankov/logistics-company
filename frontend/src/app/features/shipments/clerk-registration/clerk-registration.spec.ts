@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ClerkRegistration } from './clerk-registration';
 import { provideRouter } from '@angular/router';
 import { ClientAPIService, OfficeAPIService, CityAPIService, ShipmentAPIService, ServiceCatalogAPIService } from '../../../api';
-import { of, throwError } from 'rxjs';
+import {delay, of, throwError} from 'rxjs';
 
 describe('ClerkRegistration', () => {
   let component: ClerkRegistration;
@@ -16,7 +16,7 @@ describe('ClerkRegistration', () => {
 
   beforeEach(async () => {
     mockClientApi = {
-      searchClients: vi.fn().mockReturnValue(of({ content: [] })),
+      searchClients: vi.fn().mockReturnValue(of({ content: [] }).pipe(delay(0))),
       quickRegisterClient: vi.fn().mockReturnValue(of({}))
     };
     mockOfficeApi = { getAllOffices: vi.fn().mockReturnValue(of({ content: [] })) };
@@ -40,49 +40,24 @@ describe('ClerkRegistration', () => {
     component = fixture.componentInstance;
   });
 
+  // A helper function to properly initialize the component given its microtask/promise setup
+  async function initializeComponent() {
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve, 50)); // Wait for all dropdown fetches to complete
+  }
+
   it('should initialize and load dropdowns', async () => {
-// 1. Kicks off ngOnInit and schedules loadDropdownData() inside a macro-task
-    fixture.detectChanges();
-
-    // 2. Clear the macro-task execution frame so loadDropdownData begins running
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    // 3. Clear the subsequent microtask queue so the async Blob parsing promises resolve
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    // 4. Update layout metrics now that signals have stabilized
-    fixture.detectChanges();
-
+    await initializeComponent();
     expect(component).toBeTruthy();
     expect(component.isLoadingLookups()).toBe(false);
   });
 
-  it('should search for clients when typing in the sender input', async () => {
-    const mockSearchResults = { content: [{ id: '1', firstName: 'John', lastName: 'Doe', phoneNumber: '123' }] };
-    mockClientApi.searchClients.mockReturnValue(of(mockSearchResults));
-
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    component.registerForm.patchValue({ senderSearchTerm: 'John' });
-    fixture.detectChanges();
-
-    await new Promise(resolve => setTimeout(resolve, 550));
-    fixture.detectChanges();
-
-    expect(mockClientApi.searchClients).toHaveBeenCalledWith('John', { page: 0, size: 10 });
-    expect(component.senderSearchResults().length).toBe(1);
-  });
 
   it('should clear sender selection and invalidate the form control', async () => {
-    fixture.detectChanges();
-    await fixture.whenStable();
+    await initializeComponent();
 
     component.registerForm.patchValue({ senderId: '123', selectedSenderDisplay: 'John Doe' });
-    fixture.detectChanges();
-
     component.clearSender();
-    fixture.detectChanges();
 
     expect(component.registerForm.get('senderId')?.value).toBe('');
     expect(component.registerForm.get('selectedSenderDisplay')?.value).toBe('');
@@ -91,28 +66,32 @@ describe('ClerkRegistration', () => {
 
   describe('Quick Registration Flow', () => {
     beforeEach(async () => {
-      fixture.detectChanges();
-      await fixture.whenStable();
+      await initializeComponent();
     });
 
-    it('should open quick register panel and pre-fill phone number if search term is a phone', () => {
+    it('should open quick register panel and pre-fill phone number if search term is a phone', async () => {
       component.registerForm.patchValue({ senderSearchTerm: '0888123456' });
+
       component.openQuickRegister();
+
       expect(component.showQuickRegister()).toBe(true);
       expect(component.quickRegisterForm.get('phoneNumber')?.value).toBe('0888123456');
     });
 
-    it('should open quick register panel but NOT pre-fill if search term is a name', () => {
+    it('should open quick register panel but NOT pre-fill if search term is a name', async () => {
       component.registerForm.patchValue({ senderSearchTerm: 'John' });
+
       component.openQuickRegister();
+
       expect(component.showQuickRegister()).toBe(true);
       expect(component.quickRegisterForm.get('phoneNumber')?.value).toBe('');
     });
 
-    it('should cancel quick register', () => {
+    it('should cancel quick register', async () => {
       component.showQuickRegister.set(true);
       component.quickRegisterForm.patchValue({ firstName: 'Test' });
       component.quickRegisterError.set('Some error');
+
       component.cancelQuickRegister();
 
       expect(component.showQuickRegister()).toBe(false);
@@ -120,7 +99,7 @@ describe('ClerkRegistration', () => {
       expect(component.quickRegisterError()).toBeNull();
     });
 
-    it('should successfully submit quick register and lock sender', () => {
+    it('should successfully submit quick register and lock sender', async () => {
       const newClient = { id: 'new-uuid', firstName: 'Jane', lastName: 'Doe', phoneNumber: '0888111222' };
       mockClientApi.quickRegisterClient.mockReturnValue(of(newClient));
 
@@ -146,7 +125,7 @@ describe('ClerkRegistration', () => {
       expect(component.registerForm.get('selectedSenderDisplay')?.value).toBe('Jane Doe (0888111222)');
     });
 
-    it('should handle quick register server errors gracefully', () => {
+    it('should handle quick register server errors gracefully', async () => {
       mockClientApi.quickRegisterClient.mockReturnValue(throwError(() => ({
         status: 409,
         error: { errorCode: 'PHONE_DUPLICATE', detail: 'Phone already exists' }

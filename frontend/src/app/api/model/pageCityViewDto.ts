@@ -13,16 +13,16 @@ import { CityViewDto } from './cityViewDto';
 
 
 export interface PageCityViewDto { 
-    totalElements?: number;
     totalPages?: number;
+    totalElements?: number;
     size?: number;
     content?: Array<CityViewDto>;
     number?: number;
     first?: boolean;
     last?: boolean;
-    pageable?: PageableObject;
     sort?: SortObject;
     numberOfElements?: number;
+    pageable?: PageableObject;
     empty?: boolean;
 }
 

@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { catchError, tap } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { ShipmentAPIService } from '../../../api';
@@ -15,6 +16,7 @@ import { ShipmentStatusUpdateDto } from '../../../api';
 })
 export class ShipmentList implements OnInit {
   private shipmentApi = inject(ShipmentAPIService);
+  public router = inject(Router);
 
   shipments = signal<ShipmentViewDto[]>([]);
   isLoading = signal(true);

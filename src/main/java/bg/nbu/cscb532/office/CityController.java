@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +25,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/cities")
+@RequestMapping(value = "/api/cities", produces = MediaType.APPLICATION_JSON_VALUE)
 @ApiStandardResponses
 @RequiredArgsConstructor
 @Tag(name = "City API", description = "Endpoints for managing cities.")
@@ -39,7 +40,7 @@ public class CityController {
     @ApiResponse(responseCode = "201", description = "City created successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g. missing name or postcode format)")
     @ApiResponse(responseCode = "409", description = "Conflict - City already exists")
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CityViewDto> createCity(@Valid @RequestBody CityDto dto) {
         log.info("API POST Request to create a city :{} with a postcode: {}", dto.name(), dto.postcode());
@@ -67,7 +68,7 @@ public class CityController {
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g. missing name or postcode format)")
     @ApiResponse(responseCode = "404", description = "City not found")
     @ApiResponse(responseCode = "409", description = "Conflict - The new name and postcode combination already exists")
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CityViewDto> updateCity(
             @PathVariable Long id,

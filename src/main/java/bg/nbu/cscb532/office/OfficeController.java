@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +26,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/offices")
+@RequestMapping(value = "/api/offices", produces = MediaType.APPLICATION_JSON_VALUE)
 @ApiStandardResponses
 @RequiredArgsConstructor
 @Tag(name = "Office API", description = "Endpoints for managing logistics offices.")
@@ -40,7 +41,7 @@ public class OfficeController {
     @ApiResponse(responseCode = "201", description = "Office created successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., invalid data or Operating Hours logic)")
     @ApiResponse(responseCode = "404", description = "Referenced Company or City not found")
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OfficeViewDto> createOffice(@Valid @RequestBody OfficeDto dto) {
         log.info("API POST request to create a new office for Company ID: {} in City ID: {}", dto.companyId(), dto.address().cityId());
@@ -65,7 +66,7 @@ public class OfficeController {
     @ApiResponse(responseCode = "200", description = "Office updated successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., invalid data or Operating Hours logic)")
     @ApiResponse(responseCode = "404", description = "Office, Company, or City not found")
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OfficeViewDto> updateOffice(
             @PathVariable Long id,

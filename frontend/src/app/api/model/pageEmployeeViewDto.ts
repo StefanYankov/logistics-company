@@ -13,16 +13,16 @@ import { SortObject } from './sortObject';
 
 
 export interface PageEmployeeViewDto { 
-    totalElements?: number;
     totalPages?: number;
+    totalElements?: number;
     size?: number;
     content?: Array<EmployeeViewDto>;
     number?: number;
     first?: boolean;
     last?: boolean;
-    pageable?: PageableObject;
     sort?: SortObject;
     numberOfElements?: number;
+    pageable?: PageableObject;
     empty?: boolean;
 }
 

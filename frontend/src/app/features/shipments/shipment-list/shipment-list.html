@@ -1,7 +1,27 @@
 <div class="shipment-list-container">
-  <div class="header">
-    <h2>All Shipments</h2>
-    <p>Monitor and manage all packages in the network.</p>
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <h2>All Shipments</h2>
+      <p>Monitor and manage all packages in the network.</p>
+    </div>
+
+    <!-- Quick Tracking Search for Staff -->
+    <div class="quick-track" style="display: flex; gap: 10px;">
+      <input
+        type="text"
+        #staffTrackingInput
+        placeholder="TRK-..."
+        style="padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;"
+        (keyup.enter)="router.navigate(['/track', staffTrackingInput.value.trim()])"
+      >
+      <button
+        class="btn-action btn-office"
+        style="margin-bottom: 0;"
+        (click)="router.navigate(['/track', staffTrackingInput.value.trim()])"
+      >
+        Track
+      </button>
+    </div>
   </div>
 
   @if (errorMessage()) {
@@ -16,17 +36,17 @@
     <div class="table-responsive">
       <table class="shipment-table">
         <thead>
-          <tr>
-            <th>Tracking #</th>
-            <th>Status</th>
-            <th>Type & Weight</th>
-            <th>Sender</th>
-            <th>Receiver</th>
-            <th>Origin</th>
-            <th>Destination</th>
-            <th>Financials</th>
-            <th>Actions (Staff)</th>
-          </tr>
+        <tr>
+          <th>Tracking #</th>
+          <th>Status</th>
+          <th>Type & Weight</th>
+          <th>Sender</th>
+          <th>Receiver</th>
+          <th>Origin</th>
+          <th>Destination</th>
+          <th>Financials</th>
+          <th>Actions (Staff)</th>
+        </tr>
         </thead>
         <tbody>
           @for (shipment of shipments(); track shipment.id) {
@@ -63,16 +83,16 @@
               </td>
               <td>
                 @if (shipment.originOfficeName) {
-                   🏢 {{ shipment.originOfficeName }}
+                  🏢 {{ shipment.originOfficeName }}
                 } @else {
-                   📍 {{ shipment.originAddressString }}
+                  📍 {{ shipment.originAddressString }}
                 }
               </td>
               <td>
                 @if (shipment.deliveryOfficeName) {
-                   🏢 {{ shipment.deliveryOfficeName }}
+                  🏢 {{ shipment.deliveryOfficeName }}
                 } @else {
-                   📍 {{ shipment.deliveryAddressString }}
+                  📍 {{ shipment.deliveryAddressString }}
                 }
               </td>
               <td class="financials-col">

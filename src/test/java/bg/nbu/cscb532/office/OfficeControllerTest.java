@@ -144,6 +144,7 @@ public class OfficeControllerTest {
                             .content(objectMapper.writeValueAsString(requestDto))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isCreated())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(header().string("Location", "http://localhost/api/offices/1"))
                     .andReturn()
                     .getResponse()
@@ -275,6 +276,7 @@ public class OfficeControllerTest {
                             .content(objectMapper.writeValueAsString(requestDto))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andReturn()
                     .getResponse()
                     .getContentAsString();
@@ -394,6 +396,7 @@ public class OfficeControllerTest {
             String jsonResponse = mockMvc.perform(get(BASE_URL + "/{id}", VALID_OFFICE_ID)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andReturn()
                     .getResponse()
                     .getContentAsString();
@@ -460,6 +463,7 @@ public class OfficeControllerTest {
             mockMvc.perform(get(BASE_URL)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.content.length()").value(1))
                     .andExpect(jsonPath("$.totalElements").value(1))
                     .andExpect(jsonPath("$.content[0].id").value(VALID_OFFICE_ID));
@@ -484,6 +488,7 @@ public class OfficeControllerTest {
                             .param("sort", "id,desc")
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.content.length()").value(1));
 
             verify(officeService).getAll(any(PageRequest.class));
@@ -508,6 +513,7 @@ public class OfficeControllerTest {
             String jsonResponse = mockMvc.perform(get(BASE_URL + "/city/{cityId}", VALID_CITY_ID)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andReturn()
                     .getResponse()
                     .getContentAsString();
@@ -533,6 +539,7 @@ public class OfficeControllerTest {
             mockMvc.perform(get(BASE_URL + "/city/{cityId}", cityWithNoOffices)
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.length()").value(0));
 
             verify(officeService).getOfficesByCityId(cityWithNoOffices);
@@ -578,6 +585,7 @@ public class OfficeControllerTest {
                             .param("radiusKm", String.valueOf(radius))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andReturn()
                     .getResponse()
                     .getContentAsString();
@@ -605,6 +613,7 @@ public class OfficeControllerTest {
                             .param("radiusKm", "1.0")
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.length()").value(0));
             
             verify(officeService).getNearestOffices(42.69, 23.32, 1.0);
@@ -682,6 +691,7 @@ public class OfficeControllerTest {
                             .param("size", "10")
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.totalElements").value(1))
                     .andExpect(jsonPath("$.content[0].id").value(employee.id().toString()))
                     .andExpect(jsonPath("$.content[0].applicationRole").value("CLERK"));

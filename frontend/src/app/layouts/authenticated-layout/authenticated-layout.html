@@ -6,7 +6,9 @@
       📦 LogisticsCo
     </div>
     <nav class="sidebar-nav">
-      <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a>
+      @if (isClient()) {
+        <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a>
+      }
 
       <!-- Role-based Navigation Links -->
       @if (isClient()) {
