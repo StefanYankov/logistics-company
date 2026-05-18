@@ -2,10 +2,14 @@ package bg.nbu.cscb532.shipment;
 
 import bg.nbu.cscb532.client.Client;
 import bg.nbu.cscb532.client.ClientRepository;
+import bg.nbu.cscb532.company.Company;
+import bg.nbu.cscb532.company.CompanyRepository;
 import bg.nbu.cscb532.employee.Courier;
 import bg.nbu.cscb532.employee.EmployeeRepository;
 import bg.nbu.cscb532.office.City;
 import bg.nbu.cscb532.office.CityRepository;
+import bg.nbu.cscb532.office.Office;
+import bg.nbu.cscb532.office.OfficeRepository;
 import bg.nbu.cscb532.shared.config.JpaConfig;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.user.ApplicationRole;
@@ -61,6 +65,12 @@ class ShipmentRepositoryIntegrationTest {
     private CityRepository cityRepository;
 
     @Autowired
+    private OfficeRepository officeRepository;
+
+    @Autowired
+    private CompanyRepository companyRepository;
+
+    @Autowired
     private EntityManager entityManager;
 
     // --- TEST DATA FACTORY ---
@@ -73,6 +83,27 @@ class ShipmentRepositoryIntegrationTest {
             city.setPostcode(uniquePostcode);
             return cityRepository.saveAndFlush(city);
         });
+    }
+
+    private Company getOrCreateCompany() {
+        return companyRepository.findAll().stream().findFirst().orElseGet(() -> {
+            Company company = new Company();
+            company.setName("Logistics Corp");
+            company.setRegistrationNumber("BG-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+            return companyRepository.saveAndFlush(company);
+        });
+    }
+
+    private Office createAndSaveOffice(City city, String street) {
+        Company company = getOrCreateCompany();
+
+        Office office = new Office();
+        AddressDetails address = new AddressDetails();
+        address.setCity(city);
+        address.setStreet(street);
+        office.setAddressDetails(address);
+        office.setCompany(company);
+        return officeRepository.saveAndFlush(office);
     }
 
     private Client createAndSaveClient(String username, String email) {
@@ -558,6 +589,105 @@ class ShipmentRepositoryIntegrationTest {
 
             assertThatThrownBy(() -> shipmentRepository.saveAndFlush(invalidShipment))
                     .isInstanceOf(Exception.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("findByCurrentCourier_IdAndStatus Tests")
+    class FindByCurrentCourierAndStatusTests {
+
+        @Test
+        @DisplayName("Should return only shipments assigned to the specific courier and with the correct status")
+        void shouldReturnShipmentsForCourierAndStatus() {
+            // Arrange
+            City city = getOrCreateCity("Test City");
+            Client sender = createAndSaveClient("sender-courier-test", "sender-ct@test.com");
+            Client receiver = createAndSaveClient("receiver-courier-test", "receiver-ct@test.com");
+            Courier courier1 = createAndSaveCourier("courier1", "courier1@test.com", "C-001");
+            Courier courier2 = createAndSaveCourier("courier2", "courier2@test.com", "C-002");
+
+            createAndSaveShipment("COURIER1-DELIVERY", sender, receiver, courier1, ShipmentStatus.OUT_FOR_DELIVERY, city);
+            createAndSaveShipment("COURIER1-REGISTERED", sender, receiver, courier1, ShipmentStatus.REGISTERED, city);
+            createAndSaveShipment("COURIER2-DELIVERY", sender, receiver, courier2, ShipmentStatus.OUT_FOR_DELIVERY, city);
+
+            shipmentRepository.findByTrackingNumber("COURIER1-DELIVERY").ifPresent(s -> {
+                s.setCurrentCourier(courier1);
+                shipmentRepository.saveAndFlush(s);
+            });
+            shipmentRepository.findByTrackingNumber("COURIER1-REGISTERED").ifPresent(s -> {
+                s.setCurrentCourier(courier1);
+                shipmentRepository.saveAndFlush(s);
+            });
+            shipmentRepository.findByTrackingNumber("COURIER2-DELIVERY").ifPresent(s -> {
+                s.setCurrentCourier(courier2);
+                shipmentRepository.saveAndFlush(s);
+            });
+
+
+            // Act
+            Page<Shipment> resultPage = shipmentRepository.findByCurrentCourier_IdAndStatus(courier1.getId(), ShipmentStatus.OUT_FOR_DELIVERY, PageRequest.of(0, 10));
+
+            // Assert
+            assertThat(resultPage.getTotalElements()).isEqualTo(1);
+            assertThat(resultPage.getContent().getFirst().getTrackingNumber()).isEqualTo("COURIER1-DELIVERY");
+        }
+
+        @Test
+        @DisplayName("Verification: Should locate address pickups when origin office is null")
+        void shouldLocateAddressPickupsWhenOfficeNull() {
+            // Arrange
+            City city = getOrCreateCity("Dobrich");
+            Client sender = createAndSaveClient("sender-pickup", "pickup@test.com");
+            Client receiver = createAndSaveClient("receiver-pickup", "recv-p@test.com");
+            Courier courier = createAndSaveCourier("courier-p", "courier-p@test.com", "C-777");
+
+            createAndSaveShipment("OFFICE-DROP", sender, receiver, courier, ShipmentStatus.REGISTERED, city);
+            Office originOffice = createAndSaveOffice(city, "Main Office St");
+            shipmentRepository.findByTrackingNumber("OFFICE-DROP").ifPresent(s -> {
+                s.setCurrentCourier(courier);
+                s.setOriginOffice(originOffice);
+                shipmentRepository.saveAndFlush(s);
+            });
+
+            createAndSaveShipment("ADDRESS-PICKUP", sender, receiver, courier, ShipmentStatus.REGISTERED, city);
+            shipmentRepository.findByTrackingNumber("ADDRESS-PICKUP").ifPresent(s -> {
+                s.setCurrentCourier(courier);
+                s.setOriginOffice(null);
+                shipmentRepository.saveAndFlush(s);
+            });
+
+            // Act
+            Page<Shipment> results = shipmentRepository.findByCurrentCourier_IdAndStatusAndOriginOfficeIsNull(
+                    courier.getId(), ShipmentStatus.REGISTERED, PageRequest.of(0, 10)
+            );
+
+            // Assert
+            assertThat(results.getTotalElements()).isEqualTo(1);
+            assertThat(results.getContent().getFirst().getTrackingNumber()).isEqualTo("ADDRESS-PICKUP");
+        }
+
+        @Test
+        @DisplayName("Should return empty page when no shipments match courier and status")
+        void shouldReturnEmptyPageForNonMatchingCourierAndStatus() {
+            // Arrange
+            City city = getOrCreateCity("Another City");
+            Client sender = createAndSaveClient("sender-no-match", "sender-nm@test.com");
+            Client receiver = createAndSaveClient("receiver-no-match", "receiver-nm@test.com");
+            Courier courier1 = createAndSaveCourier("courier-match", "courier-match@test.com", "C-003");
+            Courier courier2 = createAndSaveCourier("courier-no-match", "courier-no-match@test.com", "C-004");
+
+            createAndSaveShipment("NO-MATCH-DELIVERY", sender, receiver, courier1, ShipmentStatus.OUT_FOR_DELIVERY, city);
+            shipmentRepository.findByTrackingNumber("NO-MATCH-DELIVERY").ifPresent(s -> {
+                s.setCurrentCourier(courier1);
+                shipmentRepository.saveAndFlush(s);
+            });
+
+            // Act
+            Page<Shipment> resultPage = shipmentRepository.findByCurrentCourier_IdAndStatus(courier2.getId(), ShipmentStatus.OUT_FOR_DELIVERY, PageRequest.of(0, 10));
+
+            // Assert
+            assertThat(resultPage).isEmpty();
+            assertThat(resultPage.getTotalElements()).isEqualTo(0);
         }
     }
 }

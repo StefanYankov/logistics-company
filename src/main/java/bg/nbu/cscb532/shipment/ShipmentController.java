@@ -176,6 +176,35 @@ public class ShipmentController {
     }
 
     @Operation(
+            summary = "Get all shipments assigned to courier for delivery",
+            description = "Retrieves a paginated list of all shipments that are currently assigned to the logged-in courier for delivery."
+    )
+    @ApiResponse(responseCode = "200", description = "Successful retrieval")
+    @GetMapping("/my-deliveries")
+    @PreAuthorize("hasRole('COURIER')")
+    public ResponseEntity<Page<StaffShipmentViewDto>> getMyDeliveries(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            Pageable pageable) {
+        log.info("API GET request for my-deliveries from courier ID: {}", userDetails.getId());
+        return ResponseEntity.ok(shipmentService.getMyDeliveries(userDetails.getId(), pageable));
+    }
+
+    @Operation(
+            summary = "Get all shipments assigned to courier for pickup",
+            description = "Retrieves a paginated list of all shipments that are currently assigned to the logged-in courier for pickup."
+    )
+    @ApiResponse(responseCode = "200", description = "Successful retrieval")
+    @GetMapping("/my-pickups")
+    @PreAuthorize("hasRole('COURIER')")
+    public ResponseEntity<Page<StaffShipmentViewDto>> getMyPickups(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            Pageable pageable) {
+        log.info("API GET request for my-pickups from courier ID: {}", userDetails.getId());
+        return ResponseEntity.ok(shipmentService.getMyPickups(userDetails.getId(), pageable));
+    }
+
+
+    @Operation(
             summary = "Get all shipments",
             description = "Retrieves a paginated list of all shipments in the system. Restricted to staff roles."
     )
