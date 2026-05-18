@@ -5,6 +5,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ShipmentAPIService } from '../../../api';
 import { BASE_PATH } from '../../../api';
 import { of, throwError } from 'rxjs';
+import { provideRouter } from '@angular/router';
 
 describe('ShipmentList', () => {
   let component: ShipmentList;
@@ -22,6 +23,7 @@ describe('ShipmentList', () => {
     await TestBed.configureTestingModule({
       imports: [ShipmentList],
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ShipmentAPIService, useValue: mockShipmentApi },

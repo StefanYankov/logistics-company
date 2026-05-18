@@ -9,41 +9,22 @@
  */
 
 
-export interface ShipmentViewDto { 
-    id?: string;
+export interface PublicShipmentViewDto { 
     trackingNumber?: string;
-    type?: ShipmentViewDto.TypeEnum;
-    status?: ShipmentViewDto.StatusEnum;
+    type?: PublicShipmentViewDto.TypeEnum;
+    status?: PublicShipmentViewDto.StatusEnum;
     weight?: number;
     length?: number;
     width?: number;
     height?: number;
-    totalPrice?: number;
-    paidBy?: ShipmentViewDto.PaidByEnum;
-    isPaid?: boolean;
     createdAt?: string;
     updatedAt?: string;
-    senderId?: string;
-    senderName?: string;
-    senderPhone?: string;
-    receiverId?: string;
-    receiverName?: string;
-    receiverPhone?: string;
-    originOfficeId?: number;
-    originOfficeName?: string;
-    originAddressString?: string;
-    deliveryOfficeId?: number;
-    deliveryOfficeName?: string;
-    deliveryAddressString?: string;
-    currentOfficeId?: number;
+    originCityName?: string;
+    destinationCityName?: string;
     currentOfficeName?: string;
-    currentCourierId?: string;
-    currentCourierName?: string;
-    registeredById?: string;
-    registeredByName?: string;
     appliedAddons?: Array<string>;
 }
-export namespace ShipmentViewDto {
+export namespace PublicShipmentViewDto {
     export const TypeEnum = {
         Document: 'DOCUMENT',
         Parcel: 'PARCEL',
@@ -59,11 +40,6 @@ export namespace ShipmentViewDto {
         Delivered: 'DELIVERED'
     } as const;
     export type StatusEnum = typeof StatusEnum[keyof typeof StatusEnum];
-    export const PaidByEnum = {
-        Sender: 'SENDER',
-        Receiver: 'RECEIVER'
-    } as const;
-    export type PaidByEnum = typeof PaidByEnum[keyof typeof PaidByEnum];
 }
 
 
