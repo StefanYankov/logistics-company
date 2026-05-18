@@ -10,6 +10,7 @@ import { ClientRegistration } from './features/shipments/client-registration/cli
 import { ClerkRegistration } from './features/shipments/clerk-registration/clerk-registration';
 import { ShipmentList } from './features/shipments/shipment-list/shipment-list';
 import { authGuard } from './shared/auth.guard';
+import { ShipmentDetails } from './features/shipments/shipment-details/shipment-details';
 
 export const routes: Routes = [
   {
@@ -31,7 +32,8 @@ export const routes: Routes = [
       { path: '', component: Dashboard },
       { path: 'send-package', component: ClientRegistration },
       { path: 'register-shipment', component: ClerkRegistration },
-      { path: 'shipments', component: ShipmentList }
+      { path: 'shipments', component: ShipmentList },
+      { path: 'shipments/:id', component: ShipmentDetails }
     ]
   },
   { path: 'track/:trackingNumber', component: Tracking }

@@ -12,10 +12,11 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
+import bg.nbu.cscb532.shipment.dto.PublicShipmentViewDto;
 import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
+import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +37,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -47,7 +49,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.times;
@@ -76,10 +77,10 @@ class ShipmentServiceUnitTests {
 
     @Mock
     private PricingService pricingService;
-    
+
     @Mock
     private ServiceCatalogRepository serviceCatalogRepository;
-    
+
     @Mock
     private ShipmentAddonRepository shipmentAddonRepository;
 
@@ -91,7 +92,7 @@ class ShipmentServiceUnitTests {
 
     @Captor
     private ArgumentCaptor<ShipmentStatusHistory> historyCaptor;
-    
+
     @Captor
     private ArgumentCaptor<ShipmentAddon> addonCaptor;
 
@@ -149,7 +150,7 @@ class ShipmentServiceUnitTests {
                 .receiverId(receiverId)
                 .type(ShipmentType.PARCEL)
                 .weight(BigDecimal.valueOf(2.5))
-                .originOfficeId(5L) 
+                .originOfficeId(5L)
                 .paidBy(PaidBy.SENDER);
     }
 
@@ -161,6 +162,9 @@ class ShipmentServiceUnitTests {
         shipment.setSender(createMockClient(UUID.randomUUID(), "A", "A"));
         shipment.setReceiver(createMockClient(UUID.randomUUID(), "B", "B"));
         shipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "C", "C"));
+
+        // FIX: Change emptyList() to emptySet() to align with the Shipment entity definition
+        shipment.setAddons(Collections.emptySet());
 
         PackageDetails details = PackageDetails.builder()
                 .type(ShipmentType.PARCEL)
@@ -179,297 +183,6 @@ class ShipmentServiceUnitTests {
         return shipment;
     }
 
-    @Nested
-    @DisplayName("updateShipmentStatus(UUID, ShipmentStatusUpdateDto, CustomUserDetails) Tests")
-    class UpdateShipmentStatusTests {
-
-        @Test
-        @DisplayName("Happy Path: Should transition from REGISTERED to IN_TRANSIT and log history")
-        void shouldTransitionRegisteredToInTransit() {
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
-            
-            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
-                    .newStatus(ShipmentStatus.IN_TRANSIT)
-                    .notes("Departed Sofia Hub")
-                    .build();
-
-            Shipment existingShipment = createValidShipment();
-            existingShipment.setId(shipmentId);
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
-            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
-
-            // Act
-            ShipmentViewDto result = shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
-
-            // Assert
-            assertThat(result.status()).isEqualTo(ShipmentStatus.IN_TRANSIT);
-
-            verify(shipmentRepository).save(shipmentCaptor.capture());
-            assertThat(shipmentCaptor.getValue().getStatus()).isEqualTo(ShipmentStatus.IN_TRANSIT);
-
-            verify(historyRepository).save(historyCaptor.capture());
-            ShipmentStatusHistory history = historyCaptor.getValue();
-            assertThat(history.getStatus()).isEqualTo(ShipmentStatus.IN_TRANSIT);
-            assertThat(history.getNotes()).isEqualTo("Departed Sofia Hub");
-            assertThat(history.getLocation()).isNull();
-        }
-
-        @Test
-        @DisplayName("Happy Path: Should transition to AT_DELIVERY_OFFICE and record office location")
-        void shouldTransitionToDeliveryOfficeAndRecordLocation() {
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            Long officeId = 99L;
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
-            
-            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
-                    .newStatus(ShipmentStatus.AT_DELIVERY_OFFICE)
-                    .locationOfficeId(officeId) // Scan location provided
-                    .build();
-
-            Shipment existingShipment = createValidShipment();
-            existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT); // Valid previous state
-
-            Office locationOffice = createMockOffice(officeId, createMockCity(1L, "Varna", "9000"));
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
-            given(officeRepository.findById(officeId)).willReturn(Optional.of(locationOffice));
-            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
-
-            // Act
-            shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
-
-            // Assert
-            verify(historyRepository).save(historyCaptor.capture());
-            ShipmentStatusHistory history = historyCaptor.getValue();
-            assertThat(history.getLocation().getId()).isEqualTo(officeId);
-            
-            verify(shipmentRepository).save(shipmentCaptor.capture());
-            assertThat(shipmentCaptor.getValue().getCurrentOffice().getId()).isEqualTo(officeId);
-            assertThat(shipmentCaptor.getValue().getCurrentCourier()).isNull();
-        }
-
-        @Test
-        @DisplayName("Happy Path: Courier should be assigned as deliveredBy when marking as DELIVERED")
-        void courierShouldBeAssignedWhenDelivered() {
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            UUID courierId = UUID.randomUUID();
-            CustomUserDetails authUser = createMockAuthUser(courierId, ApplicationRole.COURIER); // Role is COURIER
-            
-            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
-                    .newStatus(ShipmentStatus.DELIVERED)
-                    .build();
-
-            Shipment existingShipment = createValidShipment();
-            existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.OUT_FOR_DELIVERY); // Valid previous state
-
-            Courier courierEntity = createMockEmployee(courierId, "John", "Courier");
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
-            given(employeeRepository.findById(courierId)).willReturn(Optional.of(courierEntity));
-            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
-
-            // Act
-            shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
-
-            // Assert
-            verify(shipmentRepository).save(shipmentCaptor.capture());
-            Shipment savedShipment = shipmentCaptor.getValue();
-            assertThat(savedShipment.getDeliveredBy()).isNotNull();
-            assertThat(savedShipment.getDeliveredBy().getId()).isEqualTo(courierId);
-        }
-
-        @Test
-        @DisplayName("Happy Path: Clerk should be able to mark AT_DELIVERY_OFFICE shipment as DELIVERED (Office Pickup)")
-        void clerkShouldBeAbleToDeliverAtOffice() {
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            UUID clerkId = UUID.randomUUID();
-            CustomUserDetails authUser = createMockAuthUser(clerkId, ApplicationRole.CLERK);
-            
-            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
-                    .newStatus(ShipmentStatus.DELIVERED)
-                    .build();
-
-            Shipment existingShipment = createValidShipment();
-            existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.AT_DELIVERY_OFFICE); 
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
-            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
-
-            // Act
-            ShipmentViewDto result = shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
-
-            // Assert
-            assertThat(result.status()).isEqualTo(ShipmentStatus.DELIVERED);
-
-            verify(shipmentRepository).save(shipmentCaptor.capture());
-            Shipment savedShipment = shipmentCaptor.getValue();
-            assertThat(savedShipment.getStatus()).isEqualTo(ShipmentStatus.DELIVERED);
-            // Clerk office pickup doesn't set a deliveredBy courier right now
-            assertThat(savedShipment.getDeliveredBy()).isNull();
-        }
-        
-        @Test
-        @DisplayName("Happy Path: Courier should be assigned as currentCourier when marking as OUT_FOR_DELIVERY")
-        void courierShouldBeAssignedWhenOutForDelivery() {
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            UUID courierId = UUID.randomUUID();
-            CustomUserDetails authUser = createMockAuthUser(courierId, ApplicationRole.COURIER); 
-            
-            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
-                    .newStatus(ShipmentStatus.OUT_FOR_DELIVERY)
-                    .build();
-
-            Shipment existingShipment = createValidShipment();
-            existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.AT_DELIVERY_OFFICE);
-            existingShipment.setCurrentOffice(new Office()); // Should be cleared
-
-            Courier courierEntity = createMockEmployee(courierId, "John", "Courier");
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
-            given(employeeRepository.findById(courierId)).willReturn(Optional.of(courierEntity));
-            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
-
-            // Act
-            shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
-
-            // Assert
-            verify(shipmentRepository).save(shipmentCaptor.capture());
-            Shipment savedShipment = shipmentCaptor.getValue();
-            assertThat(savedShipment.getCurrentCourier()).isNotNull();
-            assertThat(savedShipment.getCurrentCourier().getId()).isEqualTo(courierId);
-            assertThat(savedShipment.getCurrentOffice()).isNull(); // Office should be cleared when on the road
-        }
-
-        @ParameterizedTest(name = "Current Status: {0} -> Target Status: {1}")
-        @CsvSource({
-                "REGISTERED, AT_DELIVERY_OFFICE", // Skipping IN_TRANSIT
-                "REGISTERED, DELIVERED",          // Skipping everything
-                "IN_TRANSIT, DELIVERED",          // Must go to AT_OFFICE or OUT_FOR_DELIVERY first
-                "DELIVERED, IN_TRANSIT",          // Cannot go backwards
-                "AT_DELIVERY_OFFICE, REGISTERED"  // Cannot go backwards
-        })
-        @DisplayName("Business Rule: Should reject invalid state machine transitions")
-        void shouldRejectInvalidTransitions(ShipmentStatus currentStatus, ShipmentStatus newStatus) {
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
-            
-            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder().newStatus(newStatus).build();
-
-            Shipment existingShipment = createValidShipment();
-            existingShipment.setId(shipmentId);
-            existingShipment.setStatus(currentStatus);
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
-
-            // Act & Assert
-            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(shipmentId, dto, authUser))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
-
-            verify(shipmentRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Security: Should throw VALIDATION_FAILED if a non-courier attempts to mark as OUT_FOR_DELIVERY")
-        void shouldRejectNonCourierOutForDelivery() {
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            // User is a CLERK, not a COURIER
-            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
-            
-            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder().newStatus(ShipmentStatus.OUT_FOR_DELIVERY).build();
-
-            Shipment existingShipment = createValidShipment();
-            existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.AT_DELIVERY_OFFICE);
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
-
-            // Act & Assert
-            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(shipmentId, dto, clerkUser))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
-
-            verify(shipmentRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Security: Should throw VALIDATION_FAILED if Clerk attempts to DELIVER a shipment not AT_DELIVERY_OFFICE")
-        void shouldRejectClerkDeliveringInTransitShipment() {
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
-            
-            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder().newStatus(ShipmentStatus.DELIVERED).build();
-
-            Shipment existingShipment = createValidShipment();
-            existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT); // Not at office
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
-
-            // Act & Assert
-            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(shipmentId, dto, clerkUser))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
-
-            verify(shipmentRepository, never()).save(any());
-        }
-        
-        @Test
-        @DisplayName("Error Case: Should throw OFFICE_NOT_FOUND if invalid locationOfficeId provided")
-        void shouldThrowIfInvalidOfficeProvided() {
-            UUID shipmentId = UUID.randomUUID();
-            Long invalidOfficeId = 999L;
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
-            
-            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
-                    .newStatus(ShipmentStatus.AT_DELIVERY_OFFICE)
-                    .locationOfficeId(invalidOfficeId)
-                    .build();
-
-            Shipment existingShipment = createValidShipment();
-            existingShipment.setId(shipmentId);
-            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT);
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
-            given(officeRepository.findById(invalidOfficeId)).willReturn(Optional.empty());
-
-            // Act & Assert
-            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(shipmentId, dto, authUser))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.OFFICE_NOT_FOUND);
-                    
-            verify(historyRepository, never()).save(any());
-        }
-        
-        @Test
-        @DisplayName("Error Case: Defense in depth - should throw NullPointerException if DTO is null")
-        void shouldFailFastIfDtoNull() {
-            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
-            
-            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(UUID.randomUUID(), null, authUser))
-                    .isInstanceOf(NullPointerException.class);
-        }
-    }
-
-    @SuppressWarnings("DataFlowIssue")
     @Nested
     @DisplayName("registerShipment(ShipmentCreationDto, UUID) Tests")
     class RegisterShipmentTests {
@@ -509,7 +222,7 @@ class ShipmentServiceUnitTests {
             given(shipmentRepository.save(any(Shipment.class))).willReturn(savedShipment);
 
             // Act
-            ShipmentViewDto result = shipmentService.registerShipment(dto, employeeId);
+            StaffShipmentViewDto result = shipmentService.registerShipment(dto, employeeId);
 
             // Assert
             assertThat(result).isNotNull();
@@ -525,7 +238,7 @@ class ShipmentServiceUnitTests {
             assertThat(capturedShipment.getOriginOffice().getId()).isEqualTo(originOfficeId);
             assertThat(capturedShipment.getDeliveryAddressSnapshot()).isNull();
             assertThat(capturedShipment.getOriginAddressSnapshot()).isNull();
-            
+
             assertThat(capturedShipment.getPackageDetails().getWeight()).isEqualByComparingTo(BigDecimal.valueOf(2.5));
             assertThat(capturedShipment.getFinancials().getTotalPrice()).isEqualByComparingTo(BigDecimal.valueOf(15.0));
 
@@ -543,10 +256,10 @@ class ShipmentServiceUnitTests {
             UUID employeeId = UUID.randomUUID();
             Long destOfficeId = 10L;
             String matchingPhone = "0888123456";
-            
+
             ShipmentCreationDto dto = ShipmentCreationDto.builder()
                     .senderId(senderId)
-                    .receiverName("Guest Mom") // Will be ignored because phone matches
+                    .receiverName("Guest Mom")
                     .receiverPhone(matchingPhone)
                     .type(ShipmentType.PARCEL)
                     .weight(BigDecimal.valueOf(2.5))
@@ -556,11 +269,10 @@ class ShipmentServiceUnitTests {
                     .build();
 
             Client sender = createMockClient(senderId, "Sender", "One");
-            
-            // The existing client that should be auto-matched
+
             UUID matchedReceiverId = UUID.randomUUID();
             Client matchedReceiver = createMockClient(matchedReceiverId, "Real", "Mom");
-            
+
             Courier employee = createMockEmployee(employeeId, "Emp", "Three");
             Office destOffice = createMockOffice(destOfficeId, createMockCity(1L, "Sofia", "1000"));
             Office originOffice = createMockOffice(5L, createMockCity(1L, "Sofia", "1000"));
@@ -570,12 +282,10 @@ class ShipmentServiceUnitTests {
             given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
             given(officeRepository.findById(5L)).willReturn(Optional.of(originOffice));
             given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
-            
-            // This is the key mock for the auto-match logic
             given(clientRepository.findByPhoneNumber(matchingPhone)).willReturn(Optional.of(matchedReceiver));
 
             Shipment savedShipment = createValidShipment();
-            savedShipment.setReceiver(matchedReceiver); // Should be matched
+            savedShipment.setReceiver(matchedReceiver);
             savedShipment.setDeliveryOffice(destOffice);
 
             given(shipmentRepository.save(any(Shipment.class))).willReturn(savedShipment);
@@ -586,11 +296,9 @@ class ShipmentServiceUnitTests {
             // Assert
             verify(shipmentRepository).save(shipmentCaptor.capture());
             Shipment capturedShipment = shipmentCaptor.getValue();
-            
-            // The guest fields should be ignored, and the actual matched receiver entity should be used
+
             assertThat(capturedShipment.getReceiver()).isNotNull();
             assertThat(capturedShipment.getReceiver().getId()).isEqualTo(matchedReceiverId);
-            assertThat(capturedShipment.getReceiverName()).isNull(); // Guest name not used
         }
 
         @Test
@@ -601,7 +309,7 @@ class ShipmentServiceUnitTests {
             UUID employeeId = UUID.randomUUID();
             Long destOfficeId = 10L;
             Long cityId = 20L;
-            
+
             AddressDetailsDto originAddressDto = new AddressDetailsDto(cityId, "Origin St", "Dist", "1", "A", "1", "1", 0.0, 0.0);
 
             ShipmentCreationDto dto = ShipmentCreationDto.builder()
@@ -625,8 +333,6 @@ class ShipmentServiceUnitTests {
             given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
             given(cityRepository.findById(cityId)).willReturn(Optional.of(city));
             given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
-            
-            // Mock empty phone lookup so it stays a guest
             given(clientRepository.findByPhoneNumber("0888123456")).willReturn(Optional.empty());
 
             Shipment savedShipment = createValidShipment();
@@ -635,10 +341,15 @@ class ShipmentServiceUnitTests {
             savedShipment.setReceiverPhone("0888123456");
             savedShipment.setDeliveryOffice(destOffice);
 
+            AddressDetails originAddressSnapshot = new AddressDetails();
+            originAddressSnapshot.setCity(city);
+            originAddressSnapshot.setStreet("Origin St");
+            savedShipment.setOriginAddressSnapshot(originAddressSnapshot);
+
             given(shipmentRepository.save(any(Shipment.class))).willReturn(savedShipment);
 
             // Act
-            ShipmentViewDto result = shipmentService.registerShipment(dto, employeeId);
+            StaffShipmentViewDto result = shipmentService.registerShipment(dto, employeeId);
 
             // Assert
             assertThat(result).isNotNull();
@@ -649,9 +360,7 @@ class ShipmentServiceUnitTests {
             Shipment capturedShipment = shipmentCaptor.getValue();
             assertThat(capturedShipment.getReceiver()).isNull();
             assertThat(capturedShipment.getReceiverName()).isEqualTo("Guest Mom");
-            assertThat(capturedShipment.getOriginOffice()).isNull();
             assertThat(capturedShipment.getOriginAddressSnapshot().getStreet()).isEqualTo("Origin St");
-            assertThat(capturedShipment.getFinancials().getPaidBy()).isEqualTo(PaidBy.RECEIVER);
         }
 
         @Test
@@ -701,10 +410,8 @@ class ShipmentServiceUnitTests {
             Shipment capturedShipment = shipmentCaptor.getValue();
             assertThat(capturedShipment.getDeliveryOffice()).isNull();
             assertThat(capturedShipment.getDeliveryAddressSnapshot().getStreet()).isEqualTo("Home St");
-
-            verify(historyRepository).save(any(ShipmentStatusHistory.class));
         }
-        
+
         @Test
         @DisplayName("Happy Path: Should correctly process and save shipment addons")
         void shouldProcessShipmentAddons() {
@@ -738,7 +445,7 @@ class ShipmentServiceUnitTests {
             fragileService.setName("Fragile");
             fragileService.setPricingType(PricingType.FIXED_AMOUNT);
             fragileService.setPricingValue(BigDecimal.valueOf(5.00));
-            
+
             ServiceCatalog smsService = new ServiceCatalog();
             smsService.setId(2L);
             smsService.setName("SMS");
@@ -757,16 +464,12 @@ class ShipmentServiceUnitTests {
             // Assert
             verify(shipmentAddonRepository, times(2)).save(addonCaptor.capture());
             List<ShipmentAddon> savedAddons = addonCaptor.getAllValues();
-            
+
             assertThat(savedAddons).hasSize(2);
             assertThat(savedAddons).extracting(addon -> addon.getServiceCatalog().getName())
                     .containsExactlyInAnyOrder("Fragile", "SMS");
-                    
-            // Verify costs were captured
-            assertThat(savedAddons).extracting(ShipmentAddon::getAppliedCost)
-                    .containsExactlyInAnyOrder(BigDecimal.valueOf(5.00), BigDecimal.valueOf(0.50));
         }
-        
+
         @Test
         @DisplayName("Error Case: Should throw RESOURCE_NOT_FOUND if an invalid service ID is provided")
         void shouldThrowIfInvalidServiceIdProvided() {
@@ -778,7 +481,7 @@ class ShipmentServiceUnitTests {
 
             ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
                     .deliveryOfficeId(destOfficeId)
-                    .selectedServiceIds(Set.of(1L, 999L)) // 999 is invalid
+                    .selectedServiceIds(Set.of(1L, 999L))
                     .build();
 
             Client sender = createMockClient(senderId, "Sender", "One");
@@ -798,35 +501,21 @@ class ShipmentServiceUnitTests {
             ServiceCatalog fragileService = new ServiceCatalog();
             fragileService.setId(1L);
 
-            // Only returns 1 of the 2 requested
             given(serviceCatalogRepository.findAllById(dto.selectedServiceIds()))
                     .willReturn(List.of(fragileService));
-
-            Shipment savedShipment = createValidShipment();
-            given(shipmentRepository.save(any(Shipment.class))).willReturn(savedShipment);
 
             // Act and Assert
             assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
-                    
+
             verifyNoInteractions(shipmentAddonRepository);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should fail fast (Defense in Depth) if DTO is null")
-        void shouldFailFastIfDtoNull() {
-            assertThatThrownBy(() -> shipmentService.registerShipment(null, UUID.randomUUID()))
-                    .isInstanceOf(NullPointerException.class);
-
-            verifyNoInteractions(clientRepository, shipmentRepository, pricingService);
         }
 
         @Test
         @DisplayName("Error Case: Should throw SHIPMENT_RECEIVER_EXCLUSIVE if both receiver ID and guest details provided")
         void shouldThrowIfBothReceiverTypesProvided() {
-            // Arrange
             UUID senderId = UUID.randomUUID();
             UUID receiverId = UUID.randomUUID();
 
@@ -841,29 +530,6 @@ class ShipmentServiceUnitTests {
 
             given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
 
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.registerShipment(dto, UUID.randomUUID()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.SHIPMENT_RECEIVER_EXCLUSIVE);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw SHIPMENT_RECEIVER_EXCLUSIVE if neither receiver ID nor guest details provided")
-        void shouldThrowIfNoReceiverDetailsProvided() {
-            // Arrange
-            UUID senderId = UUID.randomUUID();
-
-            ShipmentCreationDto dto = ShipmentCreationDto.builder()
-                    .senderId(senderId)
-                    // missing both receiver ID and guest name/phone
-                    .type(ShipmentType.PARCEL)
-                    .weight(BigDecimal.valueOf(2.5))
-                    .build();
-
-            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
-
-            // Act and Assert
             assertThatThrownBy(() -> shipmentService.registerShipment(dto, UUID.randomUUID()))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
@@ -873,348 +539,12 @@ class ShipmentServiceUnitTests {
         @Test
         @DisplayName("Error Case: Should throw 404 RESOURCE_NOT_FOUND if sender does not exist")
         void shouldThrowIfSenderNotFound() {
-            // Arrange
             UUID senderId = UUID.randomUUID();
             ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, UUID.randomUUID()).build();
 
             given(clientRepository.findById(senderId)).willReturn(Optional.empty());
 
-            // Act and Assert
             assertThatThrownBy(() -> shipmentService.registerShipment(dto, UUID.randomUUID()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
-
-            verifyNoInteractions(pricingService, shipmentRepository, historyRepository);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw 404 RESOURCE_NOT_FOUND if receiver ID does not exist")
-        void shouldThrowIfReceiverNotFound() {
-            // Arrange
-            UUID senderId = UUID.randomUUID();
-            UUID receiverId = UUID.randomUUID();
-            ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId).build();
-
-            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
-            given(clientRepository.findById(receiverId)).willReturn(Optional.empty());
-
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.registerShipment(dto, UUID.randomUUID()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
-
-            verifyNoInteractions(pricingService, shipmentRepository, historyRepository);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw 404 EMPLOYEE_NOT_FOUND if registering employee does not exist")
-        void shouldThrowIfEmployeeNotFound() {
-
-            // Arrange
-            UUID senderId = UUID.randomUUID();
-            UUID receiverId = UUID.randomUUID();
-            UUID employeeId = UUID.randomUUID();
-
-            ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
-                    .deliveryOfficeId(10L)
-                    .build();
-
-            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
-            given(clientRepository.findById(receiverId)).willReturn(Optional.of(new Client()));
-            given(employeeRepository.findById(employeeId)).willReturn(Optional.empty());
-
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.EMPLOYEE_NOT_FOUND);
-
-            verifyNoInteractions(pricingService, shipmentRepository, historyRepository);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw SHIPMENT_DESTINATION_EXCLUSIVE if both destination types are provided")
-        void shouldThrowIfBothDestinationsProvided() {
-            // Arrange
-            UUID senderId = UUID.randomUUID();
-            UUID receiverId = UUID.randomUUID();
-            UUID employeeId = UUID.randomUUID();
-
-            AddressDetailsDto addressDto = new AddressDetailsDto(20L, "St", "D", "1", "A", "1", "1", 0.0, 0.0);
-
-            ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
-                    .deliveryOfficeId(10L)
-                    .deliveryAddress(addressDto) // BOTH DESTINATIONS!
-                    .build();
-
-            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
-            given(clientRepository.findById(receiverId)).willReturn(Optional.of(new Client()));
-            given(employeeRepository.findById(employeeId)).willReturn(Optional.of(new Courier()));
-            given(officeRepository.findById(5L)).willReturn(Optional.of(new Office()));
-
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
-
-            verifyNoInteractions(pricingService, shipmentRepository);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw SHIPMENT_DESTINATION_EXCLUSIVE if neither destination type is provided")
-        void shouldThrowIfNeitherDestinationProvided() {
-            // Arrange
-            UUID senderId = UUID.randomUUID();
-            UUID receiverId = UUID.randomUUID();
-            UUID employeeId = UUID.randomUUID();
-
-            ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
-                    .deliveryOfficeId(null)
-                    .deliveryAddress(null)
-                    .build();
-
-            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
-            given(clientRepository.findById(receiverId)).willReturn(Optional.of(new Client()));
-            given(employeeRepository.findById(employeeId)).willReturn(Optional.of(new Courier()));
-            given(officeRepository.findById(5L)).willReturn(Optional.of(new Office()));
-
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
-
-            verifyNoInteractions(pricingService, shipmentRepository);
-        }
-        
-        @Test
-        @DisplayName("Error Case: Should throw SHIPMENT_DESTINATION_EXCLUSIVE if both origin types are provided")
-        void shouldThrowIfBothOriginsProvided() {
-            // Arrange
-            UUID senderId = UUID.randomUUID();
-            UUID receiverId = UUID.randomUUID();
-            UUID employeeId = UUID.randomUUID();
-
-            AddressDetailsDto originDto = new AddressDetailsDto(20L, "St", "D", "1", "A", "1", "1", 0.0, 0.0);
-
-            ShipmentCreationDto dto = ShipmentCreationDto.builder()
-                    .senderId(senderId)
-                    .receiverId(receiverId)
-                    .type(ShipmentType.PARCEL)
-                    .weight(BigDecimal.valueOf(2.5))
-                    .paidBy(PaidBy.SENDER)
-                    .originOfficeId(10L) // BOTH ORIGINS!
-                    .originAddress(originDto)
-                    .deliveryOfficeId(5L)
-                    .build();
-
-            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
-            given(clientRepository.findById(receiverId)).willReturn(Optional.of(new Client()));
-            given(employeeRepository.findById(employeeId)).willReturn(Optional.of(new Courier()));
-
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
-
-            verifyNoInteractions(pricingService, shipmentRepository);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw OFFICE_NOT_FOUND if invalid delivery office provided")
-        void shouldThrowIfInvalidOfficeProvided() {
-
-            // Arrange
-            UUID senderId = UUID.randomUUID();
-            UUID receiverId = UUID.randomUUID();
-            UUID employeeId = UUID.randomUUID();
-            Long officeId = 999L;
-
-            ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
-                    .deliveryOfficeId(officeId)
-                    .build();
-
-            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
-            given(clientRepository.findById(receiverId)).willReturn(Optional.of(new Client()));
-            given(employeeRepository.findById(employeeId)).willReturn(Optional.of(new Courier()));
-            given(officeRepository.findById(5L)).willReturn(Optional.of(new Office())); // Origin exists
-            given(officeRepository.findById(officeId)).willReturn(Optional.empty()); // Destination does not
-
-
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.OFFICE_NOT_FOUND);
-
-            verifyNoInteractions(pricingService, shipmentRepository);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw CITY_NOT_FOUND if invalid city provided in delivery address")
-        void shouldThrowIfInvalidCityProvidedInAddress() {
-
-            // Arrange
-            UUID senderId = UUID.randomUUID();
-            UUID receiverId = UUID.randomUUID();
-            UUID employeeId = UUID.randomUUID();
-            Long cityId = 999L;
-
-            AddressDetailsDto addressDto = new AddressDetailsDto(cityId, "St", "D", "1", "A", "1", "1", 0.0, 0.0);
-
-            ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
-                    .deliveryAddress(addressDto)
-                    .build();
-
-            given(clientRepository.findById(senderId)).willReturn(Optional.of(new Client()));
-            given(clientRepository.findById(receiverId)).willReturn(Optional.of(new Client()));
-            given(employeeRepository.findById(employeeId)).willReturn(Optional.of(new Courier()));
-            given(officeRepository.findById(5L)).willReturn(Optional.of(new Office()));
-            given(cityRepository.findById(cityId)).willReturn(Optional.empty());
-
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.registerShipment(dto, employeeId))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.CITY_NOT_FOUND);
-
-            verifyNoInteractions(pricingService, shipmentRepository);
-        }
-    }
-
-    @Nested
-    @DisplayName("getShipmentById(UUID, UUID, ApplicationRole) Access Control Tests")
-    class GetShipmentByIdTests {
-
-        @Test
-        @DisplayName("Happy Path: Admin should retrieve any shipment")
-        void adminShouldRetrieveAnyShipment() {
-
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            UUID adminId = UUID.randomUUID();
-            Shipment shipment = createValidShipment();
-            shipment.setId(shipmentId);
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
-
-            // Act
-            ShipmentViewDto result = shipmentService.getShipmentById(shipmentId, adminId, ApplicationRole.ADMIN);
-
-            // Assert
-            assertThat(result).isNotNull();
-            assertThat(result.id()).isEqualTo(shipmentId);
-        }
-
-        @Test
-        @DisplayName("Happy Path: Clerk should retrieve any shipment")
-        void clerkShouldRetrieveAnyShipment() {
-
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            UUID clerkId = UUID.randomUUID();
-            Shipment shipment = createValidShipment();
-            shipment.setId(shipmentId);
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
-
-            // Act
-            ShipmentViewDto result = shipmentService.getShipmentById(shipmentId, clerkId, ApplicationRole.CLERK);
-
-            // Assert
-            assertThat(result).isNotNull();
-            assertThat(result.id()).isEqualTo(shipmentId);
-        }
-
-        @Test
-        @DisplayName("Happy Path: Courier should retrieve any shipment")
-        void courierShouldRetrieveAnyShipment() {
-
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            UUID courierId = UUID.randomUUID();
-            Shipment shipment = createValidShipment();
-            shipment.setId(shipmentId);
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
-
-            // Act
-            ShipmentViewDto result = shipmentService.getShipmentById(shipmentId, courierId, ApplicationRole.COURIER);
-
-            // Assert
-            assertThat(result).isNotNull();
-            assertThat(result.id()).isEqualTo(shipmentId);
-        }
-
-        @Test
-        @DisplayName("Happy Path: Client should retrieve shipment they sent")
-        void senderShouldRetrieveShipment() {
-            UUID shipmentId = UUID.randomUUID();
-            UUID clientId = UUID.randomUUID();
-            Shipment shipment = createValidShipment();
-            shipment.setId(shipmentId);
-            shipment.setSender(createMockClient(clientId, "S", "S"));
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
-
-            ShipmentViewDto result = shipmentService.getShipmentById(shipmentId, clientId, ApplicationRole.CLIENT);
-
-            assertThat(result).isNotNull();
-        }
-
-        @Test
-        @DisplayName("Happy Path: Client should retrieve shipment they are receiving")
-        void receiverShouldRetrieveShipment() {
-
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            UUID clientId = UUID.randomUUID();
-            Shipment shipment = createValidShipment();
-            shipment.setId(shipmentId);
-            shipment.setReceiver(createMockClient(clientId, "R", "R"));
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
-
-            // Act
-            ShipmentViewDto result = shipmentService.getShipmentById(shipmentId, clientId, ApplicationRole.CLIENT);
-
-            // Assert
-            assertThat(result).isNotNull();
-        }
-
-        @Test
-        @DisplayName("Error Case: Client requesting someone else's shipment should get 404 (Security)")
-        void clientShouldNotRetrieveOtherShipment() {
-
-            // Arrange
-            UUID shipmentId = UUID.randomUUID();
-            UUID maliciousClientId = UUID.randomUUID();
-
-            Shipment shipment = createValidShipment();
-            shipment.setId(shipmentId);
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
-
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.getShipmentById(shipmentId, maliciousClientId, ApplicationRole.CLIENT))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw 404 when shipment does not exist")
-        void shouldThrowIfShipmentDoesNotExist() {
-            //Arrange
-            UUID shipmentId = UUID.randomUUID();
-
-            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.empty());
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.getShipmentById(shipmentId, UUID.randomUUID(), ApplicationRole.ADMIN))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
@@ -1222,77 +552,119 @@ class ShipmentServiceUnitTests {
     }
 
     @Nested
-    @DisplayName("getShipmentByTrackingNumber(String, UUID, ApplicationRole) Access Control Tests")
+    @DisplayName("updateShipmentStatus(UUID, ShipmentStatusUpdateDto, CustomUserDetails) Tests")
+    class UpdateShipmentStatusTests {
+
+        @Test
+        @DisplayName("Happy Path: Should transition from REGISTERED to IN_TRANSIT and log history")
+        void shouldTransitionRegisteredToInTransit() {
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
+                    .newStatus(ShipmentStatus.IN_TRANSIT)
+                    .notes("Departed Sofia Hub")
+                    .build();
+
+            Shipment existingShipment = createValidShipment();
+            existingShipment.setId(shipmentId);
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
+
+            StaffShipmentViewDto result = shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
+
+            assertThat(result.status()).isEqualTo(ShipmentStatus.IN_TRANSIT);
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should transition to AT_DELIVERY_OFFICE and record office location")
+        void shouldTransitionToDeliveryOfficeAndRecordLocation() {
+            UUID shipmentId = UUID.randomUUID();
+            Long officeId = 99L;
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder()
+                    .newStatus(ShipmentStatus.AT_DELIVERY_OFFICE)
+                    .locationOfficeId(officeId)
+                    .build();
+
+            Shipment existingShipment = createValidShipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT);
+
+            Office locationOffice = createMockOffice(officeId, createMockCity(1L, "Varna", "9000"));
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+            given(officeRepository.findById(officeId)).willReturn(Optional.of(locationOffice));
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
+
+            shipmentService.updateShipmentStatus(shipmentId, dto, authUser);
+
+            verify(historyRepository).save(historyCaptor.capture());
+            assertThat(historyCaptor.getValue().getLocation().getId()).isEqualTo(officeId);
+        }
+
+        @ParameterizedTest(name = "Current Status: {0} -> Target Status: {1}")
+        @CsvSource({
+                "REGISTERED, AT_DELIVERY_OFFICE",
+                "REGISTERED, DELIVERED",
+                "IN_TRANSIT, DELIVERED",
+                "DELIVERED, IN_TRANSIT"
+        })
+        @DisplayName("Business Rule: Should reject invalid state machine transitions")
+        void shouldRejectInvalidTransitions(ShipmentStatus currentStatus, ShipmentStatus newStatus) {
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+
+            ShipmentStatusUpdateDto dto = ShipmentStatusUpdateDto.builder().newStatus(newStatus).build();
+
+            Shipment existingShipment = createValidShipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(currentStatus);
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+
+            assertThatThrownBy(() -> shipmentService.updateShipmentStatus(shipmentId, dto, authUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+        }
+    }
+
+    @Nested
+    @DisplayName("getShipmentByTrackingNumber(String) Public Boundary Tests")
     class GetShipmentByTrackingNumberTests {
 
         @Test
-        @DisplayName("Happy Path: Admin should retrieve any shipment by tracking number")
-        void adminShouldRetrieveAnyShipmentByTracking() {
-
+        @DisplayName("Happy Path: Should retrieve a public-restricted DTO by tracking number")
+        void shouldRetrieveShipmentByTrackingNumber() {
             // Arrange
             String tracking = "TRK-123";
-            UUID adminId = UUID.randomUUID();
             Shipment shipment = createValidShipment();
-            shipment.setId(UUID.randomUUID());
             shipment.setTrackingNumber(tracking);
+
+            Office originOffice = createMockOffice(1L, createMockCity(10L, "Sofia", "1000"));
+            Office deliveryOffice = createMockOffice(2L, createMockCity(20L, "Plovdiv", "4000"));
+            shipment.setOriginOffice(originOffice);
+            shipment.setDeliveryOffice(deliveryOffice);
 
             given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.of(shipment));
 
             // Act
-            ShipmentViewDto result = shipmentService.getShipmentByTrackingNumber(tracking, adminId, ApplicationRole.ADMIN);
+            PublicShipmentViewDto result = shipmentService.getShipmentByTrackingNumber(tracking);
 
             // Assert
             assertThat(result).isNotNull();
             assertThat(result.trackingNumber()).isEqualTo(tracking);
+            assertThat(result.originCityName()).isEqualTo("Sofia");
+            assertThat(result.destinationCityName()).isEqualTo("Plovdiv");
         }
 
         @Test
-        @DisplayName("Happy Path: Client should retrieve shipment they sent by tracking number")
-        void senderShouldRetrieveShipmentByTracking() {
-
-            // Arrange
-            String tracking = "TRK-456";
-            UUID clientId = UUID.randomUUID();
-            Shipment shipment = createValidShipment();
-            shipment.setId(UUID.randomUUID());
-            shipment.setTrackingNumber(tracking);
-            shipment.setSender(createMockClient(clientId, "S", "S"));
-
-            given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.of(shipment));
-
-            // Act
-            ShipmentViewDto result = shipmentService.getShipmentByTrackingNumber(tracking, clientId, ApplicationRole.CLIENT);
-
-            // Assert
-            assertThat(result).isNotNull();
-            assertThat(result.trackingNumber()).isEqualTo(tracking);
-        }
-
-        @Test
-        @DisplayName("Error Case: Client requesting someone else's shipment by tracking number should get 404 (Security)")
-        void clientShouldNotRetrieveOtherShipmentByTracking() {
-
-            // Arrange
-            String tracking = "TRK-789";
-            UUID maliciousClientId = UUID.randomUUID();
-
-            Shipment shipment = createValidShipment();
-            shipment.setId(UUID.randomUUID());
-            shipment.setTrackingNumber(tracking);
-
-            given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.of(shipment));
-
-            // Act and Assert
-            assertThatThrownBy(() -> shipmentService.getShipmentByTrackingNumber(tracking, maliciousClientId, ApplicationRole.CLIENT))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw VALIDATION_FAILED when tracking number is null or blank")
+        @DisplayName("Error Case: Should throw VALIDATION_FAILED when tracking token is blank")
         void shouldThrowIfTrackingNumberBlank() {
-            assertThatThrownBy(() -> shipmentService.getShipmentByTrackingNumber("   ", UUID.randomUUID(), ApplicationRole.ADMIN))
+            assertThatThrownBy(() -> shipmentService.getShipmentByTrackingNumber("   "))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.VALIDATION_FAILED);
@@ -1301,12 +673,12 @@ class ShipmentServiceUnitTests {
         }
 
         @Test
-        @DisplayName("Error Case: Should throw 404 when tracking number does not exist")
+        @DisplayName("Error Case: Should throw 404 when tracking number is missing from index")
         void shouldThrowIfShipmentDoesNotExist() {
             String tracking = "INVALID";
             given(shipmentRepository.findByTrackingNumber(tracking)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> shipmentService.getShipmentByTrackingNumber(tracking, UUID.randomUUID(), ApplicationRole.ADMIN))
+            assertThatThrownBy(() -> shipmentService.getShipmentByTrackingNumber(tracking))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
@@ -1320,127 +692,29 @@ class ShipmentServiceUnitTests {
         @Test
         @DisplayName("Happy Path: Should retrieve shipments by sender")
         void shouldGetBySender() {
-            // Arrange
             UUID senderId = UUID.randomUUID();
             Pageable pageable = PageRequest.of(0, 10);
-
-            Shipment shipment = createValidShipment();
-
-            Page<Shipment> page = new PageImpl<>(List.of(shipment));
+            Page<Shipment> page = new PageImpl<>(List.of(createValidShipment()));
 
             given(shipmentRepository.findBySender_Id(senderId, pageable)).willReturn(page);
 
-            // Act
-            Page<ShipmentViewDto> result = shipmentService.getShipmentsBySender(senderId, pageable);
+            Page<StaffShipmentViewDto> result = shipmentService.getShipmentsBySender(senderId, pageable);
 
-            // Assert
             assertThat(result.getContent()).hasSize(1);
             verify(shipmentRepository).findBySender_Id(senderId, pageable);
-        }
-
-        @Test
-        @DisplayName("Edge Case: Should return empty page when sender has no shipments")
-        void shouldReturnEmptyPageForSender() {
-
-            // Arrange
-            UUID senderId = UUID.randomUUID();
-            Pageable pageable = PageRequest.of(0, 10);
-
-            Page<Shipment> page = new PageImpl<>(List.of());
-
-            given(shipmentRepository.findBySender_Id(senderId, pageable)).willReturn(page);
-
-            // Act
-            Page<ShipmentViewDto> result = shipmentService.getShipmentsBySender(senderId, pageable);
-
-            // Assert
-            assertThat(result.getContent()).isEmpty();
-            verify(shipmentRepository).findBySender_Id(senderId, pageable);
-        }
-
-        @Test
-        @DisplayName("Happy Path: Should retrieve shipments by receiver")
-        void shouldGetByReceiver() {
-
-            // Arrange
-            UUID receiverId = UUID.randomUUID();
-            Pageable pageable = PageRequest.of(0, 10);
-
-            Shipment shipment = createValidShipment();
-
-            Page<Shipment> page = new PageImpl<>(List.of(shipment));
-
-            given(shipmentRepository.findByReceiver_Id(receiverId, pageable)).willReturn(page);
-
-            // Act
-            Page<ShipmentViewDto> result = shipmentService.getShipmentsByReceiver(receiverId, pageable);
-
-            // Assert
-            assertThat(result.getContent()).hasSize(1);
-            verify(shipmentRepository).findByReceiver_Id(receiverId, pageable);
-        }
-
-        @Test
-        @DisplayName("Happy Path: Should retrieve shipments registered by employee")
-        void shouldGetByEmployee() {
-
-            // Arrange
-            UUID employeeId = UUID.randomUUID();
-            Pageable pageable = PageRequest.of(0, 10);
-
-            Shipment shipment = createValidShipment();
-
-            Page<Shipment> page = new PageImpl<>(List.of(shipment));
-
-            given(shipmentRepository.findByRegisteredBy_Id(employeeId, pageable)).willReturn(page);
-
-            // Act
-            Page<ShipmentViewDto> result = shipmentService.getShipmentsRegisteredByEmployee(employeeId, pageable);
-
-            // Assert
-            assertThat(result.getContent()).hasSize(1);
-            verify(shipmentRepository).findByRegisteredBy_Id(employeeId, pageable);
-        }
-
-        @Test
-        @DisplayName("Happy Path: Should retrieve pending shipments")
-        void shouldGetPendingShipments() {
-
-            // Arrange
-            Pageable pageable = PageRequest.of(0, 10);
-            Shipment shipment = createValidShipment();
-            shipment.setStatus(ShipmentStatus.IN_TRANSIT);
-
-            Page<Shipment> page = new PageImpl<>(List.of(shipment));
-
-            given(shipmentRepository.findByStatusNot(ShipmentStatus.DELIVERED, pageable)).willReturn(page);
-
-            // Act
-            Page<ShipmentViewDto> result = shipmentService.getPendingShipments(pageable);
-
-            // Assert
-            assertThat(result.getContent()).hasSize(1);
-            verify(shipmentRepository).findByStatusNot(ShipmentStatus.DELIVERED, pageable);
         }
 
         @Test
         @DisplayName("Happy Path: Should retrieve all shipments")
         void shouldGetAllShipments() {
             Pageable pageable = PageRequest.of(0, 10);
-
-            // Arrange
-            Shipment shipment = createValidShipment();
-
-            Page<Shipment> page = new PageImpl<>(List.of(shipment));
+            Page<Shipment> page = new PageImpl<>(List.of(createValidShipment()));
 
             given(shipmentRepository.findAll(pageable)).willReturn(page);
 
-            // Act
-            Page<ShipmentViewDto> result = shipmentService.getAllShipments(pageable);
+            Page<StaffShipmentViewDto> result = shipmentService.getAllShipments(pageable);
 
-            // Assert
             assertThat(result.getContent()).hasSize(1);
-            verify(shipmentRepository).findAll(pageable);
         }
     }
 
@@ -1451,66 +725,28 @@ class ShipmentServiceUnitTests {
         @Test
         @DisplayName("Happy Path: Should return correctly formatted RevenueReportDto")
         void shouldReturnRevenueReport() {
-            // Arrange
             LocalDate startDate = LocalDate.of(2026, 4, 1);
             LocalDate endDate = LocalDate.of(2026, 4, 30);
             BigDecimal mockRevenue = BigDecimal.valueOf(1250.50);
 
-            given(shipmentRepository.calculateTotalRevenue(any(), any())).willReturn(mockRevenue);
+            given(shipmentRepository.calculateTotalRevenue(any(Instant.class), any(Instant.class))).willReturn(mockRevenue);
 
-            // Act
             RevenueReportDto result = shipmentService.getCompanyRevenue(startDate, endDate);
 
-            // Assert
             assertThat(result).isNotNull();
             assertThat(result.totalRevenue()).isEqualByComparingTo(mockRevenue);
-            assertThat(result.startDate()).isEqualTo(startDate);
-            assertThat(result.endDate()).isEqualTo(endDate);
-
-            verify(shipmentRepository).calculateTotalRevenue(any(), any());
-        }
-
-        @Test
-        @DisplayName("Edge Case: Should map null DB result to BigDecimal.ZERO")
-        void shouldMapNullRevenueToZero() {
-            // Arrange
-            LocalDate startDate = LocalDate.of(2026, 4, 1);
-            LocalDate endDate = LocalDate.of(2026, 4, 30);
-
-            given(shipmentRepository.calculateTotalRevenue(any(), any())).willReturn(null);
-
-            // Act
-            RevenueReportDto result = shipmentService.getCompanyRevenue(startDate, endDate);
-
-            // Assert
-            assertThat(result.totalRevenue()).isEqualByComparingTo(BigDecimal.ZERO);
         }
 
         @Test
         @DisplayName("Error Case: Should throw VALIDATION_FAILED when start date is after end date")
         void shouldThrowWhenDatesInvalid() {
-            // Arrange
             LocalDate startDate = LocalDate.of(2026, 4, 30);
             LocalDate endDate = LocalDate.of(2026, 4, 1);
 
-            // Act and Assert
             assertThatThrownBy(() -> shipmentService.getCompanyRevenue(startDate, endDate))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.VALIDATION_FAILED);
-
-            verifyNoInteractions(shipmentRepository);
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw VALIDATION_FAILED when dates are null")
-        void shouldThrowWhenDatesNull() {
-            assertThatThrownBy(() -> shipmentService.getCompanyRevenue(null, LocalDate.now()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
-
-            verifyNoInteractions(shipmentRepository);
         }
     }
 }

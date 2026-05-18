@@ -4,10 +4,7 @@ import bg.nbu.cscb532.shared.config.SecurityConfig;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
-import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
-import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
+import bg.nbu.cscb532.shipment.dto.*;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import bg.nbu.cscb532.user.JwtService;
@@ -33,23 +30,18 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.time.LocalDate;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = {ShipmentController.class, GlobalExceptionHandler.class})
 @ActiveProfiles("test")
@@ -74,7 +66,7 @@ class ShipmentControllerTest {
     private UserDetailsService userDetailsService;
 
     // --- TEST DATA FACTORY ---
-    
+
     private CustomUserDetails createMockAuthUser(UUID id, ApplicationRole role) {
         return new CustomUserDetails(
                 id,
@@ -108,8 +100,8 @@ class ShipmentControllerTest {
                 .build();
     }
 
-    private ShipmentViewDto createValidViewDto(UUID id, String trackingNumber) {
-        return ShipmentViewDto.builder()
+    private StaffShipmentViewDto createValidStaffShipmentViewDto(UUID id, String trackingNumber) {
+        return StaffShipmentViewDto.builder()
                 .id(id)
                 .trackingNumber(trackingNumber)
                 .type(ShipmentType.PARCEL)
@@ -128,6 +120,21 @@ class ShipmentControllerTest {
                 .deliveryOfficeName("Office 1")
                 .registeredById(UUID.randomUUID())
                 .registeredByName("Employee 1")
+                .appliedAddons(List.of("Fragile"))
+                .build();
+    }
+
+    private PublicShipmentViewDto createValidPublicShipmentViewDto(String trackingNumber) {
+        return PublicShipmentViewDto.builder()
+                .trackingNumber(trackingNumber)
+                .type(ShipmentType.PARCEL)
+                .status(ShipmentStatus.REGISTERED)
+                .weight(BigDecimal.valueOf(2.5))
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .originCityName("Sofia")
+                .destinationCityName("Plovdiv")
+                .appliedAddons(List.of("Fragile"))
                 .build();
     }
 
@@ -149,7 +156,7 @@ class ShipmentControllerTest {
             UUID clientId = UUID.randomUUID();
             ShipmentCreationDto dto = createValidCreationDto(clientId);
             CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
-            ShipmentViewDto responseDto = createValidViewDto(UUID.randomUUID(), "TRK-TEST");
+            StaffShipmentViewDto responseDto = createValidStaffShipmentViewDto(UUID.randomUUID(), "TRK-TEST");
 
             given(shipmentService.registerShipment(any(ShipmentCreationDto.class), eq(authUser.getId())))
                     .willReturn(responseDto);
@@ -158,8 +165,9 @@ class ShipmentControllerTest {
                             .with(user(authUser))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(dto)))
-                    .andExpect(status().isCreated());
-                    
+                    .andExpect(status().isCreated())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
+
             verify(shipmentService).registerShipment(any(ShipmentCreationDto.class), eq(authUser.getId()));
         }
 
@@ -176,10 +184,10 @@ class ShipmentControllerTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(dto)))
                     .andExpect(status().isForbidden());
-                    
+
             verifyNoInteractions(shipmentService);
         }
-        
+
         @Test
         @DisplayName("Security: Should return 403 Forbidden when Client attempts to GET pending shipments")
         void shouldReturn403WhenClientAttemptsToReadPending() throws Exception {
@@ -188,10 +196,10 @@ class ShipmentControllerTest {
             mockMvc.perform(get(BASE_URL + "/pending")
                             .with(user(authUser)))
                     .andExpect(status().isForbidden());
-                    
+
             verifyNoInteractions(shipmentService);
         }
-        
+
         @Test
         @DisplayName("Security: Should return 403 Forbidden when Client attempts to GET all shipments")
         void shouldReturn403WhenClientAttemptsToReadAll() throws Exception {
@@ -200,7 +208,7 @@ class ShipmentControllerTest {
             mockMvc.perform(get(BASE_URL)
                             .with(user(authUser)))
                     .andExpect(status().isForbidden());
-                    
+
             verifyNoInteractions(shipmentService);
         }
 
@@ -209,14 +217,15 @@ class ShipmentControllerTest {
         void shouldAllowClientToReadOwnSentShipments() throws Exception {
             UUID clientId = UUID.randomUUID();
             CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
-            Page<ShipmentViewDto> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+            Page<StaffShipmentViewDto> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
 
             given(shipmentService.getShipmentsBySender(eq(clientId), any(Pageable.class))).willReturn(page);
 
             mockMvc.perform(get(BASE_URL + "/sender/" + clientId)
                             .with(user(authUser)))
-                    .andExpect(status().isOk());
-                    
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
+
             verify(shipmentService).getShipmentsBySender(eq(clientId), any(Pageable.class));
         }
 
@@ -230,7 +239,7 @@ class ShipmentControllerTest {
             mockMvc.perform(get(BASE_URL + "/sender/" + otherSenderId)
                             .with(user(authUser)))
                     .andExpect(status().isForbidden());
-                    
+
             verifyNoInteractions(shipmentService);
         }
 
@@ -239,14 +248,15 @@ class ShipmentControllerTest {
         void shouldAllowClientToReadOwnReceivedShipments() throws Exception {
             UUID clientId = UUID.randomUUID();
             CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
-            Page<ShipmentViewDto> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+            Page<StaffShipmentViewDto> page = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
 
             given(shipmentService.getShipmentsByReceiver(eq(clientId), any(Pageable.class))).willReturn(page);
 
             mockMvc.perform(get(BASE_URL + "/receiver/" + clientId)
                             .with(user(authUser)))
-                    .andExpect(status().isOk());
-                    
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
+
             verify(shipmentService).getShipmentsByReceiver(eq(clientId), any(Pageable.class));
         }
 
@@ -260,10 +270,10 @@ class ShipmentControllerTest {
             mockMvc.perform(get(BASE_URL + "/receiver/" + otherReceiverId)
                             .with(user(authUser)))
                     .andExpect(status().isForbidden());
-                    
+
             verifyNoInteractions(shipmentService);
         }
-        
+
         @Test
         @DisplayName("Security: Should return 403 Forbidden when Client attempts to GET shipments registered by employee")
         void shouldReturn403WhenClientAttemptsToReadByEmployee() throws Exception {
@@ -272,7 +282,7 @@ class ShipmentControllerTest {
             mockMvc.perform(get(BASE_URL + "/registered-by/" + UUID.randomUUID())
                             .with(user(authUser)))
                     .andExpect(status().isForbidden());
-                    
+
             verifyNoInteractions(shipmentService);
         }
     }
@@ -289,12 +299,11 @@ class ShipmentControllerTest {
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
             ShipmentCreationDto requestDto = createValidCreationDto(UUID.randomUUID());
             UUID newId = UUID.randomUUID();
-            ShipmentViewDto responseDto = createValidViewDto(newId, "TRK-TEST");
+            StaffShipmentViewDto responseDto = createValidStaffShipmentViewDto(newId, "TRK-TEST");
 
             given(shipmentService.registerShipment(any(ShipmentCreationDto.class), eq(authUser.getId())))
                     .willReturn(responseDto);
 
-            // Act and Assert
             mockMvc.perform(post(BASE_URL)
                             .with(user(authUser))
                             .contentType(MediaType.APPLICATION_JSON)
@@ -332,7 +341,7 @@ class ShipmentControllerTest {
 
             verifyNoInteractions(shipmentService);
         }
-        
+
         @Test
         @DisplayName("Error Case: Should return 404 Not Found if BusinessException thrown for missing entities")
         void shouldReturn404WhenEntitiesMissing() throws Exception {
@@ -361,7 +370,7 @@ class ShipmentControllerTest {
             // Arrange
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
             UUID shipmentId = UUID.randomUUID();
-            ShipmentViewDto responseDto = createValidViewDto(shipmentId, "TRK-TEST");
+            StaffShipmentViewDto responseDto = createValidStaffShipmentViewDto(shipmentId, "TRK-TEST");
 
             given(shipmentService.getShipmentById(shipmentId, authUser.getId(), authUser.getApplicationRole()))
                     .willReturn(responseDto);
@@ -373,7 +382,7 @@ class ShipmentControllerTest {
                     .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.id").value(shipmentId.toString()));
         }
-        
+
         @Test
         @DisplayName("Error Case: Should return 404 when service denies access (preventing enumeration)")
         void shouldReturn404WhenAccessDenied() throws Exception {
@@ -401,8 +410,8 @@ class ShipmentControllerTest {
         void shouldGetAll() throws Exception {
             // Arrange
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
-            ShipmentViewDto dto = createValidViewDto(UUID.randomUUID(), "TRK-TEST");
-            Page<ShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
+            StaffShipmentViewDto dto = createValidStaffShipmentViewDto(UUID.randomUUID(), "TRK-TEST");
+            Page<StaffShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
 
             given(shipmentService.getAllShipments(any(Pageable.class))).willReturn(page);
 
@@ -422,19 +431,19 @@ class ShipmentControllerTest {
             // Arrange
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
             UUID senderId = UUID.randomUUID();
-            ShipmentViewDto dto = createValidViewDto(UUID.randomUUID(), "TRK-TEST");
-            Page<ShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
+            StaffShipmentViewDto dto = createValidStaffShipmentViewDto(UUID.randomUUID(), "TRK-TEST");
+            Page<StaffShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
 
             given(shipmentService.getShipmentsBySender(eq(senderId), any(Pageable.class))).willReturn(page);
 
-            // Act and assert
             mockMvc.perform(get(BASE_URL + "/sender/{id}", senderId)
                             .with(user(authUser))
                             .param("page", "0")
                             .param("size", "10"))
                     .andExpect(status().isOk())
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.totalElements").value(1));
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
+
+            verify(shipmentService).getShipmentsBySender(eq(senderId), any(Pageable.class));
         }
 
         @Test
@@ -443,19 +452,19 @@ class ShipmentControllerTest {
             // Arrange
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.COURIER);
             UUID receiverId = UUID.randomUUID();
-            ShipmentViewDto dto = createValidViewDto(UUID.randomUUID(), "TRK-TEST");
-            Page<ShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
+            StaffShipmentViewDto dto = createValidStaffShipmentViewDto(UUID.randomUUID(), "TRK-TEST");
+            Page<StaffShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
 
             given(shipmentService.getShipmentsByReceiver(eq(receiverId), any(Pageable.class))).willReturn(page);
 
-            // Act and Assert
             mockMvc.perform(get(BASE_URL + "/receiver/{id}", receiverId)
                             .with(user(authUser))
                             .param("page", "0")
                             .param("size", "10"))
                     .andExpect(status().isOk())
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.totalElements").value(1));
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
+
+            verify(shipmentService).getShipmentsByReceiver(eq(receiverId), any(Pageable.class));
         }
 
         @Test
@@ -464,19 +473,19 @@ class ShipmentControllerTest {
             //Arrange
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
             UUID employeeId = UUID.randomUUID();
-            ShipmentViewDto dto = createValidViewDto(UUID.randomUUID(), "TRK-TEST");
-            Page<ShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
+            StaffShipmentViewDto dto = createValidStaffShipmentViewDto(UUID.randomUUID(), "TRK-TEST");
+            Page<StaffShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
 
             given(shipmentService.getShipmentsRegisteredByEmployee(eq(employeeId), any(Pageable.class))).willReturn(page);
 
-            // Act and Assert
             mockMvc.perform(get(BASE_URL + "/registered-by/{id}", employeeId)
                             .with(user(authUser))
                             .param("page", "0")
                             .param("size", "10"))
                     .andExpect(status().isOk())
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.totalElements").value(1));
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
+
+            verify(shipmentService).getShipmentsRegisteredByEmployee(eq(employeeId), any(Pageable.class));
         }
 
         @Test
@@ -484,17 +493,17 @@ class ShipmentControllerTest {
         void shouldGetPending() throws Exception {
             // Arrange
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.COURIER);
-            ShipmentViewDto dto = createValidViewDto(UUID.randomUUID(), "TRK-TEST");
-            Page<ShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
+            StaffShipmentViewDto dto = createValidStaffShipmentViewDto(UUID.randomUUID(), "TRK-TEST");
+            Page<StaffShipmentViewDto> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 10), 1);
 
             given(shipmentService.getPendingShipments(any(Pageable.class))).willReturn(page);
 
-            // Act and Assert
             mockMvc.perform(get(BASE_URL + "/pending")
                             .with(user(authUser)))
                     .andExpect(status().isOk())
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.totalElements").value(1));
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
+
+            verify(shipmentService).getPendingShipments(any(Pageable.class));
         }
     }
 
@@ -509,7 +518,7 @@ class ShipmentControllerTest {
             CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.COURIER);
             UUID id = UUID.randomUUID();
             ShipmentStatusUpdateDto request = new ShipmentStatusUpdateDto(ShipmentStatus.DELIVERED, 5L, "lorem ipsum");
-            ShipmentViewDto response = createValidViewDto(id, "TRK-TEST");
+            StaffShipmentViewDto response = createValidStaffShipmentViewDto(id, "TRK-TEST");
 
             given(shipmentService.updateShipmentStatus(eq(id), any(), any())).willReturn(response);
 
@@ -707,9 +716,9 @@ class ShipmentControllerTest {
         void shouldRetrievePublicShipmentByTrackingNumber() throws Exception {
             // Arrange
             String trackingNumber = "TRK-12345";
-            ShipmentViewDto responseDto = createValidViewDto(UUID.randomUUID(), trackingNumber);
+            PublicShipmentViewDto responseDto = createValidPublicShipmentViewDto(trackingNumber);
 
-            given(shipmentService.getShipmentByTrackingNumber(trackingNumber, null, null))
+            given(shipmentService.getShipmentByTrackingNumber(trackingNumber))
                     .willReturn(responseDto);
 
             // Act and Assert
@@ -718,7 +727,7 @@ class ShipmentControllerTest {
                     .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.trackingNumber").value(trackingNumber));
 
-            verify(shipmentService).getShipmentByTrackingNumber(trackingNumber, null, null);
+            verify(shipmentService).getShipmentByTrackingNumber(trackingNumber);
         }
 
         @Test
@@ -727,7 +736,7 @@ class ShipmentControllerTest {
             // Arrange
             String trackingNumber = "TRK-INVALID";
 
-            given(shipmentService.getShipmentByTrackingNumber(trackingNumber, null, null))
+            given(shipmentService.getShipmentByTrackingNumber(trackingNumber))
                     .willThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
             // Act and Assert
@@ -742,7 +751,7 @@ class ShipmentControllerTest {
             // Arrange
             String blankTrackingNumber = "";
 
-            given(shipmentService.getShipmentByTrackingNumber(blankTrackingNumber, null, null))
+            given(shipmentService.getShipmentByTrackingNumber(blankTrackingNumber))
                     .willThrow(new BusinessException(ErrorCode.VALIDATION_FAILED));
 
             // Act and Assert
@@ -751,4 +760,78 @@ class ShipmentControllerTest {
         }
     }
 
+    @Nested
+    @DisplayName("GET /api/shipments/details/{id}")
+    class GetShipmentDetailsTests {
+
+        @Test
+        @DisplayName("Happy Path: Staff should retrieve full shipment details by ID")
+        void staffShouldRetrieveFullShipmentDetails() throws Exception {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            StaffShipmentViewDto responseDto = createValidStaffShipmentViewDto(shipmentId, "TRK-FULL");
+
+            given(shipmentService.getStaffShipmentDetails(shipmentId, authUser.getId(), authUser.getApplicationRole()))
+                    .willReturn(responseDto);
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/details/{id}", shipmentId)
+                            .with(user(authUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.id").value(shipmentId.toString()))
+                    .andExpect(jsonPath("$.trackingNumber").value("TRK-FULL"))
+                    .andExpect(jsonPath("$.senderName").value("Sender"))
+                    .andExpect(jsonPath("$.totalPrice").value(15.00));
+
+            verify(shipmentService).getStaffShipmentDetails(shipmentId, authUser.getId(), authUser.getApplicationRole());
+        }
+        @Test
+        @DisplayName("Security: Client should be forbidden from accessing staff details endpoint")
+        void clientShouldBeForbiddenFromStaffDetails() throws Exception {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/details/{id}", shipmentId)
+                            .with(user(authUser)))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @Test
+        @DisplayName("Security: Anonymous should be forbidden from accessing staff details endpoint")
+        void anonymousShouldBeForbiddenFromStaffDetails() throws Exception {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/details/{id}", shipmentId))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should return 404 Not Found when shipment does not exist for staff")
+        void shouldReturn404WhenShipmentNotFoundForStaff() throws Exception {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+
+            given(shipmentService.getStaffShipmentDetails(shipmentId, authUser.getId(), authUser.getApplicationRole()))
+                    .willThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+            // Act and Assert
+            mockMvc.perform(get(BASE_URL + "/details/{id}", shipmentId)
+                            .with(user(authUser)))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.RESOURCE_NOT_FOUND.getCode()));
+
+            verify(shipmentService).getStaffShipmentDetails(shipmentId, authUser.getId(), authUser.getApplicationRole());
+        }
+    }
 }

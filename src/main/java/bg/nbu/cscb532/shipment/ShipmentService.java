@@ -1,9 +1,10 @@
 package bg.nbu.cscb532.shipment;
 
+import bg.nbu.cscb532.shipment.dto.PublicShipmentViewDto;
 import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
+import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import org.springframework.data.domain.Page;
@@ -24,11 +25,11 @@ public interface ShipmentService {
      *
      * @param request The data transfer object containing sender, receiver, dimensions, and destination.
      * @param registeredById The UUID of the currently authenticated employee (Clerk or Courier) registering the shipment.
-     * @return The fully populated view DTO of the new shipment.
+     * @return The fully populated StaffShipmentViewDto of the new shipment.
      * @throws bg.nbu.cscb532.shared.exception.BusinessException if any participant (Sender, Receiver, Employee) is not found,
      *                                                           or if the destination (Office) is invalid.
      */
-    ShipmentViewDto registerShipment(ShipmentCreationDto request, UUID registeredById);
+    StaffShipmentViewDto registerShipment(ShipmentCreationDto request, UUID registeredById);
 
     /**
      * Updates the lifecycle status of an existing shipment.
@@ -38,13 +39,13 @@ public interface ShipmentService {
      * @param shipmentId The UUID of the shipment to update.
      * @param request The DTO containing the new status, optional location office, and optional notes.
      * @param userDetails The authenticated user performing the update. Used for role-based authorization and assigning the delivery courier.
-     * @return The updated shipment view DTO.
+     * @return The updated StaffShipmentViewDto.
      * @throws bg.nbu.cscb532.shared.exception.BusinessException if the transition is invalid, the shipment is not found, or the location office is invalid.
      */
-    ShipmentViewDto updateShipmentStatus(UUID shipmentId, ShipmentStatusUpdateDto request, CustomUserDetails userDetails);
+    StaffShipmentViewDto updateShipmentStatus(UUID shipmentId, ShipmentStatusUpdateDto request, CustomUserDetails userDetails);
 
     /**
-     * Retrieves a specific shipment by its UUID.
+     * Retrieves a specific shipment by its UUID for staff or authorized clients.
      * Enforces strict visibility rules:
      * - Admins, Clerks, and Couriers can view any shipment.
      * - Clients can only view the shipment if they are explicitly the Sender or Receiver.
@@ -52,23 +53,35 @@ public interface ShipmentService {
      * @param shipmentId The UUID of the shipment to retrieve.
      * @param requestingUserId The UUID of the authenticated user requesting the data.
      * @param role The role of the authenticated user to evaluate access logic.
-     * @return The view DTO of the shipment.
+     * @return The StaffShipmentViewDto of the shipment.
      * @throws bg.nbu.cscb532.shared.exception.BusinessException if the shipment is not found, or if the user is a Client
      *                                                           attempting to access another client's shipment (returns 404 to prevent enumeration).
      */
-    ShipmentViewDto getShipmentById(UUID shipmentId, UUID requestingUserId, ApplicationRole role);
+    StaffShipmentViewDto getShipmentById(UUID shipmentId, UUID requestingUserId, ApplicationRole role);
 
     /**
-     * Retrieves a specific shipment by its public tracking number.
-     * Enforces strict visibility rules identical to UUID-based retrieval to prevent tracking number enumeration by malicious clients.
+     * Retrieves a specific shipment by its UUID for staff or authorized clients.
+     * This method is intended for internal staff use or authenticated clients who need full details.
      *
-     * @param trackingNumber The public alphanumeric tracking identifier.
+     * @param shipmentId The UUID of the shipment to retrieve.
      * @param requestingUserId The UUID of the authenticated user requesting the data.
      * @param role The role of the authenticated user to evaluate access logic.
-     * @return The view DTO of the shipment.
+     * @return The StaffShipmentViewDto of the shipment.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if the shipment is not found, or if the user is a Client
+     *                                                           attempting to access another client's shipment (returns 404 to prevent enumeration).
+     */
+    StaffShipmentViewDto getStaffShipmentDetails(UUID shipmentId, UUID requestingUserId, ApplicationRole role);
+
+
+    /**
+     * Retrieves a specific shipment by its public tracking number for anonymous or authenticated users.
+     * Returns a restricted PublicShipmentViewDto to protect sensitive information.
+     *
+     * @param trackingNumber The public alphanumeric tracking identifier.
+     * @return The PublicShipmentViewDto of the shipment.
      * @throws bg.nbu.cscb532.shared.exception.BusinessException if the shipment is not found or access is unauthorized.
      */
-    ShipmentViewDto getShipmentByTrackingNumber(String trackingNumber, UUID requestingUserId, ApplicationRole role);
+    PublicShipmentViewDto getShipmentByTrackingNumber(String trackingNumber);
 
     /**
      * Retrieves a paginated list of all shipments sent by a specific client.
@@ -76,9 +89,9 @@ public interface ShipmentService {
      *
      * @param senderId The UUID of the sending client.
      * @param pageable Pagination and sorting criteria.
-     * @return A page of shipment view DTOs.
+     * @return A page of StaffShipmentViewDto.
      */
-    Page<ShipmentViewDto> getShipmentsBySender(UUID senderId, Pageable pageable);
+    Page<StaffShipmentViewDto> getShipmentsBySender(UUID senderId, Pageable pageable);
 
     /**
      * Retrieves a paginated list of all shipments received by a specific client.
@@ -86,9 +99,9 @@ public interface ShipmentService {
      *
      * @param receiverId The UUID of the receiving client.
      * @param pageable Pagination and sorting criteria.
-     * @return A page of shipment view DTOs.
+     * @return A page of StaffShipmentViewDto.
      */
-    Page<ShipmentViewDto> getShipmentsByReceiver(UUID receiverId, Pageable pageable);
+    Page<StaffShipmentViewDto> getShipmentsByReceiver(UUID receiverId, Pageable pageable);
 
     /**
      * Retrieves a paginated list of all shipments registered into the system by a specific employee.
@@ -96,18 +109,18 @@ public interface ShipmentService {
      *
      * @param employeeId The UUID of the employee (Clerk or Courier).
      * @param pageable Pagination and sorting criteria.
-     * @return A page of shipment view DTOs.
+     * @return A page of StaffShipmentViewDto.
      */
-    Page<ShipmentViewDto> getShipmentsRegisteredByEmployee(UUID employeeId, Pageable pageable);
+    Page<StaffShipmentViewDto> getShipmentsRegisteredByEmployee(UUID employeeId, Pageable pageable);
 
     /**
      * Retrieves a paginated list of all shipments that are currently not in a DELIVERED state.
      * (Satisfies Requirement 5.e: Shipments sent but not received)
      *
      * @param pageable Pagination and sorting criteria.
-     * @return A page of shipment view DTOs.
+     * @return A page of StaffShipmentViewDto.
      */
-    Page<ShipmentViewDto> getPendingShipments(Pageable pageable);
+    Page<StaffShipmentViewDto> getPendingShipments(Pageable pageable);
 
     /**
      * Retrieves a paginated list of all shipments in the system.
@@ -115,9 +128,9 @@ public interface ShipmentService {
      * (Satisfies Requirement 5.c)
      *
      * @param pageable Pagination and sorting criteria.
-     * @return A page of shipment view DTOs.
+     * @return A page of StaffShipmentViewDto.
      */
-    Page<ShipmentViewDto> getAllShipments(Pageable pageable);
+    Page<StaffShipmentViewDto> getAllShipments(Pageable pageable);
 
     /**
      * Calculates the total revenue of the company for a specific date range.

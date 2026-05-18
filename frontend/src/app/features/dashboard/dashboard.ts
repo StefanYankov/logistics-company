@@ -5,7 +5,7 @@ import { forkJoin } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { ShipmentAPIService } from '../../api';
-import { ShipmentViewDto } from '../../api';
+import { StaffShipmentViewDto } from '../../api';
 import { AuthService } from '../../shared/auth.service';
 
 @Component({
@@ -20,8 +20,8 @@ export class Dashboard implements OnInit {
   private authService = inject(AuthService);
   private router = inject(Router);
 
-  sentShipments = signal<ShipmentViewDto[]>([]);
-  receivedShipments = signal<ShipmentViewDto[]>([]);
+  sentShipments = signal<StaffShipmentViewDto[]>([]);
+  receivedShipments = signal<StaffShipmentViewDto[]>([]);
   isLoading = signal(true);
   errorMessage = signal<string | null>(null);
 

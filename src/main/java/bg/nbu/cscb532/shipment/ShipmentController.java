@@ -1,10 +1,11 @@
 package bg.nbu.cscb532.shipment;
 
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
+import bg.nbu.cscb532.shipment.dto.PublicShipmentViewDto;
 import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
+import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,7 +36,7 @@ import java.util.UUID;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/shipments")
+@RequestMapping(value = "/api/shipments", produces = MediaType.APPLICATION_JSON_VALUE)
 @ApiStandardResponses
 @RequiredArgsConstructor
 @Tag(name = "Shipment API", description = "Endpoints for creating and tracking shipments.")
@@ -50,9 +51,9 @@ public class ShipmentController {
     @ApiResponse(responseCode = "201", description = "Shipment registered successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., negative weight, mutually exclusive destination error)")
     @ApiResponse(responseCode = "404", description = "Sender, Receiver, or delivery Office not found")
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ShipmentViewDto> registerShipment(
+    public ResponseEntity<StaffShipmentViewDto> registerShipment(
             @Valid @RequestBody ShipmentCreationDto request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         
@@ -65,7 +66,7 @@ public class ShipmentController {
             }
         }
 
-        ShipmentViewDto createdShipment = shipmentService.registerShipment(request, userDetails.getId());
+        StaffShipmentViewDto createdShipment = shipmentService.registerShipment(request, userDetails.getId());
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -85,16 +86,16 @@ public class ShipmentController {
     @ApiResponse(responseCode = "200", description = "Shipment status updated successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., invalid state machine transition)")
     @ApiResponse(responseCode = "404", description = "Shipment or location office not found")
-    @PatchMapping("/{id}/status")
+    @PatchMapping(value = "/{id}/status", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
-    public ResponseEntity<ShipmentViewDto> updateShipmentStatus(
+    public ResponseEntity<StaffShipmentViewDto> updateShipmentStatus(
             @Parameter(description = "The UUID of the shipment") @PathVariable UUID id,
             @Valid @RequestBody ShipmentStatusUpdateDto request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        log.info("API PATCH request to update status for shipment ID: {} from user ID: {}", id, userDetails.getId());
+        log.info("API PATCH request to update status for shipment ID: {} from user ID: {}\n", id, userDetails.getId());
 
-        ShipmentViewDto updatedShipment = shipmentService.updateShipmentStatus(id, request, userDetails);
+        StaffShipmentViewDto updatedShipment = shipmentService.updateShipmentStatus(id, request, userDetails);
 
         return ResponseEntity.ok(updatedShipment);
     }
@@ -128,31 +129,49 @@ public class ShipmentController {
     @ApiResponse(responseCode = "404", description = "Shipment not found or access denied")
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<ShipmentViewDto> getShipmentById(
+    public ResponseEntity<StaffShipmentViewDto> getShipmentById(
             @Parameter(description = "The UUID of the shipment") @PathVariable UUID id,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         
         log.info("API GET request for shipment ID: {} from user ID: {}", id, userDetails.getId());
         
-        ShipmentViewDto shipment = shipmentService.getShipmentById(id, userDetails.getId(), userDetails.getApplicationRole());
+        StaffShipmentViewDto shipment = shipmentService.getShipmentById(id, userDetails.getId(), userDetails.getApplicationRole());
+        return ResponseEntity.ok(shipment);
+    }
+
+    @Operation(
+            summary = "Get full shipment details by ID",
+            description = "Retrieves the complete, uncensored details of a specific shipment. Restricted to staff roles or explicitly authorized clients."
+    )
+    @ApiResponse(responseCode = "200", description = "Shipment found and authorized")
+    @ApiResponse(responseCode = "404", description = "Shipment not found or access denied")
+    @GetMapping("/details/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
+    public ResponseEntity<StaffShipmentViewDto> getStaffShipmentDetails(
+            @Parameter(description = "The UUID of the shipment") @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        log.info("API GET request for full shipment details ID: {} from staff ID: {}", id, userDetails.getId());
+
+        StaffShipmentViewDto shipment = shipmentService.getStaffShipmentDetails(id, userDetails.getId(), userDetails.getApplicationRole());
         return ResponseEntity.ok(shipment);
     }
 
     @Operation(
             summary = "Get shipment by tracking number",
-            description = "Retrieves a specific shipment using its public tracking number. Accessible without authentication."
+            description = "Retrieves a specific shipment using its public tracking number. Accessible without authentication. Returns restricted PublicShipmentViewDto."
     )
     @ApiResponse(responseCode = "200", description = "Shipment found")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., tracking number is blank)")
     @ApiResponse(responseCode = "404", description = "Shipment not found")
-    @GetMapping(value = "/track/{trackingNumber}", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ShipmentViewDto> getShipmentByTrackingNumber(
+    @GetMapping("/track/{trackingNumber}")
+    public ResponseEntity<PublicShipmentViewDto> getShipmentByTrackingNumber(
             @Parameter(description = "The alphanumeric tracking number of the shipment") @PathVariable String trackingNumber) {
         
         log.info("API GET request for shipment tracking number: {} (Public)", trackingNumber);
         
         // Pass null for userDetails since it's a public endpoint
-        ShipmentViewDto shipment = shipmentService.getShipmentByTrackingNumber(trackingNumber, null, null);
+        PublicShipmentViewDto shipment = shipmentService.getShipmentByTrackingNumber(trackingNumber);
         return ResponseEntity.ok(shipment);
     }
 
@@ -161,9 +180,9 @@ public class ShipmentController {
             description = "Retrieves a paginated list of all shipments in the system. Restricted to staff roles."
     )
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
-    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
-    public ResponseEntity<Page<ShipmentViewDto>> getAllShipments(Pageable pageable) {
+    public ResponseEntity<Page<StaffShipmentViewDto>> getAllShipments(Pageable pageable) {
         log.info("API GET request for all shipments. Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
         return ResponseEntity.ok(shipmentService.getAllShipments(pageable));
     }
@@ -173,9 +192,9 @@ public class ShipmentController {
             description = "Retrieves a paginated list of shipments where the specified client is the sender. Accessible to staff and the specific client."
     )
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
-    @GetMapping(value = "/sender/{senderId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping("/sender/{senderId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Page<ShipmentViewDto>> getShipmentsBySender(
+    public ResponseEntity<Page<StaffShipmentViewDto>> getShipmentsBySender(
             @Parameter(description = "The UUID of the sending client") @PathVariable UUID senderId,
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Pageable pageable) {
@@ -196,9 +215,9 @@ public class ShipmentController {
             description = "Retrieves a paginated list of shipments where the specified client is the receiver. Accessible to staff and the specific client."
     )
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
-    @GetMapping(value = "/receiver/{receiverId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping("/receiver/{receiverId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Page<ShipmentViewDto>> getShipmentsByReceiver(
+    public ResponseEntity<Page<StaffShipmentViewDto>> getShipmentsByReceiver(
             @Parameter(description = "The UUID of the receiving client") @PathVariable UUID receiverId,
             @AuthenticationPrincipal CustomUserDetails userDetails,
             Pageable pageable) {
@@ -221,7 +240,7 @@ public class ShipmentController {
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
-    public ResponseEntity<Page<ShipmentViewDto>> getPendingShipments(Pageable pageable) {
+    public ResponseEntity<Page<StaffShipmentViewDto>> getPendingShipments(Pageable pageable) {
         log.info("API GET request for pending shipments.");
         return ResponseEntity.ok(shipmentService.getPendingShipments(pageable));
     }
@@ -233,7 +252,7 @@ public class ShipmentController {
     @ApiResponse(responseCode = "200", description = "Successful retrieval")
     @GetMapping("/registered-by/{employeeId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'CLERK', 'COURIER')")
-    public ResponseEntity<Page<ShipmentViewDto>> getShipmentsRegisteredByEmployee(
+    public ResponseEntity<Page<StaffShipmentViewDto>> getShipmentsRegisteredByEmployee(
             @Parameter(description = "The UUID of the employee") @PathVariable UUID employeeId,
             Pageable pageable) {
         log.info("API GET request for shipments registered by employee ID: {}", employeeId);

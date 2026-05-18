@@ -17,11 +17,13 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
-import { PageShipmentViewDto } from '../model/pageShipmentViewDto';
+import { PageStaffShipmentViewDto } from '../model/pageStaffShipmentViewDto';
 // @ts-ignore
 import { Pageable } from '../model/pageable';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
+// @ts-ignore
+import { PublicShipmentViewDto } from '../model/publicShipmentViewDto';
 // @ts-ignore
 import { RevenueReportDto } from '../model/revenueReportDto';
 // @ts-ignore
@@ -29,7 +31,7 @@ import { ShipmentCreationDto } from '../model/shipmentCreationDto';
 // @ts-ignore
 import { ShipmentStatusUpdateDto } from '../model/shipmentStatusUpdateDto';
 // @ts-ignore
-import { ShipmentViewDto } from '../model/shipmentViewDto';
+import { StaffShipmentViewDto } from '../model/staffShipmentViewDto';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
@@ -56,9 +58,9 @@ export class ShipmentAPIService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getAllShipments(pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PageShipmentViewDto>;
-    public getAllShipments(pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageShipmentViewDto>>;
-    public getAllShipments(pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageShipmentViewDto>>;
+    public getAllShipments(pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PageStaffShipmentViewDto>;
+    public getAllShipments(pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageStaffShipmentViewDto>>;
+    public getAllShipments(pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageStaffShipmentViewDto>>;
     public getAllShipments(pageable: Pageable, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (pageable === null || pageable === undefined) {
             throw new Error('Required parameter pageable was null or undefined when calling getAllShipments.');
@@ -102,7 +104,7 @@ export class ShipmentAPIService extends BaseService {
 
         let localVarPath = `/api/shipments`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<PageShipmentViewDto>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<PageStaffShipmentViewDto>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),
@@ -126,10 +128,10 @@ export class ShipmentAPIService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getCompanyRevenue(startDate: string, endDate: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<RevenueReportDto>;
-    public getCompanyRevenue(startDate: string, endDate: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RevenueReportDto>>;
-    public getCompanyRevenue(startDate: string, endDate: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RevenueReportDto>>;
-    public getCompanyRevenue(startDate: string, endDate: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getCompanyRevenue(startDate: string, endDate: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<RevenueReportDto>;
+    public getCompanyRevenue(startDate: string, endDate: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<RevenueReportDto>>;
+    public getCompanyRevenue(startDate: string, endDate: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<RevenueReportDto>>;
+    public getCompanyRevenue(startDate: string, endDate: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (startDate === null || startDate === undefined) {
             throw new Error('Required parameter startDate was null or undefined when calling getCompanyRevenue.');
         }
@@ -160,7 +162,7 @@ export class ShipmentAPIService extends BaseService {
         let localVarHeaders = this.defaultHeaders;
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            '*/*'
+            'application/json'
         ]);
         if (localVarHttpHeaderAcceptSelected !== undefined) {
             localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
@@ -207,10 +209,10 @@ export class ShipmentAPIService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getPendingShipments(pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<PageShipmentViewDto>;
-    public getPendingShipments(pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageShipmentViewDto>>;
-    public getPendingShipments(pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageShipmentViewDto>>;
-    public getPendingShipments(pageable: Pageable, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getPendingShipments(pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PageStaffShipmentViewDto>;
+    public getPendingShipments(pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageStaffShipmentViewDto>>;
+    public getPendingShipments(pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageStaffShipmentViewDto>>;
+    public getPendingShipments(pageable: Pageable, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (pageable === null || pageable === undefined) {
             throw new Error('Required parameter pageable was null or undefined when calling getPendingShipments.');
         }
@@ -229,7 +231,7 @@ export class ShipmentAPIService extends BaseService {
         let localVarHeaders = this.defaultHeaders;
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            '*/*'
+            'application/json'
         ]);
         if (localVarHttpHeaderAcceptSelected !== undefined) {
             localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
@@ -253,7 +255,7 @@ export class ShipmentAPIService extends BaseService {
 
         let localVarPath = `/api/shipments/pending`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<PageShipmentViewDto>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<PageStaffShipmentViewDto>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),
@@ -276,10 +278,10 @@ export class ShipmentAPIService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getShipmentById(id: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<ShipmentViewDto>;
-    public getShipmentById(id: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ShipmentViewDto>>;
-    public getShipmentById(id: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ShipmentViewDto>>;
-    public getShipmentById(id: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getShipmentById(id: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<StaffShipmentViewDto>;
+    public getShipmentById(id: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<StaffShipmentViewDto>>;
+    public getShipmentById(id: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<StaffShipmentViewDto>>;
+    public getShipmentById(id: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (id === null || id === undefined) {
             throw new Error('Required parameter id was null or undefined when calling getShipmentById.');
         }
@@ -287,7 +289,7 @@ export class ShipmentAPIService extends BaseService {
         let localVarHeaders = this.defaultHeaders;
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            '*/*'
+            'application/json'
         ]);
         if (localVarHttpHeaderAcceptSelected !== undefined) {
             localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
@@ -311,7 +313,7 @@ export class ShipmentAPIService extends BaseService {
 
         let localVarPath = `/api/shipments/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<ShipmentViewDto>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<StaffShipmentViewDto>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,
@@ -326,16 +328,16 @@ export class ShipmentAPIService extends BaseService {
 
     /**
      * Get shipment by tracking number
-     * Retrieves a specific shipment using its public tracking number. Accessible without authentication.
+     * Retrieves a specific shipment using its public tracking number. Accessible without authentication. Returns restricted PublicShipmentViewDto.
      * @endpoint get /api/shipments/track/{trackingNumber}
      * @param trackingNumber The alphanumeric tracking number of the shipment
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getShipmentByTrackingNumber(trackingNumber: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<ShipmentViewDto>;
-    public getShipmentByTrackingNumber(trackingNumber: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ShipmentViewDto>>;
-    public getShipmentByTrackingNumber(trackingNumber: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ShipmentViewDto>>;
+    public getShipmentByTrackingNumber(trackingNumber: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PublicShipmentViewDto>;
+    public getShipmentByTrackingNumber(trackingNumber: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PublicShipmentViewDto>>;
+    public getShipmentByTrackingNumber(trackingNumber: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PublicShipmentViewDto>>;
     public getShipmentByTrackingNumber(trackingNumber: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (trackingNumber === null || trackingNumber === undefined) {
             throw new Error('Required parameter trackingNumber was null or undefined when calling getShipmentByTrackingNumber.');
@@ -368,7 +370,7 @@ export class ShipmentAPIService extends BaseService {
 
         let localVarPath = `/api/shipments/track/${this.configuration.encodeParam({name: "trackingNumber", value: trackingNumber, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: undefined})}`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<ShipmentViewDto>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<PublicShipmentViewDto>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,
@@ -391,9 +393,9 @@ export class ShipmentAPIService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getShipmentsByReceiver(receiverId: string, pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PageShipmentViewDto>;
-    public getShipmentsByReceiver(receiverId: string, pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageShipmentViewDto>>;
-    public getShipmentsByReceiver(receiverId: string, pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageShipmentViewDto>>;
+    public getShipmentsByReceiver(receiverId: string, pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PageStaffShipmentViewDto>;
+    public getShipmentsByReceiver(receiverId: string, pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageStaffShipmentViewDto>>;
+    public getShipmentsByReceiver(receiverId: string, pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageStaffShipmentViewDto>>;
     public getShipmentsByReceiver(receiverId: string, pageable: Pageable, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (receiverId === null || receiverId === undefined) {
             throw new Error('Required parameter receiverId was null or undefined when calling getShipmentsByReceiver.');
@@ -440,7 +442,7 @@ export class ShipmentAPIService extends BaseService {
 
         let localVarPath = `/api/shipments/receiver/${this.configuration.encodeParam({name: "receiverId", value: receiverId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<PageShipmentViewDto>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<PageStaffShipmentViewDto>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),
@@ -464,9 +466,9 @@ export class ShipmentAPIService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getShipmentsBySender(senderId: string, pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PageShipmentViewDto>;
-    public getShipmentsBySender(senderId: string, pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageShipmentViewDto>>;
-    public getShipmentsBySender(senderId: string, pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageShipmentViewDto>>;
+    public getShipmentsBySender(senderId: string, pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PageStaffShipmentViewDto>;
+    public getShipmentsBySender(senderId: string, pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageStaffShipmentViewDto>>;
+    public getShipmentsBySender(senderId: string, pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageStaffShipmentViewDto>>;
     public getShipmentsBySender(senderId: string, pageable: Pageable, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (senderId === null || senderId === undefined) {
             throw new Error('Required parameter senderId was null or undefined when calling getShipmentsBySender.');
@@ -513,7 +515,7 @@ export class ShipmentAPIService extends BaseService {
 
         let localVarPath = `/api/shipments/sender/${this.configuration.encodeParam({name: "senderId", value: senderId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<PageShipmentViewDto>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<PageStaffShipmentViewDto>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),
@@ -537,10 +539,10 @@ export class ShipmentAPIService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getShipmentsRegisteredByEmployee(employeeId: string, pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<PageShipmentViewDto>;
-    public getShipmentsRegisteredByEmployee(employeeId: string, pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageShipmentViewDto>>;
-    public getShipmentsRegisteredByEmployee(employeeId: string, pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageShipmentViewDto>>;
-    public getShipmentsRegisteredByEmployee(employeeId: string, pageable: Pageable, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getShipmentsRegisteredByEmployee(employeeId: string, pageable: Pageable, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PageStaffShipmentViewDto>;
+    public getShipmentsRegisteredByEmployee(employeeId: string, pageable: Pageable, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PageStaffShipmentViewDto>>;
+    public getShipmentsRegisteredByEmployee(employeeId: string, pageable: Pageable, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PageStaffShipmentViewDto>>;
+    public getShipmentsRegisteredByEmployee(employeeId: string, pageable: Pageable, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (employeeId === null || employeeId === undefined) {
             throw new Error('Required parameter employeeId was null or undefined when calling getShipmentsRegisteredByEmployee.');
         }
@@ -562,7 +564,7 @@ export class ShipmentAPIService extends BaseService {
         let localVarHeaders = this.defaultHeaders;
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            '*/*'
+            'application/json'
         ]);
         if (localVarHttpHeaderAcceptSelected !== undefined) {
             localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
@@ -586,10 +588,67 @@ export class ShipmentAPIService extends BaseService {
 
         let localVarPath = `/api/shipments/registered-by/${this.configuration.encodeParam({name: "employeeId", value: employeeId, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<PageShipmentViewDto>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<PageStaffShipmentViewDto>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Get full shipment details by ID
+     * Retrieves the complete, uncensored details of a specific shipment. Restricted to staff roles or explicitly authorized clients.
+     * @endpoint get /api/shipments/details/{id}
+     * @param id The UUID of the shipment
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getStaffShipmentDetails(id: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<StaffShipmentViewDto>;
+    public getStaffShipmentDetails(id: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<StaffShipmentViewDto>>;
+    public getStaffShipmentDetails(id: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<StaffShipmentViewDto>>;
+    public getStaffShipmentDetails(id: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling getStaffShipmentDetails.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/shipments/details/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<StaffShipmentViewDto>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
@@ -609,10 +668,10 @@ export class ShipmentAPIService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public registerShipment(shipmentCreationDto: ShipmentCreationDto, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<ShipmentViewDto>;
-    public registerShipment(shipmentCreationDto: ShipmentCreationDto, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ShipmentViewDto>>;
-    public registerShipment(shipmentCreationDto: ShipmentCreationDto, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ShipmentViewDto>>;
-    public registerShipment(shipmentCreationDto: ShipmentCreationDto, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public registerShipment(shipmentCreationDto: ShipmentCreationDto, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<StaffShipmentViewDto>;
+    public registerShipment(shipmentCreationDto: ShipmentCreationDto, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<StaffShipmentViewDto>>;
+    public registerShipment(shipmentCreationDto: ShipmentCreationDto, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<StaffShipmentViewDto>>;
+    public registerShipment(shipmentCreationDto: ShipmentCreationDto, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (shipmentCreationDto === null || shipmentCreationDto === undefined) {
             throw new Error('Required parameter shipmentCreationDto was null or undefined when calling registerShipment.');
         }
@@ -620,7 +679,7 @@ export class ShipmentAPIService extends BaseService {
         let localVarHeaders = this.defaultHeaders;
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            '*/*'
+            'application/json'
         ]);
         if (localVarHttpHeaderAcceptSelected !== undefined) {
             localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
@@ -653,7 +712,7 @@ export class ShipmentAPIService extends BaseService {
 
         let localVarPath = `/api/shipments`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<ShipmentViewDto>('post', `${basePath}${localVarPath}`,
+        return this.httpClient.request<StaffShipmentViewDto>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 body: shipmentCreationDto,
@@ -677,10 +736,10 @@ export class ShipmentAPIService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public updateShipmentStatus(id: string, shipmentStatusUpdateDto: ShipmentStatusUpdateDto, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<ShipmentViewDto>;
-    public updateShipmentStatus(id: string, shipmentStatusUpdateDto: ShipmentStatusUpdateDto, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ShipmentViewDto>>;
-    public updateShipmentStatus(id: string, shipmentStatusUpdateDto: ShipmentStatusUpdateDto, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ShipmentViewDto>>;
-    public updateShipmentStatus(id: string, shipmentStatusUpdateDto: ShipmentStatusUpdateDto, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public updateShipmentStatus(id: string, shipmentStatusUpdateDto: ShipmentStatusUpdateDto, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<StaffShipmentViewDto>;
+    public updateShipmentStatus(id: string, shipmentStatusUpdateDto: ShipmentStatusUpdateDto, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<StaffShipmentViewDto>>;
+    public updateShipmentStatus(id: string, shipmentStatusUpdateDto: ShipmentStatusUpdateDto, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<StaffShipmentViewDto>>;
+    public updateShipmentStatus(id: string, shipmentStatusUpdateDto: ShipmentStatusUpdateDto, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (id === null || id === undefined) {
             throw new Error('Required parameter id was null or undefined when calling updateShipmentStatus.');
         }
@@ -691,7 +750,7 @@ export class ShipmentAPIService extends BaseService {
         let localVarHeaders = this.defaultHeaders;
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            '*/*'
+            'application/json'
         ]);
         if (localVarHttpHeaderAcceptSelected !== undefined) {
             localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
@@ -724,7 +783,7 @@ export class ShipmentAPIService extends BaseService {
 
         let localVarPath = `/api/shipments/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/status`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<ShipmentViewDto>('patch', `${basePath}${localVarPath}`,
+        return this.httpClient.request<StaffShipmentViewDto>('patch', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 body: shipmentStatusUpdateDto,

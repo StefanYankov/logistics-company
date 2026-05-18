@@ -14,10 +14,11 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
+import bg.nbu.cscb532.shipment.dto.PublicShipmentViewDto;
 import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentViewDto;
+import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -60,7 +61,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 
     @Override
     @Transactional
-    public ShipmentViewDto registerShipment(ShipmentCreationDto request, UUID registeredById) {
+    public StaffShipmentViewDto registerShipment(ShipmentCreationDto request, UUID registeredById) {
         log.debug("Attempting to register a new shipment for Sender ID: {}", request.senderId());
 
         Objects.requireNonNull(request, Constants.DeveloperErrors.DTO_NULL);
@@ -201,12 +202,12 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         log.info("Successfully registered Shipment with Tracking Number: {}", trackingNumber);
 
-        return mapToViewDto(savedShipment);
+        return mapToStaffView(savedShipment);
     }
 
     @Override
     @Transactional
-    public ShipmentViewDto updateShipmentStatus(UUID shipmentId, ShipmentStatusUpdateDto request, CustomUserDetails userDetails) {
+    public StaffShipmentViewDto updateShipmentStatus(UUID shipmentId, ShipmentStatusUpdateDto request, CustomUserDetails userDetails) {
         log.debug("User {} attempting to update status for shipment {}", userDetails.getId(), shipmentId);
 
         Objects.requireNonNull(request, Constants.DeveloperErrors.DTO_NULL);
@@ -274,12 +275,12 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         log.info("Shipment {} successfully updated to status {}", shipmentId, request.newStatus());
 
-        return mapToViewDto(updatedShipment);
+        return mapToStaffView(updatedShipment);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public ShipmentViewDto getShipmentById(UUID shipmentId, UUID requestingUserId, ApplicationRole role) {
+    public StaffShipmentViewDto getShipmentById(UUID shipmentId, UUID requestingUserId, ApplicationRole role) {
         Shipment shipment = shipmentRepository.findById(shipmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
@@ -291,19 +292,13 @@ public class ShipmentServiceImpl implements ShipmentService {
             }
         }
 
-        return mapToViewDto(shipment);
+        return mapToStaffView(shipment);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public ShipmentViewDto getShipmentByTrackingNumber(String trackingNumber, UUID requestingUserId, ApplicationRole role) {
-        log.debug("Looking up shipment by tracking number: {}", trackingNumber);
-
-        if (trackingNumber == null || trackingNumber.isBlank()) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
-        }
-
-        Shipment shipment = shipmentRepository.findByTrackingNumber(trackingNumber)
+    public StaffShipmentViewDto getStaffShipmentDetails(UUID shipmentId, UUID requestingUserId, ApplicationRole role) {
+        Shipment shipment = shipmentRepository.findById(shipmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
         if (role == ApplicationRole.CLIENT) {
@@ -314,42 +309,58 @@ public class ShipmentServiceImpl implements ShipmentService {
             }
         }
 
-        return mapToViewDto(shipment);
+        return mapToStaffView(shipment);
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public PublicShipmentViewDto getShipmentByTrackingNumber(String trackingNumber) {
+        log.debug("Looking up shipment by tracking number: {}", trackingNumber);
+
+        if (trackingNumber == null || trackingNumber.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        Shipment shipment = shipmentRepository.findByTrackingNumber(trackingNumber)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        return mapToPublicView(shipment);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ShipmentViewDto> getShipmentsBySender(UUID senderId, Pageable pageable) {
+    public Page<StaffShipmentViewDto> getShipmentsBySender(UUID senderId, Pageable pageable) {
         return shipmentRepository.findBySender_Id(senderId, pageable)
-                .map(this::mapToViewDto);
+                .map(this::mapToStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ShipmentViewDto> getShipmentsByReceiver(UUID receiverId, Pageable pageable) {
+    public Page<StaffShipmentViewDto> getShipmentsByReceiver(UUID receiverId, Pageable pageable) {
         return shipmentRepository.findByReceiver_Id(receiverId, pageable)
-                .map(this::mapToViewDto);
+                .map(this::mapToStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ShipmentViewDto> getShipmentsRegisteredByEmployee(UUID employeeId, Pageable pageable) {
+    public Page<StaffShipmentViewDto> getShipmentsRegisteredByEmployee(UUID employeeId, Pageable pageable) {
         return shipmentRepository.findByRegisteredBy_Id(employeeId, pageable)
-                .map(this::mapToViewDto);
+                .map(this::mapToStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ShipmentViewDto> getPendingShipments(Pageable pageable) {
+    public Page<StaffShipmentViewDto> getPendingShipments(Pageable pageable) {
         return shipmentRepository.findByStatusNot(ShipmentStatus.DELIVERED, pageable)
-                .map(this::mapToViewDto);
+                .map(this::mapToStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ShipmentViewDto> getAllShipments(Pageable pageable) {
+    public Page<StaffShipmentViewDto> getAllShipments(Pageable pageable) {
         return shipmentRepository.findAll(pageable)
-                .map(this::mapToViewDto);
+                .map(this::mapToStaffView);
     }
 
     @Override
@@ -414,7 +425,71 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .build();
     }
 
-    private ShipmentViewDto mapToViewDto(Shipment shipment) {
+    private String formatAddress(AddressDetails address) {
+        if (address == null) {
+            return "";
+        }
+
+        return Stream.of(
+                        address.getStreet(),
+                        address.getDistrict(),
+                        formatOptionalPart("bl. ", address.getBuilding()),
+                        formatOptionalPart("ent. ", address.getEntrance()),
+                        formatOptionalPart("fl. ", address.getFloor()),
+                        formatOptionalPart("ap. ", address.getApartment()),
+                        address.getCity().getName() + " " + address.getCity().getPostcode()
+                )
+                .filter(part -> part != null && !part.isBlank())
+                .collect(Collectors.joining(", "));
+    }
+
+    private String formatOptionalPart(String prefix, String value) {
+        if (value != null && !value.isBlank()) {
+            return prefix + value;
+        }
+        return null;
+    }
+
+    // --- NEW MAPPING METHODS ---
+
+    private PublicShipmentViewDto mapToPublicView(Shipment shipment) {
+        if (shipment == null) return null;
+
+        String originCityName = null;
+        if (shipment.getOriginOffice() != null) {
+            originCityName = shipment.getOriginOffice().getAddressDetails().getCity().getName();
+        } else if (shipment.getOriginAddressSnapshot() != null) {
+            originCityName = shipment.getOriginAddressSnapshot().getCity().getName();
+        }
+
+        String deliveryCityName = null;
+        if (shipment.getDeliveryOffice() != null) {
+            deliveryCityName = shipment.getDeliveryOffice().getAddressDetails().getCity().getName();
+        } else if (shipment.getDeliveryAddressSnapshot() != null) {
+            deliveryCityName = shipment.getDeliveryAddressSnapshot().getCity().getName();
+        }
+
+        String currentOfficeName = shipment.getCurrentOffice() != null ?
+                shipment.getCurrentOffice().getAddressDetails().getCity().getName() + " - " + shipment.getCurrentOffice().getAddressDetails().getStreet() : null;
+
+        return PublicShipmentViewDto.builder()
+                .trackingNumber(shipment.getTrackingNumber())
+                .type(shipment.getPackageDetails().getType())
+                .status(shipment.getStatus())
+                .weight(shipment.getPackageDetails().getWeight())
+                .length(shipment.getPackageDetails().getLength())
+                .width(shipment.getPackageDetails().getWidth())
+                .height(shipment.getPackageDetails().getHeight())
+                .createdAt(shipment.getCreatedAt())
+                .updatedAt(shipment.getUpdatedAt())
+                .originCityName(originCityName)
+                .destinationCityName(deliveryCityName)
+                .currentOfficeName(currentOfficeName)
+                .appliedAddons(shipment.getAddons().stream().map(a -> a.getServiceCatalog().getName()).collect(Collectors.toList()))
+                .build();
+    }
+
+    private StaffShipmentViewDto mapToStaffView(Shipment shipment) {
         if (shipment == null) return null;
 
         Long originOfficeId = null;
@@ -467,7 +542,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         String registeredByName = shipment.getRegisteredBy() != null ? 
                 shipment.getRegisteredBy().getFirstName() + " " + shipment.getRegisteredBy().getLastName() : "Self-Registered";
 
-        return ShipmentViewDto.builder()
+        return StaffShipmentViewDto.builder()
                 .id(shipment.getId())
                 .trackingNumber(shipment.getTrackingNumber())
                 .type(shipment.getPackageDetails().getType())
@@ -501,30 +576,5 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .registeredByName(registeredByName.trim())
                 .appliedAddons(shipment.getAddons().stream().map(a -> a.getServiceCatalog().getName()).collect(Collectors.toList()))
                 .build();
-    }
-
-    private String formatAddress(AddressDetails address) {
-        if (address == null) {
-            return "";
-        }
-
-        return Stream.of(
-                        address.getStreet(),
-                        address.getDistrict(),
-                        formatOptionalPart("bl. ", address.getBuilding()),
-                        formatOptionalPart("ent. ", address.getEntrance()),
-                        formatOptionalPart("fl. ", address.getFloor()),
-                        formatOptionalPart("ap. ", address.getApartment()),
-                        address.getCity().getName() + " " + address.getCity().getPostcode()
-                )
-                .filter(part -> part != null && !part.isBlank())
-                .collect(Collectors.joining(", "));
-    }
-
-    private String formatOptionalPart(String prefix, String value) {
-        if (value != null && !value.isBlank()) {
-            return prefix + value;
-        }
-        return null;
     }
 }

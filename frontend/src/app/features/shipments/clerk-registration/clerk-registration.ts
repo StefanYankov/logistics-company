@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { delay, forkJoin, of } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, startWith, switchMap, tap } from 'rxjs/operators';
 import { ShipmentAPIService, ClientAPIService, OfficeAPIService, CityAPIService, ServiceCatalogAPIService } from '../../../api';
 import { ClientViewDto, OfficeViewDto, CityViewDto, ShipmentCreationDto, ClientQuickRegistrationDto, ServiceCatalogViewDto } from '../../../api';
@@ -47,7 +47,10 @@ export class ClerkRegistration implements OnInit {
   shipmentTypes = Object.values(ShipmentCreationDto.TypeEnum);
   paidByOptions = Object.values(ShipmentCreationDto.PaidByEnum);
 
+  // Hardcoded for now. In reality, get this from the Clerk's profile.
   originOfficeId = 1;
+
+  // Track selected addon IDs
   selectedServiceIds = signal<number[]>([]);
 
   registerForm = this.fb.group({
@@ -110,7 +113,6 @@ export class ClerkRegistration implements OnInit {
             return of(null);
           }
           return this.clientApi.searchClients(term, { page: 0, size: 10 }).pipe(
-            delay(0), // Keeps input execution loops separated from layouts
             catchError(() => of({ content: [] }))
           );
         })

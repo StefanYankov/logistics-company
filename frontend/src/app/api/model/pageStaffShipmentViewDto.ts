@@ -9,20 +9,20 @@
  */
 import { PageableObject } from './pageableObject';
 import { SortObject } from './sortObject';
-import { ShipmentViewDto } from './shipmentViewDto';
+import { StaffShipmentViewDto } from './staffShipmentViewDto';
 
 
-export interface PageShipmentViewDto { 
-    totalPages?: number;
+export interface PageStaffShipmentViewDto { 
     totalElements?: number;
+    totalPages?: number;
     size?: number;
-    content?: Array<ShipmentViewDto>;
+    content?: Array<StaffShipmentViewDto>;
     number?: number;
     first?: boolean;
     last?: boolean;
-    sort?: SortObject;
-    numberOfElements?: number;
     pageable?: PageableObject;
+    numberOfElements?: number;
+    sort?: SortObject;
     empty?: boolean;
 }
 

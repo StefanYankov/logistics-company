@@ -145,3 +145,11 @@
   font-size: 0.8em;
   border: 1px solid #ced4da;
 }
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: #f1f3f5;
+}

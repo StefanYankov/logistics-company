@@ -1,16 +1,16 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { catchError, tap } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { ShipmentAPIService } from '../../../api';
-import { ShipmentViewDto } from '../../../api';
+import { StaffShipmentViewDto } from '../../../api';
 import { ShipmentStatusUpdateDto } from '../../../api';
 
 @Component({
   selector: 'app-shipment-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './shipment-list.html',
   styleUrl: './shipment-list.css'
 })
@@ -18,7 +18,7 @@ export class ShipmentList implements OnInit {
   private shipmentApi = inject(ShipmentAPIService);
   public router = inject(Router);
 
-  shipments = signal<ShipmentViewDto[]>([]);
+  shipments = signal<StaffShipmentViewDto[]>([]);
   isLoading = signal(true);
   errorMessage = signal<string | null>(null);
 
