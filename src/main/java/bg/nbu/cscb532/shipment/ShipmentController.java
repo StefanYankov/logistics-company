@@ -1,11 +1,7 @@
 package bg.nbu.cscb532.shipment;
 
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
-import bg.nbu.cscb532.shipment.dto.PublicShipmentViewDto;
-import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
-import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
+import bg.nbu.cscb532.shipment.dto.*;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -97,6 +93,26 @@ public class ShipmentController {
 
         StaffShipmentViewDto updatedShipment = shipmentService.updateShipmentStatus(id, request, userDetails);
 
+        return ResponseEntity.ok(updatedShipment);
+    }
+
+    @Operation(
+            summary = "Assign a courier for shipment pickup",
+            description = "Assigns a specific courier to a REGISTERED shipment that originates from a client's address. Restricted to ADMIN and CLERK roles."
+    )
+    @ApiResponse(responseCode = "200", description = "Courier assigned successfully for pickup")
+    @ApiResponse(responseCode = "400", description = "Validation failed (e.g., shipment not REGISTERED, not an address pickup)")
+    @ApiResponse(responseCode = "404", description = "Shipment or Courier not found")
+    @PatchMapping(value = "/{id}/assign-pickup/{courierId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CLERK')")
+    public ResponseEntity<StaffShipmentViewDto> assignPickup(
+            @Parameter(description = "The UUID of the shipment") @PathVariable UUID id,
+            @Parameter(description = "The UUID of the courier to assign") @PathVariable UUID courierId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        log.info("API PATCH request to assign pickup for shipment ID: {} to courier ID: {} by user ID: {}", id, courierId, userDetails.getId());
+
+        StaffShipmentViewDto updatedShipment = shipmentService.assignPickup(id, courierId, userDetails);
         return ResponseEntity.ok(updatedShipment);
     }
 
