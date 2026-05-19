@@ -17,17 +17,17 @@
     <div class="table-responsive">
       <table class="shipment-table">
         <thead>
-          <tr>
-            <th>Tracking #</th>
-            <th>Status</th>
-            <th>Type & Weight</th>
-            <th>Sender</th>
-            <th>Receiver</th>
-            <th>Origin</th>
-            <th>Destination</th>
-            <th>Financials</th>
-            <th>Actions (Staff)</th>
-          </tr>
+        <tr>
+          <th>Tracking #</th>
+          <th>Status</th>
+          <th>Type & Weight</th>
+          <th>Sender</th>
+          <th>Receiver</th>
+          <th>Origin</th>
+          <th>Destination</th>
+          <th>Financials</th>
+          <th>Actions (Staff)</th>
+        </tr>
         </thead>
         <tbody>
           @for (shipment of shipments(); track shipment.id) {
@@ -64,16 +64,16 @@
               </td>
               <td>
                 @if (shipment.originOfficeName) {
-                   🏢 {{ shipment.originOfficeName }}
+                  🏢 {{ shipment.originOfficeName }}
                 } @else {
-                   📍 {{ shipment.originAddressString }}
+                  📍 {{ shipment.originAddressString }}
                 }
               </td>
               <td>
                 @if (shipment.deliveryOfficeName) {
-                   🏢 {{ shipment.deliveryOfficeName }}
+                  🏢 {{ shipment.deliveryOfficeName }}
                 } @else {
-                   📍 {{ shipment.deliveryAddressString }}
+                  📍 {{ shipment.deliveryAddressString }}
                 }
               </td>
               <td class="financials-col">
@@ -94,23 +94,19 @@
               <td class="actions-col">
                 <!-- Actions logic relies on the user's role, but for the prototype we expose the transitions -->
                 @if (shipment.status === 'REGISTERED') {
-                  <button class="btn-action btn-transit" (click)="updateStatus(shipment.id!, 'IN_TRANSIT')">Mark In Transit</button>
+                  <button class="btn-action btn-transit" (click)="updateStatus(shipment.id!, 'IN_TRANSIT'); $event.stopPropagation()">Mark In Transit</button>
                 }
                 @if (shipment.status === 'IN_TRANSIT') {
-                  <button class="btn-action btn-office" (click)="updateStatus(shipment.id!, 'AT_DELIVERY_OFFICE')">Arrived at Office</button>
+                  <button class="btn-action btn-office" (click)="updateStatus(shipment.id!, 'AT_DELIVERY_OFFICE'); $event.stopPropagation()">Arrived at Office</button>
                 }
                 @if (shipment.status === 'IN_TRANSIT' || shipment.status === 'AT_DELIVERY_OFFICE') {
-                  <button class="btn-action btn-out" (click)="updateStatus(shipment.id!, 'OUT_FOR_DELIVERY')">Out for Delivery</button>
+                  <button class="btn-action btn-out" (click)="updateStatus(shipment.id!, 'OUT_FOR_DELIVERY'); $event.stopPropagation()">Out for Delivery</button>
                 }
-
-                <!-- NEW CLERK/OFFICE PICKUP BUTTON -->
                 @if (shipment.status === 'AT_DELIVERY_OFFICE') {
-                  <button class="btn-action btn-pickup" (click)="updateStatus(shipment.id!, 'DELIVERED')">Deliver (Pickup)</button>
+                  <button class="btn-action btn-pickup" (click)="updateStatus(shipment.id!, 'DELIVERED'); $event.stopPropagation()">Deliver (Pickup)</button>
                 }
-
-                <!-- STANDARD COURIER DELIVERY BUTTON -->
                 @if (shipment.status === 'OUT_FOR_DELIVERY') {
-                  <button class="btn-action btn-delivered" (click)="updateStatus(shipment.id!, 'DELIVERED')">Delivered</button>
+                  <button class="btn-action btn-delivered" (click)="updateStatus(shipment.id!, 'DELIVERED'); $event.stopPropagation()">Delivered</button>
                 }
               </td>
             </tr>

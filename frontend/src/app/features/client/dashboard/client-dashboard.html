@@ -1,0 +1,80 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h2>Client Dashboard</h2>
+    <p>Welcome back! Here's an overview of your recent shipment activity.</p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading">Loading your shipments...</div>
+  } @else if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  } @else {
+    <div class="shipment-sections">
+      <!-- Shipments Sent By You -->
+      <div class="shipment-section">
+        <h3>Shipments You've Sent</h3>
+        @if (sentShipments().length > 0) {
+          <table class="shipment-table">
+            <thead>
+              <tr>
+                <th>Tracking #</th>
+                <th>Status</th>
+                <th>Receiver</th>
+                <th>Destination</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (shipment of sentShipments(); track shipment.id) {
+                <tr [routerLink]="['/app/shipments', shipment.id]">
+                  <td>{{ shipment.trackingNumber }}</td>
+                  <td>
+                    <span class="status-badge" [ngClass]="shipment.status ? shipment.status.toLowerCase() : ''">
+                      {{ shipment.status }}
+                    </span>
+                  </td>
+                  <td>{{ shipment.receiverName }}</td>
+                  <td>{{ shipment.deliveryOfficeName || shipment.deliveryAddressString }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="no-data">You haven't sent any shipments yet.</p>
+        }
+      </div>
+
+      <!-- Shipments Sent To You -->
+      <div class="shipment-section">
+        <h3>Shipments Sent To You</h3>
+        @if (receivedShipments().length > 0) {
+          <table class="shipment-table">
+            <thead>
+              <tr>
+                <th>Tracking #</th>
+                <th>Status</th>
+                <th>Sender</th>
+                <th>Origin</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (shipment of receivedShipments(); track shipment.id) {
+                <tr [routerLink]="['/app/shipments', shipment.id]">
+                  <td>{{ shipment.trackingNumber }}</td>
+                  <td>
+                    <span class="status-badge" [ngClass]="shipment.status ? shipment.status.toLowerCase() : ''">
+                      {{ shipment.status }}
+                    </span>
+                  </td>
+                  <td>{{ shipment.senderName }}</td>
+                  <td>{{ shipment.originOfficeName || shipment.originAddressString }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="no-data">No shipments are currently on their way to you.</p>
+        }
+      </div>
+    </div>
+  }
+</div>

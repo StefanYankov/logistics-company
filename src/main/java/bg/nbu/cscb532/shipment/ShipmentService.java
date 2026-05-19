@@ -84,6 +84,26 @@ public interface ShipmentService {
     PublicShipmentViewDto getShipmentByTrackingNumber(String trackingNumber);
 
     /**
+     * Retrieves a paginated list of all shipments assigned to a specific courier for delivery.
+     * (Satisfies Requirement 4)
+     *
+     * @param courierId The UUID of the courier.
+     * @param pageable Pagination and sorting criteria.
+     * @return A page of StaffShipmentViewDto.
+     */
+    Page<StaffShipmentViewDto> getMyDeliveries(UUID courierId, Pageable pageable);
+
+    /**
+     * Retrieves a paginated list of all shipments assigned to a specific courier for pickup.
+     * (Satisfies Requirement 4)
+     *
+     * @param courierId The UUID of the courier.
+     * @param pageable Pagination and sorting criteria.
+     * @return A page of StaffShipmentViewDto.
+     */
+    Page<StaffShipmentViewDto> getMyPickups(UUID courierId, Pageable pageable);
+
+    /**
      * Retrieves a paginated list of all shipments sent by a specific client.
      * (Satisfies Requirement 5.f)
      *

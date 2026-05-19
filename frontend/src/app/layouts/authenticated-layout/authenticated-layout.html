@@ -1,45 +1,30 @@
-<div class="authenticated-container">
+<app-authenticated-header></app-authenticated-header>
 
-  <!-- Sidebar Navigation -->
+<div class="main-content-with-sidebar">
   <aside class="sidebar">
-    <div class="sidebar-brand">
-      📦 LogisticsCo
-    </div>
-    <nav class="sidebar-nav">
-      @if (isClient()) {
-        <a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a>
-      }
-
-      <!-- Role-based Navigation Links -->
-      @if (isClient()) {
-        <a routerLink="/app/send-package" routerLinkActive="active">Send Package</a>
-      }
-
-      @if (isStaff()) {
-        <a routerLink="/app/register-shipment" routerLinkActive="active">Office Registration</a>
-        <a routerLink="/app/shipments" routerLinkActive="active">All Shipments</a>
-      }
-
-      <!-- Future Admin/Staff Links can go here -->
-      <!-- <a routerLink="/app/offices" routerLinkActive="active">Offices</a> -->
+    <nav class="main-nav">
+      <ul>
+        @if (isClient()) {
+          <li><a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a></li>
+          <li><a routerLink="/app/send-package" routerLinkActive="active">Send Package</a></li>
+        } @else if (isStaff()) {
+          <li><a routerLink="/app/shipments" routerLinkActive="active">All Shipments</a></li>
+          <li><a routerLink="/app/register-shipment" routerLinkActive="active">Register Shipment</a></li>
+          @if (isCourier()) {
+            <li><a routerLink="/app/my-tasks" routerLinkActive="active">My Tasks</a></li>
+          }
+        }
+      </ul>
     </nav>
+    <div class="user-info">
+      <!-- TODO: This is for presentation purposes and should be removed in a production environment -->
+      <span>Logged in as: {{ authService.getDecodedToken()?.sub }}</span>
+    </div>
   </aside>
 
-  <!-- Main Application Area -->
-  <div class="main-wrapper">
-
-    <!-- Top Navigation Bar -->
-    <header class="top-nav">
-      <div class="nav-content">
-        <span>Welcome to your portal</span>
-        <button (click)="logout()" class="btn-logout">Logout</button>
-      </div>
-    </header>
-
-    <!-- Dynamic Content Area -->
-    <main class="content-area">
-      <router-outlet></router-outlet>
-    </main>
-
-  </div>
+  <main class="content">
+    <router-outlet></router-outlet>
+  </main>
 </div>
+
+<app-footer></app-footer>

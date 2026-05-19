@@ -330,6 +330,20 @@ public class ShipmentServiceImpl implements ShipmentService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<StaffShipmentViewDto> getMyDeliveries(UUID courierId, Pageable pageable) {
+        return shipmentRepository.findByCurrentCourier_IdAndStatus(courierId, ShipmentStatus.OUT_FOR_DELIVERY, pageable)
+                .map(this::mapToStaffView);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<StaffShipmentViewDto> getMyPickups(UUID courierId, Pageable pageable) {
+        return shipmentRepository.findByCurrentCourier_IdAndStatusAndOriginOfficeIsNull(courierId, ShipmentStatus.REGISTERED, pageable)
+                .map(this::mapToStaffView);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<StaffShipmentViewDto> getShipmentsBySender(UUID senderId, Pageable pageable) {
         return shipmentRepository.findBySender_Id(senderId, pageable)
                 .map(this::mapToStaffView);

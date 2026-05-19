@@ -1,21 +1,19 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
-import { ShipmentAPIService } from '../../api';
-import { StaffShipmentViewDto } from '../../api';
-import { AuthService } from '../../shared/auth.service';
+import {Component, inject, OnInit, signal} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {Router, RouterModule} from '@angular/router';
+import {forkJoin, of} from 'rxjs';
+import {catchError} from 'rxjs/operators';
+import {ShipmentAPIService, StaffShipmentViewDto} from '../../../api';
+import {AuthService} from '../../../shared/auth.service';
 
 @Component({
-  selector: 'app-dashboard',
+  selector: 'app-client-dashboard',
   standalone: true,
-  imports: [CommonModule],
-  templateUrl: './dashboard.html',
-  styleUrl: './dashboard.css'
+  imports: [CommonModule, RouterModule],
+  templateUrl: './client-dashboard.html',
+  styleUrl: './client-dashboard.css'
 })
-export class Dashboard implements OnInit {
+export class ClientDashboard implements OnInit {
   private shipmentApi = inject(ShipmentAPIService);
   private authService = inject(AuthService);
   private router = inject(Router);

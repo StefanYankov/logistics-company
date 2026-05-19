@@ -1,11 +1,9 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
-import { catchError, tap } from 'rxjs/operators';
-import { of } from 'rxjs';
-import { ShipmentAPIService } from '../../../api';
-import { StaffShipmentViewDto } from '../../../api';
-import { ShipmentStatusUpdateDto } from '../../../api';
+import {Component, inject, OnInit, signal} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {Router, RouterModule} from '@angular/router';
+import {catchError, tap} from 'rxjs/operators';
+import {of} from 'rxjs';
+import {ShipmentAPIService, ShipmentStatusUpdateDto, StaffShipmentViewDto} from '../../../api';
 
 @Component({
   selector: 'app-shipment-list',
@@ -52,6 +50,13 @@ export class ShipmentList implements OnInit {
 
   updateStatus(shipmentId: string, newStatus: ShipmentStatusUpdateDto.NewStatusEnum): void {
     if (!shipmentId) return;
+
+    if (newStatus === ShipmentStatusUpdateDto.NewStatusEnum.InTransit) {
+      const confirmTransit = window.confirm('Are you sure you want to mark this shipment as "In Transit"? This action indicates the package has left the office.');
+      if (!confirmTransit) {
+        return;
+      }
+    }
 
     const payload: ShipmentStatusUpdateDto = { newStatus };
 

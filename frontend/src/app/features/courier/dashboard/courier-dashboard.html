@@ -1,0 +1,80 @@
+<div class="courier-dashboard-container">
+  <div class="header">
+    <h2>Courier Dashboard</h2>
+    <p>Your assigned pickups and deliveries.</p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading">Loading your tasks...</div>
+  } @else if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  } @else {
+    <div class="task-sections">
+      <!-- Pickups Section -->
+      <div class="task-section">
+        <h3>My Pickups ({{ pickupTasks().length }})</h3>
+        @if (pickupTasks().length > 0) {
+          <table class="task-table">
+            <thead>
+              <tr>
+                <th>Tracking #</th>
+                <th>Status</th>
+                <th>Sender</th>
+                <th>Pickup Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (shipment of pickupTasks(); track shipment.id) {
+                <tr [routerLink]="['/app/shipments', shipment.id]">
+                  <td>{{ shipment.trackingNumber }}</td>
+                  <td>
+                    <span class="status-badge" [ngClass]="shipment.status ? shipment.status.toLowerCase() : ''">
+                      {{ shipment.status }}
+                    </span>
+                  </td>
+                  <td>{{ shipment.senderName }}<br><small>{{ shipment.senderPhone }}</small></td>
+                  <td>{{ shipment.originAddressString }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="no-data">You have no assigned pickups.</p>
+        }
+      </div>
+
+      <!-- Deliveries Section -->
+      <div class="task-section">
+        <h3>My Deliveries ({{ deliveryTasks().length }})</h3>
+        @if (deliveryTasks().length > 0) {
+          <table class="task-table">
+            <thead>
+              <tr>
+                <th>Tracking #</th>
+                <th>Status</th>
+                <th>Receiver</th>
+                <th>Delivery Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (shipment of deliveryTasks(); track shipment.id) {
+                <tr [routerLink]="['/app/shipments', shipment.id]">
+                  <td>{{ shipment.trackingNumber }}</td>
+                  <td>
+                    <span class="status-badge" [ngClass]="shipment.status ? shipment.status.toLowerCase() : ''">
+                      {{ shipment.status }}
+                    </span>
+                  </td>
+                  <td>{{ shipment.receiverName }}<br><small>{{ shipment.receiverPhone }}</small></td>
+                  <td>{{ shipment.deliveryAddressString }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="no-data">You have no assigned deliveries.</p>
+        }
+      </div>
+    </div>
+  }
+</div>
