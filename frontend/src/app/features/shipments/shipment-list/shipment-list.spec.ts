@@ -1,11 +1,10 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ShipmentList } from './shipment-list';
-import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { ShipmentAPIService } from '../../../api';
-import { BASE_PATH } from '../../../api';
-import { of, throwError } from 'rxjs';
-import { provideRouter } from '@angular/router';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {ShipmentList} from './shipment-list';
+import {provideHttpClient} from '@angular/common/http';
+import {provideHttpClientTesting} from '@angular/common/http/testing';
+import {BASE_PATH, ShipmentAPIService} from '../../../api';
+import {of, throwError} from 'rxjs';
+import {provideRouter} from '@angular/router';
 
 describe('ShipmentList', () => {
   let component: ShipmentList;
@@ -33,6 +32,13 @@ describe('ShipmentList', () => {
 
     fixture = TestBed.createComponent(ShipmentList);
     component = fixture.componentInstance;
+
+    // Mock window.confirm to always return true during testing
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('should create and load shipments', () => {
