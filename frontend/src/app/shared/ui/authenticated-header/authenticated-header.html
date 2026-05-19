@@ -1,0 +1,22 @@
+<header class="app-header">
+  <div class="logo">
+    <a routerLink="/app">📦 LogisticsCo</a>
+  </div>
+  <nav class="nav-links">
+    @if (isClient()) {
+      <a routerLink="/app" class="nav-link">Dashboard</a>
+      <a routerLink="/app/send-package" class="nav-link">Send Package</a>
+    }
+    @if (isStaff()) {
+      <a routerLink="/app/shipments" class="nav-link">All Shipments</a>
+      <a routerLink="/app/register-shipment" class="nav-link">Register Shipment</a>
+    }
+    @if (isCourier()) {
+      <a routerLink="/app/my-tasks" class="nav-link">My Tasks</a>
+    }
+    @if (isAdmin()) {
+      <!-- TODO: Add Admin-specific links here -->
+    }
+    <button (click)="logout()" class="btn-logout">Logout</button>
+  </nav>
+</header>

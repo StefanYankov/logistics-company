@@ -1,80 +1,67 @@
-.authenticated-container {
+:host {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  background-color: #f4f6f9;
 }
 
-/* Sidebar Styles */
+app-authenticated-header {
+  flex-shrink: 0;
+}
+
+.main-content-with-sidebar {
+  display: flex;
+  flex-grow: 1;
+}
+
 .sidebar {
   width: 250px;
   background-color: #343a40;
   color: white;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
 }
 
-.sidebar-brand {
-  padding: 1.5rem;
-  font-size: 1.5rem;
-  font-weight: bold;
-  border-bottom: 1px solid #4b545c;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
+.main-nav {
   padding-top: 1rem;
 }
 
-.sidebar-nav a {
+.main-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.main-nav li a {
   color: #adb5bd;
   text-decoration: none;
   padding: 1rem 1.5rem;
+  display: block;
   transition: background-color 0.2s, color 0.2s;
 }
 
-.sidebar-nav a:hover, .sidebar-nav a.active {
+.main-nav li a:hover,
+.main-nav li a.active {
   background-color: #495057;
   color: white;
 }
 
-/* Main Area Styles */
-.main-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+.user-info {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #4b545c;
+  margin-top: auto;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #adb5bd;
 }
 
-/* Top Nav Styles */
-.top-nav {
-  background-color: white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  padding: 1rem 2rem;
-}
-
-.nav-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.btn-logout {
-  background-color: transparent;
-  color: #dc3545;
-  border: 1px solid #dc3545;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-logout:hover {
-  background-color: #dc3545;
-  color: white;
-}
-
-/* Content Area */
-.content-area {
+.content {
+  flex-grow: 1;
   padding: 2rem;
-  flex: 1;
+  overflow-y: auto;
+  background-color: #f4f6f9;
+}
+
+app-footer {
+  flex-shrink: 0;
 }

@@ -1,6 +1,6 @@
-import { Component, ElementRef, inject, OnInit, ViewChild } from '@angular/core';
-import { Router, RouterModule } from '@angular/router';
-import { AuthService } from '../../../shared/auth.service';
+import {Component, ElementRef, inject, OnInit, ViewChild} from '@angular/core';
+import {Router, RouterModule} from '@angular/router';
+import {AuthService} from '../../../shared/auth.service';
 
 @Component({
   selector: 'app-home',
@@ -21,6 +21,9 @@ export class Home implements OnInit {
       if (decodedToken) {
         if (decodedToken.role === 'ROLE_CLIENT') {
            this.router.navigate(['/app']);
+        } else if (decodedToken.role === 'ROLE_ADMIN') {
+            // TODO: Redirect to admin dashboard
+            this.router.navigate(['/app/shipments']);
         } else {
            this.router.navigate(['/app/shipments']);
         }
