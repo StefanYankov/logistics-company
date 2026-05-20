@@ -47,7 +47,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
 
         Client sender = createMockClient(senderId, "Sender", "One");
         Client receiver = createMockClient(receiverId, "Receiver", "Two");
-        Courier employee = createMockEmployee(employeeId, "Emp", "Three");
+        Courier employee = createMockCourier(employeeId, "Emp", "Three");
         City city = createMockCity(1L, "Sofia", "1000");
         Office destOffice = createMockOffice(destOfficeId, city);
         Office originOffice = createMockOffice(originOfficeId, city);
@@ -103,7 +103,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
         Client sender = createMockClient(senderId, "Sender", "One");
         UUID matchedReceiverId = UUID.randomUUID();
         Client matchedReceiver = createMockClient(matchedReceiverId, "Real", "Mom");
-        Courier employee = createMockEmployee(employeeId, "Emp", "Three");
+        Courier employee = createMockCourier(employeeId, "Emp", "Three");
         Office destOffice = createMockOffice(destOfficeId, createMockCity(1L, "Sofia", "1000"));
         Office originOffice = createMockOffice(5L, createMockCity(1L, "Sofia", "1000"));
 
@@ -148,7 +148,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
                 .build();
 
         Client sender = createMockClient(senderId, "Sender", "One");
-        Courier employee = createMockEmployee(employeeId, "Emp", "Three");
+        Courier employee = createMockCourier(employeeId, "Emp", "Three");
         City city = createMockCity(cityId, "Sofia", "1000");
         Office destOffice = createMockOffice(destOfficeId, city);
 
@@ -197,7 +197,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
 
         Client sender = createMockClient(senderId, "Sender", "One");
         Client receiver = createMockClient(receiverId, "Receiver", "Two");
-        Courier employee = createMockEmployee(employeeId, "Emp", "Three");
+        Courier employee = createMockCourier(employeeId, "Emp", "Three");
         City city = createMockCity(cityId, "Plovdiv", "4000");
         Office originOffice = createMockOffice(originOfficeId, city);
 
@@ -239,7 +239,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
 
         Client sender = createMockClient(senderId, "Sender", "One");
         Client receiver = createMockClient(receiverId, "Receiver", "Two");
-        Courier employee = createMockEmployee(employeeId, "Emp", "Three");
+        Courier employee = createMockCourier(employeeId, "Emp", "Three");
         City city = createMockCity(1L, "Sofia", "1000");
         Office destOffice = createMockOffice(destOfficeId, city);
         Office originOffice = createMockOffice(5L, city);
@@ -291,7 +291,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
 
         Client sender = createMockClient(senderId, "Sender", "One");
         Client receiver = createMockClient(receiverId, "Receiver", "Two");
-        Courier employee = createMockEmployee(employeeId, "Emp", "Three");
+        Courier employee = createMockCourier(employeeId, "Emp", "Three");
         City city = createMockCity(1L, "Sofia", "1000");
         Office destOffice = createMockOffice(destOfficeId, city);
         Office originOffice = createMockOffice(5L, city);

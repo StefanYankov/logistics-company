@@ -9,6 +9,8 @@ This application is built using modern Angular practices:
 *   **Signals:** State management and reactivity are heavily reliant on Angular Signals (`signal()`, `computed()`, `effect()`) for fine-grained updates and zoneless compatibility.
 *   **Reactive Forms:** Complex forms (like shipment registration) use strongly typed `FormBuilder`.
 *   **OpenAPI Generation:** The entire data access layer (`src/app/api`) is auto-generated from the Spring Boot backend's Swagger/OpenAPI specification.
+*   **Role-Based Feature Modules:** Components are organized by user role (`features/client`, `features/courier`) to enhance modularity and maintainability.
+*   **Semantic Layouts:** The application uses distinct layout components (`PublicLayout`, `AuthenticatedLayout`) and smart header components (`PublicHeader`, `AuthenticatedHeader`) to provide tailored UI experiences based on authentication state and user role.
 
 ## Setup & OpenAPI Generation
 

@@ -1,5 +1,7 @@
 package bg.nbu.cscb532.shipment.service;
 
+import bg.nbu.cscb532.employee.Courier;
+import bg.nbu.cscb532.employee.OfficeClerk;
 import bg.nbu.cscb532.office.Office;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
@@ -10,6 +12,7 @@ import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -103,5 +106,134 @@ public class ShipmentLifecycleWorkflowTests extends AbstractShipmentUnitTestBase
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.VALIDATION_FAILED);
+    }
+
+    @Nested
+    @DisplayName("assignPickup(UUID, UUID, CustomUserDetails) Tests")
+    class AssignPickupTests {
+
+        @Test
+        @DisplayName("Happy Path: Should successfully assign a courier to a REGISTERED address pickup shipment")
+        void shouldAssignCourierToRegisteredAddressPickup() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            Shipment shipment = createValidShipment();
+            shipment.setId(shipmentId);
+            shipment.setStatus(ShipmentStatus.REGISTERED);
+            shipment.setOriginOffice(null); // Ensure it's an address pickup
+            shipment.setOriginAddressSnapshot(createMockAddressDetails()); // Set address details
+
+            Courier courier = createMockCourier(courierId, "John", "Doe");
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
+            given(employeeRepository.findById(courierId)).willReturn(Optional.of(courier));
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(shipment); // Return the same shipment
+
+            // Act
+            StaffShipmentViewDto result = shipmentService.assignPickup(shipmentId, courierId, authUser);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.currentCourierId()).isEqualTo(courierId);
+            assertThat(result.currentCourierName()).isEqualTo("John Doe");
+            verify(shipmentRepository).save(shipmentCaptor.capture());
+            assertThat(shipmentCaptor.getValue().getCurrentCourier().getId()).isEqualTo(courierId);
+            verify(historyRepository).save(any()); // Verify history is logged
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw RESOURCE_NOT_FOUND if shipment does not exist")
+        void shouldThrowIfShipmentNotFound() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.empty());
+
+            // Act and Assert
+            assertThatThrownBy(() -> shipmentService.assignPickup(shipmentId, courierId, authUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw RESOURCE_NOT_FOUND if courier does not exist or is not a Courier type")
+        void shouldThrowIfCourierNotFoundOrNotCourier() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            Shipment shipment = createValidShipment();
+            shipment.setId(shipmentId);
+            shipment.setStatus(ShipmentStatus.REGISTERED);
+            shipment.setOriginOffice(null);
+
+            OfficeClerk nonCourier = createMockOfficeClerk(courierId, "Not", "Courier");
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
+            given(employeeRepository.findById(courierId)).willReturn(Optional.of(nonCourier)); // Return a non-Courier instance
+
+            // Act and Assert
+            assertThatThrownBy(() -> shipmentService.assignPickup(shipmentId, courierId, authUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw VALIDATION_FAILED if shipment is not in REGISTERED status")
+        void shouldThrowIfShipmentNotRegistered() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            Shipment shipment = createValidShipment();
+            shipment.setId(shipmentId);
+            shipment.setStatus(ShipmentStatus.IN_TRANSIT); // Not REGISTERED
+            shipment.setOriginOffice(null);
+
+            Courier courier = createMockCourier(courierId, "John", "Doe");
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
+            given(employeeRepository.findById(courierId)).willReturn(Optional.of(courier));
+
+            // Act and Assert
+            assertThatThrownBy(() -> shipmentService.assignPickup(shipmentId, courierId, authUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw VALIDATION_FAILED if shipment originates from an office")
+        void shouldThrowIfShipmentOriginatesFromOffice() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            Shipment shipment = createValidShipment();
+            shipment.setId(shipmentId);
+            shipment.setStatus(ShipmentStatus.REGISTERED);
+            shipment.setOriginOffice(createMockOffice(1L, createMockCity(1L, "Sofia", "1000")));
+
+            Courier courier = createMockCourier(courierId, "John", "Doe");
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
+            given(employeeRepository.findById(courierId)).willReturn(Optional.of(courier));
+
+            // Act and Assert
+            assertThatThrownBy(() -> shipmentService.assignPickup(shipmentId, courierId, authUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+        }
     }
 }

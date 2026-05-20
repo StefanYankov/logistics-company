@@ -8,6 +8,7 @@ import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
@@ -153,5 +154,120 @@ public class ShipmentWorkflowAndAccessControllerTests extends AbstractShipmentCo
 
         verify(shipmentService).getShipmentById(eq(id), any(), any());
         verifyNoMoreInteractions(shipmentService);
+    }
+
+    @Nested
+    @DisplayName("PATCH /api/shipments/{id}/assign-pickup/{courierId}")
+    class AssignPickupTests {
+
+        @Test
+        @DisplayName("Happy Path: Should successfully assign pickup and return 200 OK for CLERK")
+        void shouldAssignPickupSuccessfullyForClerk() throws Exception {
+            // Arrange
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+            StaffShipmentViewDto response = createValidStaffShipmentViewDto(shipmentId, "TRK-TEST");
+
+            given(shipmentService.assignPickup(eq(shipmentId), eq(courierId), any())).willReturn(response);
+
+            // Act and Assert
+            mockMvc.perform(patch(BASE_URL + "/{id}/assign-pickup/{courierId}", shipmentId, courierId)
+                            .with(user(authUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.id").value(shipmentId.toString()));
+
+            verify(shipmentService).assignPickup(eq(shipmentId), eq(courierId), any());
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should successfully assign pickup and return 200 OK for ADMIN")
+        void shouldAssignPickupSuccessfullyForAdmin() throws Exception {
+            // Arrange
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+            StaffShipmentViewDto response = createValidStaffShipmentViewDto(shipmentId, "TRK-TEST");
+
+            given(shipmentService.assignPickup(eq(shipmentId), eq(courierId), any())).willReturn(response);
+
+            // Act and Assert
+            mockMvc.perform(patch(BASE_URL + "/{id}/assign-pickup/{courierId}", shipmentId, courierId)
+                            .with(user(authUser)))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.id").value(shipmentId.toString()));
+
+            verify(shipmentService).assignPickup(eq(shipmentId), eq(courierId), any());
+        }
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when Courier attempts to assign pickup")
+        void shouldReturn403WhenCourierAttemptsToAssignPickup() throws Exception {
+            // Arrange
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.COURIER);
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+
+            // Act and Assert
+            mockMvc.perform(patch(BASE_URL + "/{id}/assign-pickup/{courierId}", shipmentId, courierId)
+                            .with(user(authUser)))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(shipmentService);
+        }
+        
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden when Client attempts to assign pickup")
+        void shouldReturn403WhenClientAttemptsToAssignPickup() throws Exception {
+            // Arrange
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+
+            // Act and Assert
+            mockMvc.perform(patch(BASE_URL + "/{id}/assign-pickup/{courierId}", shipmentId, courierId)
+                            .with(user(authUser)))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should return 400 Bad Request if service throws VALIDATION_FAILED")
+        void shouldReturn400WhenServiceThrowsValidationFailed() throws Exception {
+            // Arrange
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+
+            given(shipmentService.assignPickup(eq(shipmentId), eq(courierId), any()))
+                    .willThrow(new BusinessException(ErrorCode.VALIDATION_FAILED));
+
+            // Act and Assert
+            mockMvc.perform(patch(BASE_URL + "/{id}/assign-pickup/{courierId}", shipmentId, courierId)
+                            .with(user(authUser)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_FAILED.getCode()));
+        }
+
+        @Test
+        @DisplayName("Error Case: Should return 404 Not Found if service throws RESOURCE_NOT_FOUND")
+        void shouldReturn404WhenServiceThrowsResourceNotFound() throws Exception {
+            // Arrange
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            UUID shipmentId = UUID.randomUUID();
+            UUID courierId = UUID.randomUUID();
+
+            given(shipmentService.assignPickup(eq(shipmentId), eq(courierId), any()))
+                    .willThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+            // Act and Assert
+            mockMvc.perform(patch(BASE_URL + "/{id}/assign-pickup/{courierId}", shipmentId, courierId)
+                            .with(user(authUser)))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.RESOURCE_NOT_FOUND.getCode()));
+        }
     }
 }

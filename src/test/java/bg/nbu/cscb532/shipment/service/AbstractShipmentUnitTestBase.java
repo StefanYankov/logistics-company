@@ -4,6 +4,7 @@ import bg.nbu.cscb532.client.Client;
 import bg.nbu.cscb532.client.ClientRepository;
 import bg.nbu.cscb532.employee.Courier;
 import bg.nbu.cscb532.employee.EmployeeRepository;
+import bg.nbu.cscb532.employee.OfficeClerk;
 import bg.nbu.cscb532.office.City;
 import bg.nbu.cscb532.office.CityRepository;
 import bg.nbu.cscb532.office.Office;
@@ -20,6 +21,7 @@ import org.mockito.Mock;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.UUID;
 
@@ -52,12 +54,29 @@ public abstract class AbstractShipmentUnitTestBase {
         return client;
     }
 
-    protected Courier createMockEmployee(UUID id, String firstName, String lastName) {
+    protected Courier createMockCourier(UUID id, String firstName, String lastName) {
         Courier courier = new Courier();
         courier.setId(id);
         courier.setFirstName(firstName);
         courier.setLastName(lastName);
+        courier.setEmployeeNumber("EMP-" + id.toString().substring(0, 4));
+        courier.setHireDate(LocalDate.now());
+        courier.setSalary(BigDecimal.valueOf(2000));
+        courier.setApplicationRole(ApplicationRole.COURIER);
         return courier;
+    }
+
+    protected OfficeClerk createMockOfficeClerk(UUID id, String firstName, String lastName) {
+        OfficeClerk clerk = new OfficeClerk();
+        clerk.setId(id);
+        clerk.setFirstName(firstName);
+        clerk.setLastName(lastName);
+        clerk.setEmployeeNumber("OC-" + id.toString().substring(0, 4));
+        clerk.setHireDate(LocalDate.now());
+        clerk.setSalary(BigDecimal.valueOf(1500));
+        clerk.setApplicationRole(ApplicationRole.CLERK);
+        clerk.setOffice(createMockOffice(1L, createMockCity(1L, "TestCity", "1000")));
+        return clerk;
     }
 
     protected City createMockCity(Long id, String name, String postcode) {
@@ -76,6 +95,14 @@ public abstract class AbstractShipmentUnitTestBase {
         address.setStreet("Office Street 1");
         office.setAddressDetails(address);
         return office;
+    }
+
+    protected AddressDetails createMockAddressDetails() {
+        AddressDetails address = new AddressDetails();
+        address.setCity(createMockCity(1L, "Sofia", "1000"));
+        address.setStreet("Some Street 123");
+        address.setBuilding("1A");
+        return address;
     }
 
     protected CustomUserDetails createMockAuthUser(UUID id, ApplicationRole role) {
@@ -106,7 +133,7 @@ public abstract class AbstractShipmentUnitTestBase {
         shipment.setStatus(ShipmentStatus.REGISTERED);
         shipment.setSender(createMockClient(UUID.randomUUID(), "A", "A"));
         shipment.setReceiver(createMockClient(UUID.randomUUID(), "B", "B"));
-        shipment.setRegisteredBy(createMockEmployee(UUID.randomUUID(), "C", "C"));
+        shipment.setRegisteredBy(createMockCourier(UUID.randomUUID(), "C", "C"));
         shipment.setAddons(Collections.emptySet());
 
         PackageDetails details = PackageDetails.builder()

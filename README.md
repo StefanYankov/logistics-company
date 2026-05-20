@@ -73,23 +73,28 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
 
 ## Frontend Application Structure & Features
 
-The Angular frontend is built with a standalone component architecture and follows a feature-driven structure:
+The Angular frontend is built with a standalone component architecture and follows a modular, feature-driven structure based on user roles:
 
 *   **Core Authentication:**
     *   `AuthService`: Manages JWT tokens, user login/logout, and token decoding.
     *   `AuthInterceptor`: Automatically attaches JWT to all outgoing API requests.
     *   `AuthGuard`: Protects authenticated routes.
-*   **Public Zone:**
-    *   `PublicLayout`: Provides a shared header (with Login/Register links) and footer for unauthenticated users.
+*   **Public Zone (`features/public` & `features/auth`):**
+    *   `PublicLayout`: Provides a shared `PublicHeader` (with Login/Register links) and footer for unauthenticated users.
     *   `Home`: Landing page with a public shipment tracking search bar.
     *   `Login`: User authentication form.
     *   `Register`: New client registration form.
     *   `Tracking`: Displays public shipment details by tracking number.
-*   **Authenticated Zone:**
-    *   `AuthenticatedLayout`: Provides a shared sidebar navigation and top bar (with Logout) for authenticated users.
-    *   `Dashboard`: Client-specific view displaying sent and received shipments.
-    *   `ClientRegistration` & `ClerkRegistration`: Role-specific forms for registering new shipments, including sender lookup and addon selection.
-    *   `ShipmentList`: Master view for staff to see all shipments, applied addons, and update their status.
+*   **Authenticated Zone (`layouts/authenticated-layout`):**
+    *   `AuthenticatedLayout`: Provides a shared sidebar navigation and a smart `AuthenticatedHeader` (with conditional navigation and Logout) for authenticated users.
+*   **Role-Based Feature Modules:**
+    *   **Client (`features/client`):**
+        *   `ClientDashboard`: Client-specific view displaying sent and received shipments.
+    *   **Courier (`features/courier`):**
+        *   `CourierDashboard`: Dedicated view showing assigned "My Deliveries" and "My Pickups".
+    *   **Shipments & Operations (`features/shipments`):**
+        *   `ClientRegistration` & `ClerkRegistration`: Role-specific forms for registering new shipments, including sender lookup and addon selection.
+        *   `ShipmentList`: Master operational view for staff to see all shipments, apply addons, assign pickups to couriers, and update lifecycle statuses.
 
 ## Project Structure
 The project follows a **Package-by-Feature** (Modular Monolith) structure to ensure high cohesion and prepare for potential future microservice extraction.
@@ -99,9 +104,9 @@ LogisticsCompany/
 ├── 📂 .github/                   # GitHub Actions (CI/CD workflows)
 ├── 📂 frontend/                  # Angular 19+ Application Root
 │   ├── 📂 src/app/api/          # Auto-generated OpenAPI client services and models
-│   ├── 📂 src/app/features/     # Feature-specific components (auth, public, dashboard, shipments)
+│   ├── 📂 src/app/features/     # Role-based feature modules (client, courier, public, shipments)
 │   ├── 📂 src/app/layouts/      # Shared layout components (public, authenticated)
-│   ├── 📂 src/app/shared/       # Cross-cutting concerns (auth.service, auth.guard, auth.interceptor, models, ui)
+│   ├── 📂 src/app/shared/       # Cross-cutting concerns (auth.service, auth.guard, ui components)
 │   └── ...
 ├── 📂 src/                       # Spring Boot 4.0 Application Root
 │   ├── 📂 main/

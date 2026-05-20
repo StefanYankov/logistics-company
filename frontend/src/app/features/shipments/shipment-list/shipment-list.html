@@ -92,21 +92,36 @@
                 }
               </td>
               <td class="actions-col">
-                <!-- Actions logic relies on the user's role, but for the prototype we expose the transitions -->
-                @if (shipment.status === 'REGISTERED') {
-                  <button class="btn-action btn-transit" (click)="updateStatus(shipment.id!, 'IN_TRANSIT'); $event.stopPropagation()">Mark In Transit</button>
-                }
-                @if (shipment.status === 'IN_TRANSIT') {
-                  <button class="btn-action btn-office" (click)="updateStatus(shipment.id!, 'AT_DELIVERY_OFFICE'); $event.stopPropagation()">Arrived at Office</button>
-                }
-                @if (shipment.status === 'IN_TRANSIT' || shipment.status === 'AT_DELIVERY_OFFICE') {
-                  <button class="btn-action btn-out" (click)="updateStatus(shipment.id!, 'OUT_FOR_DELIVERY'); $event.stopPropagation()">Out for Delivery</button>
-                }
-                @if (shipment.status === 'AT_DELIVERY_OFFICE') {
-                  <button class="btn-action btn-pickup" (click)="updateStatus(shipment.id!, 'DELIVERED'); $event.stopPropagation()">Deliver (Pickup)</button>
-                }
-                @if (shipment.status === 'OUT_FOR_DELIVERY') {
-                  <button class="btn-action btn-delivered" (click)="updateStatus(shipment.id!, 'DELIVERED'); $event.stopPropagation()">Delivered</button>
+                @if (showAssignPickupModal() === shipment.id) {
+                  <div class="assign-pickup-form">
+                    <select (change)="onCourierSelected($event)" class="courier-select">
+                      <option [ngValue]="null" disabled selected>Select Courier</option>
+                      @for (courier of availableCouriers(); track courier.id) {
+                        <option [value]="courier.id">{{ courier.firstName }} {{ courier.lastName }}</option>
+                      }
+                    </select>
+                    <button class="btn-action btn-confirm" [disabled]="!selectedCourierForAssignment()" (click)="confirmAssignPickup(); $event.stopPropagation()">Confirm</button>
+                    <button class="btn-action btn-cancel" (click)="closeAssignPickupModal(); $event.stopPropagation()">Cancel</button>
+                  </div>
+                } @else {
+                  @if (shipment.status === 'REGISTERED' && !shipment.originOfficeName) {
+                    <button class="btn-action btn-assign" (click)="openAssignPickupModal(shipment.id!); $event.stopPropagation()">Assign Pickup</button>
+                  }
+                  @if (shipment.status === 'REGISTERED' && shipment.originOfficeName) {
+                    <button class="btn-action btn-transit" (click)="updateStatus(shipment.id!, 'IN_TRANSIT'); $event.stopPropagation()">Mark In Transit</button>
+                  }
+                  @if (shipment.status === 'IN_TRANSIT') {
+                    <button class="btn-action btn-office" (click)="updateStatus(shipment.id!, 'AT_DELIVERY_OFFICE'); $event.stopPropagation()">Arrived at Office</button>
+                  }
+                  @if (shipment.status === 'IN_TRANSIT' || shipment.status === 'AT_DELIVERY_OFFICE') {
+                    <button class="btn-action btn-out" (click)="updateStatus(shipment.id!, 'OUT_FOR_DELIVERY'); $event.stopPropagation()">Out for Delivery</button>
+                  }
+                  @if (shipment.status === 'AT_DELIVERY_OFFICE') {
+                    <button class="btn-action btn-pickup" (click)="updateStatus(shipment.id!, 'DELIVERED'); $event.stopPropagation()">Deliver (Pickup)</button>
+                  }
+                  @if (shipment.status === 'OUT_FOR_DELIVERY') {
+                    <button class="btn-action btn-delivered" (click)="updateStatus(shipment.id!, 'DELIVERED'); $event.stopPropagation()">Delivered</button>
+                  }
                 }
               </td>
             </tr>

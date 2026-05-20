@@ -14,11 +14,7 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
-import bg.nbu.cscb532.shipment.dto.PublicShipmentViewDto;
-import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
-import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
+import bg.nbu.cscb532.shipment.dto.*;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -32,11 +28,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -277,6 +269,46 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         return mapToStaffView(updatedShipment);
     }
+
+    @Override
+    @Transactional
+    public StaffShipmentViewDto assignPickup(UUID shipmentId, UUID courierId, CustomUserDetails userDetails) {
+        log.debug("User {} attempting to assign pickup for shipment {} to courier {}", userDetails.getId(), shipmentId, courierId);
+
+        Shipment shipment = shipmentRepository.findById(shipmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        Employee employee = employeeRepository.findById(courierId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        
+        if (!(employee instanceof Courier courier)) {
+             log.warn("Attempted to assign pickup to an employee {} that is not a courier", courierId);
+             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        if (shipment.getStatus() != ShipmentStatus.REGISTERED) {
+             log.warn("Cannot assign pickup. Shipment {} is not in REGISTERED status (Current: {})", shipmentId, shipment.getStatus());
+             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        if (shipment.getOriginOffice() != null) {
+            log.warn("Cannot assign pickup. Shipment {} originates from an office, not an address.", shipmentId);
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+        
+        shipment.setCurrentCourier(courier);
+        Shipment updatedShipment = shipmentRepository.save(shipment);
+
+        ShipmentStatusHistory history = ShipmentStatusHistory.builder()
+                .shipment(updatedShipment)
+                .status(ShipmentStatus.REGISTERED)
+                .notes("Assigned to courier " + courier.getFirstName() + " " + courier.getLastName() + " for pickup.")
+                .build();
+        historyRepository.save(history);
+        
+        return mapToStaffView(updatedShipment);
+    }
+
 
     @Override
     @Transactional(readOnly = true)

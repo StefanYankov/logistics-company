@@ -1,10 +1,6 @@
 package bg.nbu.cscb532.shipment;
 
-import bg.nbu.cscb532.shipment.dto.PublicShipmentViewDto;
-import bg.nbu.cscb532.shipment.dto.RevenueReportDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
-import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
-import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
+import bg.nbu.cscb532.shipment.dto.*;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import org.springframework.data.domain.Page;
@@ -43,6 +39,18 @@ public interface ShipmentService {
      * @throws bg.nbu.cscb532.shared.exception.BusinessException if the transition is invalid, the shipment is not found, or the location office is invalid.
      */
     StaffShipmentViewDto updateShipmentStatus(UUID shipmentId, ShipmentStatusUpdateDto request, CustomUserDetails userDetails);
+
+    /**
+     * Assigns a courier to a shipment for pickup from a client's address.
+     * Enforces business rules: shipment must be REGISTERED and originate from an address.
+     *
+     * @param shipmentId The UUID of the shipment to assign.
+     * @param courierId The UUID of the courier to assign.
+     * @param userDetails The authenticated user performing the assignment (must be ADMIN or CLERK).
+     * @return The updated StaffShipmentViewDto.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if shipment/courier not found, or business rules violated.
+     */
+    StaffShipmentViewDto assignPickup(UUID shipmentId, UUID courierId, CustomUserDetails userDetails);
 
     /**
      * Retrieves a specific shipment by its UUID for staff or authorized clients.
