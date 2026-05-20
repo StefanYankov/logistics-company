@@ -15,6 +15,7 @@ import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
 import bg.nbu.cscb532.shipment.dto.*;
+import bg.nbu.cscb532.shipment.dto.mapper.ShipmentMapper; // Import the new mapper
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Implementation of the core Shipment Service.
@@ -50,6 +50,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final PricingService pricingService;
     private final ServiceCatalogRepository serviceCatalogRepository;
     private final ShipmentAddonRepository shipmentAddonRepository;
+    private final ShipmentMapper shipmentMapper;
 
     @Override
     @Transactional
@@ -65,7 +66,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         // --- XOR Validation for Receiver ---
         boolean hasReceiverId = request.receiverId() != null;
         boolean hasGuestDetails = request.receiverName() != null && !request.receiverName().isBlank() &&
-                                  request.receiverPhone() != null && !request.receiverPhone().isBlank();
+                request.receiverPhone() != null && !request.receiverPhone().isBlank();
 
         if (hasReceiverId == hasGuestDetails) {
             throw new BusinessException(ErrorCode.SHIPMENT_RECEIVER_EXCLUSIVE);
@@ -177,7 +178,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 if (service.getPricingType() == PricingType.FIXED_AMOUNT) {
                     appliedCost = service.getPricingValue();
                 } else if (service.getPricingType() == PricingType.PERCENTAGE_OF_BASE) {
-                     appliedCost = service.getPricingValue();
+                    appliedCost = service.getPricingValue();
                 }
                 addon.setAppliedCost(appliedCost);
                 shipmentAddonRepository.save(addon);
@@ -189,13 +190,13 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .status(ShipmentStatus.REGISTERED)
                 .notes("Shipment officially registered into the system.")
                 .build();
-        
+
         historyRepository.save(initialHistory);
 
         // TODO: Implement a geographic or load-balanced auto-assignment algorithm for address pickups.
         log.info("Successfully registered Shipment with Tracking Number: {}", trackingNumber);
 
-        return mapToStaffView(savedShipment);
+        return shipmentMapper.toStaffView(savedShipment);
     }
 
     @Override
@@ -209,7 +210,6 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment shipment = shipmentRepository.findById(shipmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
-        // Authorization check for Clients
         if (userDetails.getApplicationRole() == ApplicationRole.CLIENT) {
             if (!shipment.getSender().getId().equals(userDetails.getId())) {
                 log.warn("Client {} attempted to edit shipment {} belonging to a different sender", userDetails.getId(), shipmentId);
@@ -228,28 +228,18 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (dto.weight() != null) {
             shipment.getPackageDetails().setWeight(dto.weight());
         }
-        if (dto.length() != null) {
-            shipment.getPackageDetails().setLength(dto.length());
-        }
-        if (dto.width() != null) {
-            shipment.getPackageDetails().setWidth(dto.width());
-        }
-        if (dto.height() != null) {
-            shipment.getPackageDetails().setHeight(dto.height());
-        }
+        if (dto.length() != null) shipment.getPackageDetails().setLength(dto.length());
+        if (dto.width() != null) shipment.getPackageDetails().setWidth(dto.width());
+        if (dto.height() != null) shipment.getPackageDetails().setHeight(dto.height());
 
-        if (shipment.getReceiver() == null) {
-            if (dto.receiverName() != null && !dto.receiverName().isBlank()) shipment.setReceiverName(dto.receiverName());
-            if (dto.receiverPhone() != null && !dto.receiverPhone().isBlank()) shipment.setReceiverPhone(dto.receiverPhone());
-            if (dto.receiverEmail() != null) shipment.setReceiverEmail(dto.receiverEmail());
-        }
+        if (dto.receiverName() != null && !dto.receiverName().isBlank())
+            shipment.setReceiverName(dto.receiverName());
+        if (dto.receiverPhone() != null && !dto.receiverPhone().isBlank())
+            shipment.setReceiverPhone(dto.receiverPhone());
+        if (dto.receiverEmail() != null) shipment.setReceiverEmail(dto.receiverEmail());
 
-        if (dto.paidBy() != null) {
-            shipment.getFinancials().setPaidBy(dto.paidBy());
-        }
-        if (dto.isPaid() != null) {
-            shipment.getFinancials().setPaid(dto.isPaid());
-        }
+        if (dto.paidBy() != null) shipment.getFinancials().setPaidBy(dto.paidBy());
+        if (dto.isPaid() != null) shipment.getFinancials().setPaid(dto.isPaid());
 
         boolean hasDeliveryOfficeId = dto.deliveryOfficeId() != null;
         boolean hasDeliveryAddress = dto.deliveryAddress() != null;
@@ -312,7 +302,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         log.info("Successfully updated Shipment with Tracking Number: {}", shipment.getTrackingNumber());
 
-        return mapToStaffView(savedShipment);
+        return shipmentMapper.toStaffView(savedShipment);
     }
 
     /**
@@ -320,36 +310,36 @@ public class ShipmentServiceImpl implements ShipmentService {
      * specifically for the purpose of feeding it to the PricingService.
      */
     private ShipmentCreationDto convertToCreationDtoForPricing(Shipment shipment, Set<Long> newServiceIds) {
-         AddressDetailsDto deliveryAddressDto = null;
-         if (shipment.getDeliveryAddressSnapshot() != null) {
-             AddressDetails addr = shipment.getDeliveryAddressSnapshot();
-             deliveryAddressDto = new AddressDetailsDto(
-                     addr.getCity().getId(),
-                     addr.getStreet(),
-                     addr.getDistrict(),
-                     addr.getBuilding(),
-                     addr.getEntrance(),
-                     addr.getFloor(),
-                     addr.getApartment(),
-                     addr.getLatitude(),
-                     addr.getLongitude()
-             );
-         }
+        AddressDetailsDto deliveryAddressDto = null;
+        if (shipment.getDeliveryAddressSnapshot() != null) {
+            AddressDetails addr = shipment.getDeliveryAddressSnapshot();
+            deliveryAddressDto = new AddressDetailsDto(
+                    addr.getCity().getId(),
+                    addr.getStreet(),
+                    addr.getDistrict(),
+                    addr.getBuilding(),
+                    addr.getEntrance(),
+                    addr.getFloor(),
+                    addr.getApartment(),
+                    addr.getLatitude(),
+                    addr.getLongitude()
+            );
+        }
 
-         return ShipmentCreationDto.builder()
-                 .senderId(shipment.getSender().getId())
-                 .receiverId(shipment.getReceiver() != null ? shipment.getReceiver().getId() : null)
-                 .type(shipment.getPackageDetails().getType())
-                 .weight(shipment.getPackageDetails().getWeight())
-                 .length(shipment.getPackageDetails().getLength())
-                 .width(shipment.getPackageDetails().getWidth())
-                 .height(shipment.getPackageDetails().getHeight())
-                 .paidBy(shipment.getFinancials().getPaidBy())
-                 .originOfficeId(shipment.getOriginOffice() != null ? shipment.getOriginOffice().getId() : null)
-                 .deliveryOfficeId(shipment.getDeliveryOffice() != null ? shipment.getDeliveryOffice().getId() : null)
-                 .deliveryAddress(deliveryAddressDto)
-                 .selectedServiceIds(newServiceIds != null ? newServiceIds : shipment.getAddons().stream().map(a -> a.getServiceCatalog().getId()).collect(Collectors.toSet()))
-                 .build();
+        return ShipmentCreationDto.builder()
+                .senderId(shipment.getSender().getId())
+                .receiverId(shipment.getReceiver() != null ? shipment.getReceiver().getId() : null)
+                .type(shipment.getPackageDetails().getType())
+                .weight(shipment.getPackageDetails().getWeight())
+                .length(shipment.getPackageDetails().getLength())
+                .width(shipment.getPackageDetails().getWidth())
+                .height(shipment.getPackageDetails().getHeight())
+                .paidBy(shipment.getFinancials().getPaidBy())
+                .originOfficeId(shipment.getOriginOffice() != null ? shipment.getOriginOffice().getId() : null)
+                .deliveryOfficeId(shipment.getDeliveryOffice() != null ? shipment.getDeliveryOffice().getId() : null)
+                .deliveryAddress(deliveryAddressDto)
+                .selectedServiceIds(newServiceIds != null ? newServiceIds : shipment.getAddons().stream().map(a -> a.getServiceCatalog().getId()).collect(Collectors.toSet()))
+                .build();
     }
 
 
@@ -373,8 +363,8 @@ public class ShipmentServiceImpl implements ShipmentService {
                 shipment.setDeliveredBy((Courier) employee);
             } else if (userDetails.getApplicationRole() == ApplicationRole.CLERK) {
                 if (shipment.getStatus() != ShipmentStatus.AT_DELIVERY_OFFICE && shipment.getStatus() != ShipmentStatus.DELIVERED) {
-                     log.warn("Clerk user {} attempted to mark shipment {} as DELIVERED while it is not at an office (Current status: {})", userDetails.getId(), shipmentId, shipment.getStatus());
-                     throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+                    log.warn("Clerk user {} attempted to mark shipment {} as DELIVERED while it is not at an office (Current status: {})", userDetails.getId(), shipmentId, shipment.getStatus());
+                    throw new BusinessException(ErrorCode.VALIDATION_FAILED);
                 }
             } else {
                 log.warn("Unauthorized role {} attempted to mark shipment {} as DELIVERED", userDetails.getApplicationRole(), shipmentId);
@@ -397,7 +387,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (request.locationOfficeId() != null) {
             locationOffice = officeRepository.findById(request.locationOfficeId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
-                    
+
             if (request.newStatus() == ShipmentStatus.AT_DELIVERY_OFFICE || request.newStatus() == ShipmentStatus.IN_TRANSIT) {
                 shipment.setCurrentOffice(locationOffice);
                 shipment.setCurrentCourier(null);
@@ -417,7 +407,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         log.info("Shipment {} successfully updated to status {}", shipmentId, request.newStatus());
 
-        return mapToStaffView(updatedShipment);
+        return shipmentMapper.toStaffView(updatedShipment);
     }
 
     @Override
@@ -430,22 +420,22 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         Employee employee = employeeRepository.findById(courierId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        
+
         if (!(employee instanceof Courier courier)) {
-             log.warn("Attempted to assign pickup to an employee {} that is not a courier", courierId);
-             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+            log.warn("Attempted to assign pickup to an employee {} that is not a courier", courierId);
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
         }
 
         if (shipment.getStatus() != ShipmentStatus.REGISTERED) {
-             log.warn("Cannot assign pickup. Shipment {} is not in REGISTERED status (Current: {})", shipmentId, shipment.getStatus());
-             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+            log.warn("Cannot assign pickup. Shipment {} is not in REGISTERED status (Current: {})", shipmentId, shipment.getStatus());
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
 
         if (shipment.getOriginOffice() != null) {
             log.warn("Cannot assign pickup. Shipment {} originates from an office, not an address.", shipmentId);
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
-        
+
         shipment.setCurrentCourier(courier);
         Shipment updatedShipment = shipmentRepository.save(shipment);
 
@@ -455,8 +445,8 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .notes("Assigned to courier " + courier.getFirstName() + " " + courier.getLastName() + " for pickup.")
                 .build();
         historyRepository.save(history);
-        
-        return mapToStaffView(updatedShipment);
+
+        return shipmentMapper.toStaffView(updatedShipment);
     }
 
 
@@ -474,7 +464,7 @@ public class ShipmentServiceImpl implements ShipmentService {
             }
         }
 
-        return mapToStaffView(shipment);
+        return shipmentMapper.toStaffView(shipment);
     }
 
     @Override
@@ -491,7 +481,7 @@ public class ShipmentServiceImpl implements ShipmentService {
             }
         }
 
-        return mapToStaffView(shipment);
+        return shipmentMapper.toStaffView(shipment);
     }
 
 
@@ -507,56 +497,56 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment shipment = shipmentRepository.findByTrackingNumber(trackingNumber)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
 
-        return mapToPublicView(shipment);
+        return shipmentMapper.toPublicView(shipment);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<StaffShipmentViewDto> getMyDeliveries(UUID courierId, Pageable pageable) {
         return shipmentRepository.findByCurrentCourier_IdAndStatus(courierId, ShipmentStatus.OUT_FOR_DELIVERY, pageable)
-                .map(this::mapToStaffView);
+                .map(shipmentMapper::toStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<StaffShipmentViewDto> getMyPickups(UUID courierId, Pageable pageable) {
         return shipmentRepository.findByCurrentCourier_IdAndStatusAndOriginOfficeIsNull(courierId, ShipmentStatus.REGISTERED, pageable)
-                .map(this::mapToStaffView);
+                .map(shipmentMapper::toStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<StaffShipmentViewDto> getShipmentsBySender(UUID senderId, Pageable pageable) {
         return shipmentRepository.findBySender_Id(senderId, pageable)
-                .map(this::mapToStaffView);
+                .map(shipmentMapper::toStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<StaffShipmentViewDto> getShipmentsByReceiver(UUID receiverId, Pageable pageable) {
         return shipmentRepository.findByReceiver_Id(receiverId, pageable)
-                .map(this::mapToStaffView);
+                .map(shipmentMapper::toStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<StaffShipmentViewDto> getShipmentsRegisteredByEmployee(UUID employeeId, Pageable pageable) {
         return shipmentRepository.findByRegisteredBy_Id(employeeId, pageable)
-                .map(this::mapToStaffView);
+                .map(shipmentMapper::toStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<StaffShipmentViewDto> getPendingShipments(Pageable pageable) {
         return shipmentRepository.findByStatusNot(ShipmentStatus.DELIVERED, pageable)
-                .map(this::mapToStaffView);
+                .map(shipmentMapper::toStaffView);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<StaffShipmentViewDto> getAllShipments(Pageable pageable) {
         return shipmentRepository.findAll(pageable)
-                .map(this::mapToStaffView);
+                .map(shipmentMapper::toStaffView);
     }
 
     @Override
@@ -621,156 +611,4 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .build();
     }
 
-    private String formatAddress(AddressDetails address) {
-        if (address == null) {
-            return "";
-        }
-
-        return Stream.of(
-                        address.getStreet(),
-                        address.getDistrict(),
-                        formatOptionalPart("bl. ", address.getBuilding()),
-                        formatOptionalPart("ent. ", address.getEntrance()),
-                        formatOptionalPart("fl. ", address.getFloor()),
-                        formatOptionalPart("ap. ", address.getApartment()),
-                        address.getCity().getName() + " " + address.getCity().getPostcode()
-                )
-                .filter(part -> part != null && !part.isBlank())
-                .collect(Collectors.joining(", "));
-    }
-
-    private String formatOptionalPart(String prefix, String value) {
-        if (value != null && !value.isBlank()) {
-            return prefix + value;
-        }
-        return null;
-    }
-
-    // --- NEW MAPPING METHODS ---
-
-    private PublicShipmentViewDto mapToPublicView(Shipment shipment) {
-        if (shipment == null) return null;
-
-        String originCityName = null;
-        if (shipment.getOriginOffice() != null) {
-            originCityName = shipment.getOriginOffice().getAddressDetails().getCity().getName();
-        } else if (shipment.getOriginAddressSnapshot() != null) {
-            originCityName = shipment.getOriginAddressSnapshot().getCity().getName();
-        }
-
-        String deliveryCityName = null;
-        if (shipment.getDeliveryOffice() != null) {
-            deliveryCityName = shipment.getDeliveryOffice().getAddressDetails().getCity().getName();
-        } else if (shipment.getDeliveryAddressSnapshot() != null) {
-            deliveryCityName = shipment.getDeliveryAddressSnapshot().getCity().getName();
-        }
-
-        String currentOfficeName = shipment.getCurrentOffice() != null ?
-                shipment.getCurrentOffice().getAddressDetails().getCity().getName() + " - " + shipment.getCurrentOffice().getAddressDetails().getStreet() : null;
-
-        return PublicShipmentViewDto.builder()
-                .trackingNumber(shipment.getTrackingNumber())
-                .type(shipment.getPackageDetails().getType())
-                .status(shipment.getStatus())
-                .weight(shipment.getPackageDetails().getWeight())
-                .length(shipment.getPackageDetails().getLength())
-                .width(shipment.getPackageDetails().getWidth())
-                .height(shipment.getPackageDetails().getHeight())
-                .createdAt(shipment.getCreatedAt())
-                .updatedAt(shipment.getUpdatedAt())
-                .originCityName(originCityName)
-                .destinationCityName(deliveryCityName)
-                .currentOfficeName(currentOfficeName)
-                .appliedAddons(shipment.getAddons().stream().map(a -> a.getServiceCatalog().getName()).collect(Collectors.toList()))
-                .build();
-    }
-
-    private StaffShipmentViewDto mapToStaffView(Shipment shipment) {
-        if (shipment == null) return null;
-
-        Long originOfficeId = null;
-        String originOfficeName = null;
-        String originAddressString = null;
-        
-        if (shipment.getOriginOffice() != null) {
-             originOfficeId = shipment.getOriginOffice().getId();
-             originOfficeName = shipment.getOriginOffice().getAddressDetails().getCity().getName() + " - " + 
-                                shipment.getOriginOffice().getAddressDetails().getStreet();
-        } else if (shipment.getOriginAddressSnapshot() != null) {
-             originAddressString = formatAddress(shipment.getOriginAddressSnapshot());
-        }
-
-        Long deliveryOfficeId = null;
-        String deliveryOfficeName = null;
-        String deliveryAddressString = null;
-
-        if (shipment.getDeliveryOffice() != null) {
-            deliveryOfficeId = shipment.getDeliveryOffice().getId();
-            deliveryOfficeName = shipment.getDeliveryOffice().getAddressDetails().getCity().getName() + " - " +
-                                 shipment.getDeliveryOffice().getAddressDetails().getStreet();
-        } else if (shipment.getDeliveryAddressSnapshot() != null) {
-            deliveryAddressString = formatAddress(shipment.getDeliveryAddressSnapshot());
-        }
-
-        String senderName = shipment.getSender().getFirstName() + " " + shipment.getSender().getLastName();
-        
-        // Handle guest vs registered receiver
-        String receiverName;
-        String receiverPhone;
-        UUID receiverId = null;
-        if (shipment.getReceiver() != null) {
-            receiverName = shipment.getReceiver().getFirstName() + " " + shipment.getReceiver().getLastName();
-            receiverPhone = shipment.getReceiver().getPhoneNumber();
-            receiverId = shipment.getReceiver().getId();
-        } else {
-            receiverName = shipment.getReceiverName();
-            receiverPhone = shipment.getReceiverPhone();
-        }
-        
-        Long currentOfficeId = shipment.getCurrentOffice() != null ? shipment.getCurrentOffice().getId() : null;
-        String currentOfficeName = shipment.getCurrentOffice() != null ? 
-            shipment.getCurrentOffice().getAddressDetails().getCity().getName() + " - " + shipment.getCurrentOffice().getAddressDetails().getStreet() : null;
-            
-        UUID currentCourierId = shipment.getCurrentCourier() != null ? shipment.getCurrentCourier().getId() : null;
-        String currentCourierName = shipment.getCurrentCourier() != null ? 
-            shipment.getCurrentCourier().getFirstName() + " " + shipment.getCurrentCourier().getLastName() : null;
-
-        String registeredByName = shipment.getRegisteredBy() != null ? 
-                shipment.getRegisteredBy().getFirstName() + " " + shipment.getRegisteredBy().getLastName() : "Self-Registered";
-
-        return StaffShipmentViewDto.builder()
-                .id(shipment.getId())
-                .trackingNumber(shipment.getTrackingNumber())
-                .type(shipment.getPackageDetails().getType())
-                .status(shipment.getStatus())
-                .weight(shipment.getPackageDetails().getWeight())
-                .length(shipment.getPackageDetails().getLength())
-                .width(shipment.getPackageDetails().getWidth())
-                .height(shipment.getPackageDetails().getHeight())
-                .totalPrice(shipment.getFinancials().getTotalPrice())
-                .paidBy(shipment.getFinancials().getPaidBy())
-                .isPaid(shipment.getFinancials().isPaid())
-                .createdAt(shipment.getCreatedAt())
-                .updatedAt(shipment.getUpdatedAt())
-                .senderId(shipment.getSender().getId())
-                .senderName(senderName.trim())
-                .senderPhone(shipment.getSender().getPhoneNumber())
-                .receiverId(receiverId)
-                .receiverName(receiverName.trim())
-                .receiverPhone(receiverPhone)
-                .originOfficeId(originOfficeId)
-                .originOfficeName(originOfficeName)
-                .originAddressString(originAddressString)
-                .deliveryOfficeId(deliveryOfficeId)
-                .deliveryOfficeName(deliveryOfficeName)
-                .deliveryAddressString(deliveryAddressString)
-                .currentOfficeId(currentOfficeId)
-                .currentOfficeName(currentOfficeName)
-                .currentCourierId(currentCourierId)
-                .currentCourierName(currentCourierName)
-                .registeredById(shipment.getRegisteredBy() != null ? shipment.getRegisteredBy().getId() : null)
-                .registeredByName(registeredByName.trim())
-                .appliedAddons(shipment.getAddons().stream().map(a -> a.getServiceCatalog().getName()).collect(Collectors.toList()))
-                .build();
-    }
 }
