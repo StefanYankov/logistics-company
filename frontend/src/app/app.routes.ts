@@ -12,6 +12,7 @@ import {ShipmentList} from './features/shipments/shipment-list/shipment-list';
 import {authGuard} from './shared/auth.guard';
 import {ShipmentDetails} from './features/shipments/shipment-details/shipment-details';
 import {CourierDashboard} from './features/courier/dashboard/courier-dashboard';
+import {ShipmentEdit} from './features/shipments/shipment-edit/shipment-edit';
 
 export const routes: Routes = [
   {
@@ -35,6 +36,7 @@ export const routes: Routes = [
       { path: 'register-shipment', component: ClerkRegistration },
       { path: 'shipments', component: ShipmentList },
       { path: 'shipments/:id', component: ShipmentDetails },
+      { path: 'shipments/:id/edit', component: ShipmentEdit },
       { path: 'my-tasks', component: CourierDashboard },
       // TODO: Add a route for the admin dashboard, e.g., { path: 'admin', component: AdminDashboardComponent }
     ]

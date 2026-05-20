@@ -65,6 +65,7 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
     *   **Service Addons**: Flexible addon system (e.g., "Fragile", "Express") with dynamic Fixed/Percentage pricing.
     *   Dynamic, versioned pricing engine for calculating shipping costs based on weight, distance, and addons.
     *   Shipment lifecycle management via a State Machine.
+    *   **Shipment Editing**: Ability for staff and clients to edit `REGISTERED` shipments.
     *   Comprehensive audit trail via `ShipmentStatusHistory`.
     *   Public tracking number lookup.
     *   Client-specific access to their sent and received shipments.
@@ -95,6 +96,7 @@ The Angular frontend is built with a standalone component architecture and follo
     *   **Shipments & Operations (`features/shipments`):**
         *   `ClientRegistration` & `ClerkRegistration`: Role-specific forms for registering new shipments, including sender lookup and addon selection.
         *   `ShipmentList`: Master operational view for staff to see all shipments, apply addons, assign pickups to couriers, and update lifecycle statuses.
+        *   `ShipmentEdit`: Form for editing the details of a `REGISTERED` shipment.
 
 ## Project Structure
 The project follows a **Package-by-Feature** (Modular Monolith) structure to ensure high cohesion and prepare for potential future microservice extraction.
