@@ -4,6 +4,7 @@ import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shipment.ShipmentStatus;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
+import bg.nbu.cscb532.shipment.dto.ShipmentUpdateDto;
 import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
@@ -19,8 +20,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @DisplayName("Controller Framework: Operational Workflows & Access Control")
@@ -268,6 +268,82 @@ public class ShipmentWorkflowAndAccessControllerTests extends AbstractShipmentCo
                             .with(user(authUser)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.errorCode").value(ErrorCode.RESOURCE_NOT_FOUND.getCode()));
+        }
+    }
+
+    @Nested
+    @DisplayName("PUT /api/shipments/{id}")
+    class UpdateShipmentTests {
+
+        @Test
+        @DisplayName("Happy Path: Should successfully update shipment details and return 200 OK")
+        void shouldUpdateShipmentDetailsSuccessfully() throws Exception {
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            UUID shipmentId = UUID.randomUUID();
+            ShipmentUpdateDto requestDto = ShipmentUpdateDto.builder().build();
+            StaffShipmentViewDto responseDto = createValidStaffShipmentViewDto(shipmentId, "TRK-TEST");
+
+            given(shipmentService.updateShipment(eq(shipmentId), any(ShipmentUpdateDto.class), any())).willReturn(responseDto);
+
+            mockMvc.perform(put(BASE_URL + "/{id}", shipmentId)
+                            .with(user(authUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestDto)))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.id").value(shipmentId.toString()));
+
+            verify(shipmentService).updateShipment(eq(shipmentId), any(ShipmentUpdateDto.class), any());
+        }
+
+        @Test
+        @DisplayName("Security: Should return 403 Forbidden if not authenticated")
+        void shouldReturn403IfUnauthenticated() throws Exception {
+            UUID shipmentId = UUID.randomUUID();
+            ShipmentUpdateDto requestDto = ShipmentUpdateDto.builder().build();
+
+            mockMvc.perform(put(BASE_URL + "/{id}", shipmentId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestDto)))
+                    .andExpect(status().isForbidden());
+
+            verifyNoInteractions(shipmentService);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should return 404 Not Found if service throws RESOURCE_NOT_FOUND")
+        void shouldReturn404WhenServiceThrowsResourceNotFound() throws Exception {
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
+            UUID shipmentId = UUID.randomUUID();
+            ShipmentUpdateDto requestDto = ShipmentUpdateDto.builder().build();
+
+            given(shipmentService.updateShipment(eq(shipmentId), any(ShipmentUpdateDto.class), any()))
+                    .willThrow(new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+            mockMvc.perform(put(BASE_URL + "/{id}", shipmentId)
+                            .with(user(authUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestDto)))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.RESOURCE_NOT_FOUND.getCode()));
+        }
+
+        @Test
+        @DisplayName("Error Case: Should return 400 Bad Request if service throws VALIDATION_FAILED")
+        void shouldReturn400WhenServiceThrowsValidationFailed() throws Exception {
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+            UUID shipmentId = UUID.randomUUID();
+            ShipmentUpdateDto requestDto = ShipmentUpdateDto.builder().build();
+
+            given(shipmentService.updateShipment(eq(shipmentId), any(ShipmentUpdateDto.class), any()))
+                    .willThrow(new BusinessException(ErrorCode.VALIDATION_FAILED));
+
+            mockMvc.perform(put(BASE_URL + "/{id}", shipmentId)
+                            .with(user(authUser))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(requestDto)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_FAILED.getCode()));
         }
     }
 }

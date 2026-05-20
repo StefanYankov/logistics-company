@@ -33,5 +33,6 @@ export * from './revenueReportDto';
 export * from './serviceCatalogViewDto';
 export * from './shipmentCreationDto';
 export * from './shipmentStatusUpdateDto';
+export * from './shipmentUpdateDto';
 export * from './sortObject';
 export * from './staffShipmentViewDto';

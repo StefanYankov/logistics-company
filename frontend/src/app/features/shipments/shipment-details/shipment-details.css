@@ -7,22 +7,46 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
+.header-with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
 h2 {
   color: #343a40;
   border-bottom: 2px solid #0d6efd;
   padding-bottom: 0.5rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem; /* Reduced to accommodate flex layout */
 }
 
 .tracking-number {
   font-size: 1.2rem;
   color: #6c757d;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0; /* Reduced to accommodate flex layout */
 }
 
 .tracking-number strong {
   color: #343a40;
 }
+
+.btn-action {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: white;
+  transition: background-color 0.2s;
+  text-decoration: none;
+}
+
+.btn-edit {
+  background-color: #0d6efd;
+}
+.btn-edit:hover { background-color: #0b5ed7; }
 
 .status-card {
   padding: 1rem;

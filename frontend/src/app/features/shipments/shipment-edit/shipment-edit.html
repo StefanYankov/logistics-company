@@ -1,0 +1,151 @@
+<div class="edit-container">
+  <div class="header">
+    <h2>Edit Shipment</h2>
+    <p>Update the details for this shipment. Only possible for shipments in REGISTERED status.</p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading">Loading shipment details for editing...</div>
+  } @else if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  } @else {
+    <form [formGroup]="editForm" (submit)="onSubmit()">
+      <!-- Receiver Details -->
+      <fieldset class="form-section">
+        <legend>Receiver Details</legend>
+        <div class="form-group half-width">
+          <label for="receiverName">Full Name</label>
+          <input id="receiverName" type="text" formControlName="receiverName">
+        </div>
+        <div class="form-group half-width">
+          <label for="receiverPhone">Phone</label>
+          <input id="receiverPhone" type="text" formControlName="receiverPhone">
+        </div>
+        <div class="form-group full-width">
+          <label for="receiverEmail">Email (Optional)</label>
+          <input id="receiverEmail" type="email" formControlName="receiverEmail">
+        </div>
+      </fieldset>
+
+      <!-- Destination -->
+      <fieldset class="form-section">
+        <legend>Destination</legend>
+        <div class="toggle-group">
+          <label class="radio-label">
+            <input type="radio" formControlName="destinationType" value="OFFICE"> To Office
+          </label>
+          <label class="radio-label">
+            <input type="radio" formControlName="destinationType" value="ADDRESS"> To Address
+          </label>
+        </div>
+
+        <div class="section-content">
+          @if (editForm.get('destinationType')?.value === 'OFFICE') {
+            <div class="form-group full-width">
+              <label for="deliveryCityFilterId">Filter by City (Optional)</label>
+              <select id="deliveryCityFilterId" formControlName="deliveryCityFilterId">
+                <option [ngValue]="null">-- Show All Cities --</option>
+                @for (city of cities(); track city.id) {
+                  <option [value]="city.id">{{ city.name }} ({{ city.postcode }})</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="deliveryOfficeId">Select Office</label>
+              <select id="deliveryOfficeId" formControlName="deliveryOfficeId">
+                <option [ngValue]="null" disabled selected>Choose destination office...</option>
+                @for (office of filteredDeliveryOffices(); track office.id) {
+                  <option [value]="office.id">{{ office.cityName }} - {{ office.fullAddress }}</option>
+                }
+              </select>
+            </div>
+          } @else {
+            <div class="address-grid">
+              <div class="form-group full-width">
+                <label for="deliveryCityId">City</label>
+                <select id="deliveryCityId" formControlName="deliveryCityId">
+                  <option [ngValue]="null" disabled selected>Select City...</option>
+                  @for (city of cities(); track city.id) {
+                    <option [value]="city.id">{{ city.name }} ({{ city.postcode }})</option>
+                  }
+                </select>
+              </div>
+              <div class="form-group half-width">
+                <label for="deliveryStreet">Street</label>
+                <input id="deliveryStreet" type="text" formControlName="deliveryStreet" />
+              </div>
+              <div class="form-group half-width">
+                <label for="deliveryDistrict">District (Optional)</label>
+                <input id="deliveryDistrict" type="text" formControlName="deliveryDistrict" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryBuilding">Building</label>
+                <input id="deliveryBuilding" type="text" formControlName="deliveryBuilding" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryEntrance">Ent.</label>
+                <input id="deliveryEntrance" type="text" formControlName="deliveryEntrance" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryFloor">Fl.</label>
+                <input id="deliveryFloor" type="text" formControlName="deliveryFloor" />
+              </div>
+              <div class="form-group quarter-width">
+                <label for="deliveryApartment">Ap.</label>
+                <input id="deliveryApartment" type="text" formControlName="deliveryApartment" />
+              </div>
+            </div>
+          }
+        </div>
+      </fieldset>
+
+      <!-- Package & Payment -->
+      <fieldset class="form-section">
+        <legend>Package & Payment</legend>
+        <div class="form-row">
+          <div class="form-group third-width">
+            <label for="type">Type</label>
+            <select id="type" formControlName="type">
+              @for(type of shipmentTypes; track type) { <option [value]="type">{{type}}</option> }
+            </select>
+          </div>
+          <div class="form-group third-width">
+            <label for="weight">Weight (kg)</label>
+            <input id="weight" type="number" formControlName="weight">
+          </div>
+          <div class="form-group third-width">
+            <label for="paidBy">Paid By</label>
+            <select id="paidBy" formControlName="paidBy">
+              @for(option of paidByOptions; track option) { <option [value]="option">{{option}}</option> }
+            </select>
+          </div>
+          <div class="form-group">
+            <input type="checkbox" id="isPaid" formControlName="isPaid">
+            <label for="isPaid">Mark as Paid</label>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Addons -->
+      <fieldset class="form-section">
+        <legend>Additional Services</legend>
+        <div class="addons-container">
+          @for (service of availableServices(); track service.id) {
+            <div class="form-check">
+              <input type="checkbox" [checked]="selectedServiceIds().includes(service.id!)" (change)="toggleService(service.id, $event)">
+              <label>{{ service.name }}</label>
+            </div>
+          }
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" [routerLink]="['/app/shipments', shipmentId()]">Cancel</button>
+        <button type="submit" class="btn-submit" [disabled]="editForm.invalid || isSubmitting()">
+          {{ isSubmitting() ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

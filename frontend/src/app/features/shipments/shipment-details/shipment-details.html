@@ -8,8 +8,17 @@
     </div>
   } @else if (shipment(); as s) {
     <div class="shipment-details-content">
-      <h2>Shipment Details (Staff View)</h2>
-      <p class="tracking-number">Tracking Number: <strong>{{ s.trackingNumber }}</strong></p>
+      <div class="header-with-actions">
+        <div>
+          <h2>Shipment Details (Staff View)</h2>
+          <p class="tracking-number">Tracking Number: <strong>{{ s.trackingNumber }}</strong></p>
+        </div>
+        @if (canEdit()) {
+          <div class="actions">
+            <button class="btn-action btn-edit" [routerLink]="['/app/shipments', s.id, 'edit']">Edit Shipment</button>
+          </div>
+        }
+      </div>
 
       <div class="status-card" [ngClass]="s.status?.toLowerCase()">
         Current Status: <strong>{{ s.status }}</strong>

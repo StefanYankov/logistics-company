@@ -28,6 +28,19 @@ public interface ShipmentService {
     StaffShipmentViewDto registerShipment(ShipmentCreationDto request, UUID registeredById);
 
     /**
+     * Updates an existing shipment's details.
+     * Enforces business rules: shipment must be in REGISTERED status.
+     * Clients can only update their own shipments.
+     *
+     * @param shipmentId The UUID of the shipment to update.
+     * @param dto The data transfer object containing the updated fields.
+     * @param userDetails The authenticated user performing the update.
+     * @return The fully populated StaffShipmentViewDto of the updated shipment.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if shipment is not found, not in REGISTERED status, or if validation fails.
+     */
+    StaffShipmentViewDto updateShipment(UUID shipmentId, ShipmentUpdateDto dto, CustomUserDetails userDetails);
+
+    /**
      * Updates the lifecycle status of an existing shipment.
      * Enforces directional state machine rules to prevent invalid transitions (e.g., REGISTERED directly to DELIVERED).
      * Records the status change in the ShipmentStatusHistory.

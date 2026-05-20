@@ -76,6 +76,27 @@ public class ShipmentController {
     }
 
     @Operation(
+            summary = "Update shipment details",
+            description = "Updates the details of an existing shipment that is still in REGISTERED status."
+    )
+    @ApiResponse(responseCode = "200", description = "Shipment updated successfully")
+    @ApiResponse(responseCode = "400", description = "Validation failed (e.g., invalid state, missing fields)")
+    @ApiResponse(responseCode = "404", description = "Shipment not found or unauthorized")
+    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<StaffShipmentViewDto> updateShipment(
+            @Parameter(description = "The UUID of the shipment") @PathVariable UUID id,
+            @Valid @RequestBody ShipmentUpdateDto request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        log.info("API PUT request to update details for shipment ID: {} from user ID: {}", id, userDetails.getId());
+
+        StaffShipmentViewDto updatedShipment = shipmentService.updateShipment(id, request, userDetails);
+
+        return ResponseEntity.ok(updatedShipment);
+    }
+
+    @Operation(
             summary = "Update shipment status",
             description = "Transitions a shipment through its lifecycle state machine. Automatically assigns delivery couriers and records location history."
     )
