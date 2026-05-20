@@ -8,6 +8,7 @@ import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shipment.Shipment;
 import bg.nbu.cscb532.shipment.ShipmentStatus;
 import bg.nbu.cscb532.shipment.dto.ShipmentStatusUpdateDto;
+import bg.nbu.cscb532.shipment.dto.ShipmentUpdateDto;
 import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
@@ -19,6 +20,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -154,7 +156,7 @@ public class ShipmentLifecycleWorkflowTests extends AbstractShipmentUnitTestBase
 
             given(shipmentRepository.findById(shipmentId)).willReturn(Optional.empty());
 
-            // Act and Assert
+            // Act & Assert
             assertThatThrownBy(() -> shipmentService.assignPickup(shipmentId, courierId, authUser))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
@@ -174,12 +176,14 @@ public class ShipmentLifecycleWorkflowTests extends AbstractShipmentUnitTestBase
             shipment.setStatus(ShipmentStatus.REGISTERED);
             shipment.setOriginOffice(null);
 
+            // Create a non-courier employee
             OfficeClerk nonCourier = createMockOfficeClerk(courierId, "Not", "Courier");
 
+            // Mock employeeRepository to return a non-courier employee or empty
             given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
             given(employeeRepository.findById(courierId)).willReturn(Optional.of(nonCourier)); // Return a non-Courier instance
 
-            // Act and Assert
+            // Act & Assert
             assertThatThrownBy(() -> shipmentService.assignPickup(shipmentId, courierId, authUser))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
@@ -204,7 +208,7 @@ public class ShipmentLifecycleWorkflowTests extends AbstractShipmentUnitTestBase
             given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
             given(employeeRepository.findById(courierId)).willReturn(Optional.of(courier));
 
-            // Act and Assert
+            // Act & Assert
             assertThatThrownBy(() -> shipmentService.assignPickup(shipmentId, courierId, authUser))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
@@ -229,11 +233,122 @@ public class ShipmentLifecycleWorkflowTests extends AbstractShipmentUnitTestBase
             given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(shipment));
             given(employeeRepository.findById(courierId)).willReturn(Optional.of(courier));
 
-            // Act and Assert
+            // Act & Assert
             assertThatThrownBy(() -> shipmentService.assignPickup(shipmentId, courierId, authUser))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.VALIDATION_FAILED);
+        }
+    }
+
+    @Nested
+    @DisplayName("updateShipment(UUID, ShipmentUpdateDto, CustomUserDetails) Tests")
+    class UpdateShipmentTests {
+
+        @Test
+        @DisplayName("Happy Path: Should successfully update shipment details for a CLERK")
+        void shouldUpdateShipmentDetailsForClerk() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            Shipment existingShipment = createValidShipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.REGISTERED);
+
+            ShipmentUpdateDto updateDto = ShipmentUpdateDto.builder()
+                    .weight(BigDecimal.valueOf(5.0))
+                    .build();
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
+            given(pricingService.calculatePrice(any())).willReturn(BigDecimal.valueOf(20.00));
+
+            // Act
+            StaffShipmentViewDto result = shipmentService.updateShipment(shipmentId, updateDto, authUser);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.weight()).isEqualByComparingTo(BigDecimal.valueOf(5.0));
+            assertThat(result.totalPrice()).isEqualByComparingTo(BigDecimal.valueOf(20.00));
+            verify(shipmentRepository).save(shipmentCaptor.capture());
+            assertThat(shipmentCaptor.getValue().getPackageDetails().getWeight()).isEqualByComparingTo(BigDecimal.valueOf(5.0));
+            verify(historyRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("Happy Path: Should successfully update shipment details for a CLIENT")
+        void shouldUpdateShipmentDetailsForClient() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            UUID clientId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(clientId, ApplicationRole.CLIENT);
+
+            Shipment existingShipment = createValidShipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.REGISTERED);
+            existingShipment.getSender().setId(clientId);
+
+            ShipmentUpdateDto updateDto = ShipmentUpdateDto.builder()
+                    .receiverName("New Receiver Name")
+                    .build();
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+            given(shipmentRepository.save(any(Shipment.class))).willReturn(existingShipment);
+            given(pricingService.calculatePrice(any())).willReturn(BigDecimal.valueOf(15.00));
+
+            // Act
+            StaffShipmentViewDto result = shipmentService.updateShipment(shipmentId, updateDto, authUser);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.receiverName()).isEqualTo("New Receiver Name");
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw VALIDATION_FAILED if shipment is not in REGISTERED status")
+        void shouldThrowIfShipmentNotRegisteredForUpdate() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
+
+            Shipment existingShipment = createValidShipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.setStatus(ShipmentStatus.IN_TRANSIT);
+
+            ShipmentUpdateDto updateDto = ShipmentUpdateDto.builder().build();
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+
+            // Act & Assert
+            assertThatThrownBy(() -> shipmentService.updateShipment(shipmentId, updateDto, authUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.VALIDATION_FAILED);
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw RESOURCE_NOT_FOUND if CLIENT tries to edit another client's shipment")
+        void shouldThrowIfClientEditsOtherClientShipment() {
+            // Arrange
+            UUID shipmentId = UUID.randomUUID();
+            UUID ownerClientId = UUID.randomUUID();
+            UUID attackerClientId = UUID.randomUUID();
+            CustomUserDetails authUser = createMockAuthUser(attackerClientId, ApplicationRole.CLIENT);
+
+            Shipment existingShipment = createValidShipment();
+            existingShipment.setId(shipmentId);
+            existingShipment.getSender().setId(ownerClientId);
+
+            ShipmentUpdateDto updateDto = ShipmentUpdateDto.builder().build();
+
+            given(shipmentRepository.findById(shipmentId)).willReturn(Optional.of(existingShipment));
+
+            // Act & Assert
+            assertThatThrownBy(() -> shipmentService.updateShipment(shipmentId, updateDto, authUser))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
         }
     }
 }

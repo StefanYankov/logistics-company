@@ -192,10 +192,166 @@ public class ShipmentServiceImpl implements ShipmentService {
         
         historyRepository.save(initialHistory);
 
+        // TODO: Implement a geographic or load-balanced auto-assignment algorithm for address pickups.
         log.info("Successfully registered Shipment with Tracking Number: {}", trackingNumber);
 
         return mapToStaffView(savedShipment);
     }
+
+    @Override
+    @Transactional
+    public StaffShipmentViewDto updateShipment(UUID shipmentId, ShipmentUpdateDto dto, CustomUserDetails userDetails) {
+        log.debug("User {} attempting to update shipment {}", userDetails.getId(), shipmentId);
+
+        Objects.requireNonNull(dto, Constants.DeveloperErrors.DTO_NULL);
+        Objects.requireNonNull(userDetails, Constants.DeveloperErrors.DTO_NULL);
+
+        Shipment shipment = shipmentRepository.findById(shipmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        // Authorization check for Clients
+        if (userDetails.getApplicationRole() == ApplicationRole.CLIENT) {
+            if (!shipment.getSender().getId().equals(userDetails.getId())) {
+                log.warn("Client {} attempted to edit shipment {} belonging to a different sender", userDetails.getId(), shipmentId);
+                throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+            }
+        }
+
+        if (shipment.getStatus() != ShipmentStatus.REGISTERED) {
+            log.warn("Attempt to update shipment {} failed. Current status is {}. Only REGISTERED shipments can be edited.", shipmentId, shipment.getStatus());
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED);
+        }
+
+        if (dto.type() != null) {
+            shipment.getPackageDetails().setType(dto.type());
+        }
+        if (dto.weight() != null) {
+            shipment.getPackageDetails().setWeight(dto.weight());
+        }
+        if (dto.length() != null) {
+            shipment.getPackageDetails().setLength(dto.length());
+        }
+        if (dto.width() != null) {
+            shipment.getPackageDetails().setWidth(dto.width());
+        }
+        if (dto.height() != null) {
+            shipment.getPackageDetails().setHeight(dto.height());
+        }
+
+        if (shipment.getReceiver() == null) {
+            if (dto.receiverName() != null && !dto.receiverName().isBlank()) shipment.setReceiverName(dto.receiverName());
+            if (dto.receiverPhone() != null && !dto.receiverPhone().isBlank()) shipment.setReceiverPhone(dto.receiverPhone());
+            if (dto.receiverEmail() != null) shipment.setReceiverEmail(dto.receiverEmail());
+        }
+
+        if (dto.paidBy() != null) {
+            shipment.getFinancials().setPaidBy(dto.paidBy());
+        }
+        if (dto.isPaid() != null) {
+            shipment.getFinancials().setPaid(dto.isPaid());
+        }
+
+        boolean hasDeliveryOfficeId = dto.deliveryOfficeId() != null;
+        boolean hasDeliveryAddress = dto.deliveryAddress() != null;
+
+        if (hasDeliveryOfficeId && hasDeliveryAddress) {
+            throw new BusinessException(ErrorCode.SHIPMENT_DESTINATION_EXCLUSIVE);
+        }
+
+        if (hasDeliveryOfficeId) {
+            Office deliveryOffice = officeRepository.findById(dto.deliveryOfficeId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
+            shipment.setDeliveryOffice(deliveryOffice);
+            shipment.setDeliveryAddressSnapshot(null);
+        } else if (hasDeliveryAddress) {
+            AddressDetails deliveryAddressSnapshot = buildAddressDetails(dto.deliveryAddress());
+            shipment.setDeliveryAddressSnapshot(deliveryAddressSnapshot);
+            shipment.setDeliveryOffice(null);
+        }
+
+        ShipmentCreationDto tempCreationDto = convertToCreationDtoForPricing(shipment, dto.selectedServiceIds());
+        BigDecimal newTotalPrice = pricingService.calculatePrice(tempCreationDto);
+        shipment.getFinancials().setTotalPrice(newTotalPrice);
+
+        if (dto.selectedServiceIds() != null) {
+            shipmentAddonRepository.deleteAll(shipment.getAddons());
+            shipment.getAddons().clear();
+
+            if (!dto.selectedServiceIds().isEmpty()) {
+                Set<ServiceCatalog> selectedServices = new HashSet<>(serviceCatalogRepository.findAllById(dto.selectedServiceIds()));
+                if (selectedServices.size() != dto.selectedServiceIds().size()) {
+                    throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+                }
+
+                for (ServiceCatalog service : selectedServices) {
+                    ShipmentAddon addon = new ShipmentAddon();
+                    addon.setShipment(shipment);
+                    addon.setServiceCatalog(service);
+
+                    BigDecimal appliedCost = BigDecimal.ZERO;
+                    if (service.getPricingType() == PricingType.FIXED_AMOUNT) {
+                        appliedCost = service.getPricingValue();
+                    } else if (service.getPricingType() == PricingType.PERCENTAGE_OF_BASE) {
+                        appliedCost = service.getPricingValue();
+                    }
+                    addon.setAppliedCost(appliedCost);
+                    shipment.getAddons().add(addon);
+                    shipmentAddonRepository.save(addon);
+                }
+            }
+        }
+
+        Shipment savedShipment = shipmentRepository.save(shipment);
+
+        ShipmentStatusHistory updateHistory = ShipmentStatusHistory.builder()
+                .shipment(savedShipment)
+                .status(ShipmentStatus.REGISTERED)
+                .notes("Shipment details updated by " + userDetails.getApplicationRole().name())
+                .build();
+        historyRepository.save(updateHistory);
+
+        log.info("Successfully updated Shipment with Tracking Number: {}", shipment.getTrackingNumber());
+
+        return mapToStaffView(savedShipment);
+    }
+
+    /**
+     * Helper method to map existing Shipment entity data to a ShipmentCreationDto
+     * specifically for the purpose of feeding it to the PricingService.
+     */
+    private ShipmentCreationDto convertToCreationDtoForPricing(Shipment shipment, Set<Long> newServiceIds) {
+         AddressDetailsDto deliveryAddressDto = null;
+         if (shipment.getDeliveryAddressSnapshot() != null) {
+             AddressDetails addr = shipment.getDeliveryAddressSnapshot();
+             deliveryAddressDto = new AddressDetailsDto(
+                     addr.getCity().getId(),
+                     addr.getStreet(),
+                     addr.getDistrict(),
+                     addr.getBuilding(),
+                     addr.getEntrance(),
+                     addr.getFloor(),
+                     addr.getApartment(),
+                     addr.getLatitude(),
+                     addr.getLongitude()
+             );
+         }
+
+         return ShipmentCreationDto.builder()
+                 .senderId(shipment.getSender().getId())
+                 .receiverId(shipment.getReceiver() != null ? shipment.getReceiver().getId() : null)
+                 .type(shipment.getPackageDetails().getType())
+                 .weight(shipment.getPackageDetails().getWeight())
+                 .length(shipment.getPackageDetails().getLength())
+                 .width(shipment.getPackageDetails().getWidth())
+                 .height(shipment.getPackageDetails().getHeight())
+                 .paidBy(shipment.getFinancials().getPaidBy())
+                 .originOfficeId(shipment.getOriginOffice() != null ? shipment.getOriginOffice().getId() : null)
+                 .deliveryOfficeId(shipment.getDeliveryOffice() != null ? shipment.getDeliveryOffice().getId() : null)
+                 .deliveryAddress(deliveryAddressDto)
+                 .selectedServiceIds(newServiceIds != null ? newServiceIds : shipment.getAddons().stream().map(a -> a.getServiceCatalog().getId()).collect(Collectors.toSet()))
+                 .build();
+    }
+
 
     @Override
     @Transactional
@@ -210,28 +366,22 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         validateStatusTransition(shipment.getStatus(), request.newStatus());
 
-        // Authorization logic for DELIVERED status
         if (request.newStatus() == ShipmentStatus.DELIVERED) {
             if (userDetails.getApplicationRole() == ApplicationRole.COURIER) {
-                // Couriers can deliver (usually from OUT_FOR_DELIVERY)
                 Employee employee = employeeRepository.findById(userDetails.getId())
                         .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
                 shipment.setDeliveredBy((Courier) employee);
             } else if (userDetails.getApplicationRole() == ApplicationRole.CLERK) {
-                // Clerks can ONLY deliver if the shipment is currently at an office
                 if (shipment.getStatus() != ShipmentStatus.AT_DELIVERY_OFFICE && shipment.getStatus() != ShipmentStatus.DELIVERED) {
                      log.warn("Clerk user {} attempted to mark shipment {} as DELIVERED while it is not at an office (Current status: {})", userDetails.getId(), shipmentId, shipment.getStatus());
                      throw new BusinessException(ErrorCode.VALIDATION_FAILED);
                 }
-                // Office clerks directly hand over packages to clients, so we don't set a deliveredBy courier.
-                // The ShipmentStatusHistory will record which user performed the transition.
             } else {
                 log.warn("Unauthorized role {} attempted to mark shipment {} as DELIVERED", userDetails.getApplicationRole(), shipmentId);
                 throw new BusinessException(ErrorCode.VALIDATION_FAILED);
             }
         }
 
-        // Authorization logic for OUT_FOR_DELIVERY status
         if (request.newStatus() == ShipmentStatus.OUT_FOR_DELIVERY) {
             if (userDetails.getApplicationRole() != ApplicationRole.COURIER) {
                 log.warn("Non-courier user {} attempted to mark shipment {} as OUT_FOR_DELIVERY", userDetails.getId(), shipmentId);

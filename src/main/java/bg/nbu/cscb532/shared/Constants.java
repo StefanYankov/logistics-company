@@ -29,6 +29,10 @@ public final class Constants {
         public static final int MAX_PHONE_NUMBER_LENGTH = 20;
         public static final int MAX_POSTAL_CODE_LENGTH = 5;
         
+        // Shipments
+        public static final String MIN_WEIGHT = "0.1";
+        public static final String MAX_WEIGHT = "1000.0";
+        
         // Security
         public static final int MIN_PASSWORD_LENGTH = 8;
         public static final int MAX_PASSWORD_LENGTH = 128;
