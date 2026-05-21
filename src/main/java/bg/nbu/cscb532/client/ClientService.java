@@ -93,4 +93,18 @@ public interface ClientService {
      * @throws bg.nbu.cscb532.shared.exception.BusinessException if the token is invalid, expired, or of the wrong type.
      */
     void resetPassword(ResetPasswordRequestDto request);
+
+    /**
+     * Deactivates a client (soft delete).
+     *
+     * @param id The UUID of the client to deactivate.
+     */
+    void deactivate(UUID id);
+
+    /**
+     * Activates a previously deactivated client.
+     *
+     * @param id The UUID of the client to activate.
+     */
+    void activate(UUID id);
 }

@@ -60,6 +60,15 @@ public interface EmployeeService {
     void deactivate(UUID id);
 
     /**
+     * Activates a previously deactivated employee.
+     * The employee will be able to log in again.
+     *
+     * @param id The UUID of the employee to activate.
+     * @throws bg.nbu.cscb532.shared.exception.BusinessException if the employee is not found.
+     */
+    void activate(UUID id);
+
+    /**
      * Forces a password reset for an employee.
      * This is intended to be an Admin-only operation.
      *

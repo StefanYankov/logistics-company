@@ -1,38 +1,20 @@
-package bg.nbu.cscb532.client;
+package bg.nbu.cscb532.client.controller;
 
 import bg.nbu.cscb532.client.dto.ClientQuickRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientRegistrationDto;
 import bg.nbu.cscb532.client.dto.ClientUpdateDto;
 import bg.nbu.cscb532.client.dto.ClientViewDto;
-import bg.nbu.cscb532.shared.config.SecurityConfig;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
-import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
-import bg.nbu.cscb532.user.JwtService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.ObjectMapper;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -41,48 +23,12 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(controllers = {ClientController.class, GlobalExceptionHandler.class})
-@ActiveProfiles("test")
-@Import(SecurityConfig.class)
-class ClientControllerTest {
+@DisplayName("Client Controller: Registration and Profile Tests")
+public class ClientRegistrationControllerTests extends AbstractClientControllerTestBase {
 
-    private static final String BASE_URL = "/api/clients";
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @MockitoBean
-    private ClientService clientService;
-
-    @MockitoBean
-    private JwtService jwtService;
-
-    @MockitoBean
-    private UserDetailsService userDetailsService;
-
-    // --- TEST DATA FACTORY ---
-    
-    private CustomUserDetails createMockAuthUser(UUID id, ApplicationRole role) {
-        return new CustomUserDetails(
-                id,
-                "testUser",
-                "password",
-                role,
-                true,
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.name()))
-        );
-    }
-    
     private ClientRegistrationDto createValidRegistrationDto() {
         return new ClientRegistrationDto(
                 "newClient",
@@ -105,73 +51,6 @@ class ClientControllerTest {
                 true,
                 false
         );
-    }
-
-    @Nested
-    @DisplayName("Authorization Constraints")
-    class AuthorizationTests {
-
-        @Test
-        @DisplayName("Security: Should return 403 Forbidden when Non-Admin attempts to GET clients")
-        void shouldReturn403WhenNonAdminAttemptsToGetClients() throws Exception {
-            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
-
-            mockMvc.perform(get(BASE_URL)
-                            .with(user(clerkUser)))
-                    .andExpect(status().isForbidden());
-
-            verifyNoInteractions(clientService);
-        }
-
-        @Test
-        @DisplayName("Security: Should return 403 Forbidden when Client attempts to search clients")
-        void shouldReturn403WhenClientAttemptsToSearchClients() throws Exception {
-            CustomUserDetails clientUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
-
-            mockMvc.perform(get(BASE_URL + "/search")
-                            .param("term", "Doe")
-                            .with(user(clientUser)))
-                    .andExpect(status().isForbidden());
-
-            verifyNoInteractions(clientService);
-        }
-        
-        @Test
-        @DisplayName("Security: Should return 403 Forbidden when Client attempts to use quick register")
-        void shouldReturn403WhenClientAttemptsToQuickRegister() throws Exception {
-            CustomUserDetails clientUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLIENT);
-            ClientQuickRegistrationDto dto = ClientQuickRegistrationDto.builder()
-                    .firstName("Test")
-                    .lastName("User")
-                    .phoneNumber("0888123456")
-                    .build();
-
-            mockMvc.perform(post(BASE_URL + "/quick-register")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(dto))
-                            .with(user(clientUser)))
-                    .andExpect(status().isForbidden());
-
-            verifyNoInteractions(clientService);
-        }
-
-        @Test
-        @DisplayName("Security: Should return 403 Forbidden when non-Client attempts to access /me endpoints")
-        void shouldReturn403WhenNonClientAccessesMeEndpoints() throws Exception {
-            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
-            ClientUpdateDto dto = ClientUpdateDto.builder().firstName("John").lastName("Doe").phoneNumber("0888111222").build();
-
-            mockMvc.perform(get(BASE_URL + "/me").with(user(adminUser)))
-                    .andExpect(status().isForbidden());
-
-            mockMvc.perform(put(BASE_URL + "/me")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(dto))
-                            .with(user(adminUser)))
-                    .andExpect(status().isForbidden());
-
-            verifyNoInteractions(clientService);
-        }
     }
 
     @Nested
@@ -276,84 +155,6 @@ class ClientControllerTest {
                     .andExpect(jsonPath("$.errorCode").value(ErrorCode.PHONE_DUPLICATE.getCode()));
 
             verify(clientService).updateClientProfile(eq(clientId), any(ClientUpdateDto.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("GET /api/clients")
-    class GetAllClientsTests {
-
-        @Test
-        @DisplayName("Happy Path: Admin should successfully retrieve paginated list of clients")
-        void adminShouldRetrieveClientsSuccessfully() throws Exception {
-            // Arrange
-            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
-            ClientViewDto clientDto = createValidViewDto(UUID.randomUUID());
-            Page<ClientViewDto> pagedResponse = new PageImpl<>(List.of(clientDto), PageRequest.of(0, 10), 1);
-
-            given(clientService.getAllClients(any(Pageable.class))).willReturn(pagedResponse);
-
-            // Act and Assert
-            mockMvc.perform(get(BASE_URL)
-                            .with(user(adminUser))
-                            .param("page", "0")
-                            .param("size", "10")
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.totalElements").value(1))
-                    .andExpect(jsonPath("$.content[0].username").value("newClient"));
-
-            verify(clientService).getAllClients(any(Pageable.class));
-        }
-
-        @Test
-        @DisplayName("Edge Case: Should return empty page when no clients exist")
-        void shouldReturnEmptyPageWhenNoClients() throws Exception {
-            // Arrange
-            CustomUserDetails adminUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.ADMIN);
-            Page<ClientViewDto> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
-
-            given(clientService.getAllClients(any(Pageable.class))).willReturn(emptyPage);
-
-            // Act and Assert
-            mockMvc.perform(get(BASE_URL)
-                            .with(user(adminUser))
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.totalElements").value(0))
-                    .andExpect(jsonPath("$.content").isEmpty());
-
-            verify(clientService).getAllClients(any(Pageable.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("GET /api/clients/search")
-    class SearchClientsTests {
-
-        @Test
-        @DisplayName("Happy Path: Staff should successfully search clients")
-        void staffShouldSearchClientsSuccessfully() throws Exception {
-            // Arrange
-            CustomUserDetails clerkUser = createMockAuthUser(UUID.randomUUID(), ApplicationRole.CLERK);
-            ClientViewDto clientDto = createValidViewDto(UUID.randomUUID());
-            Page<ClientViewDto> pagedResponse = new PageImpl<>(List.of(clientDto), PageRequest.of(0, 10), 1);
-            String searchTerm = "John";
-
-            given(clientService.searchClients(eq(searchTerm), any(Pageable.class))).willReturn(pagedResponse);
-
-            // Act and Assert
-            mockMvc.perform(get(BASE_URL + "/search")
-                            .with(user(clerkUser))
-                            .param("term", searchTerm)
-                            .param("page", "0")
-                            .param("size", "10")
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.totalElements").value(1))
-                    .andExpect(jsonPath("$.content[0].firstName").value("John"));
-
-            verify(clientService).searchClients(eq(searchTerm), any(Pageable.class));
         }
     }
 

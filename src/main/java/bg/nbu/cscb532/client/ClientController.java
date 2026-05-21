@@ -19,16 +19,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.UUID;
 
 /**
  * REST controller for managing public Client operations.
@@ -171,5 +166,35 @@ public class ClientController {
         Page<ClientViewDto> clients = clientService.searchClients(term, pageable);
 
         return ResponseEntity.ok(clients);
+    }
+
+    @Operation(
+            summary = "Deactivate a client (Soft Delete)",
+            description = "Sets the client's active status to false, preventing login, but preserves their historical data (e.g., related shipments)."
+    )
+    @ApiResponse(responseCode = "204", description = "Client successfully deactivated")
+    @ApiResponse(responseCode = "404", description = "Client not found")
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deactivateClient(
+            @Parameter(description = "The UUID of the client to deactivate") @PathVariable UUID id) {
+        log.info("API DELETE request to deactivate client ID: {}", id);
+        clientService.deactivate(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Activate a client",
+            description = "Sets the client's active status to true, allowing login."
+    )
+    @ApiResponse(responseCode = "204", description = "Client successfully activated")
+    @ApiResponse(responseCode = "404", description = "Client not found")
+    @PatchMapping("/{id}/activate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> activateClient(
+            @Parameter(description = "The UUID of the client to activate") @PathVariable UUID id) {
+        log.info("API PATCH request to activate client ID: {}", id);
+        clientService.activate(id);
+        return ResponseEntity.noContent().build();
     }
 }

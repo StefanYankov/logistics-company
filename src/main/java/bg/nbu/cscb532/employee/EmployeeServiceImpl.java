@@ -15,6 +15,7 @@ import bg.nbu.cscb532.user.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -40,6 +43,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final PasswordEncoder passwordEncoder;
     private final VerificationTokenRepository verificationTokenRepository;
     private final EmailService emailService;
+    private final OfficeClerkRepository officeClerkRepository;
+    private final CourierRepository courierRepository;
 
     @Override
     @Transactional
@@ -111,8 +116,19 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional(readOnly = true)
     public Page<EmployeeViewDto> getAll(Pageable pageable) {
         log.debug("Fetching all employees with pagination");
-        return employeeRepository.findAll(pageable)
-                .map(this::mapToViewDto);
+        
+        Page<OfficeClerk> clerks = officeClerkRepository.findAll(pageable);
+        Page<Courier> couriers = courierRepository.findAll(pageable);
+
+        List<Employee> allEmployees = new ArrayList<>();
+        allEmployees.addAll(clerks.getContent());
+        allEmployees.addAll(couriers.getContent());
+
+        List<EmployeeViewDto> dtoList = allEmployees.stream()
+                .map(this::mapToViewDto)
+                .toList();
+
+        return new PageImpl<>(dtoList, pageable, clerks.getTotalElements() + couriers.getTotalElements());
     }
 
     @Override
@@ -126,7 +142,6 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         String normalizedEmail = dto.email().trim().toLowerCase();
 
-        // Check for email collision ONLY if the email is actually changing
         if (!employee.getEmail().equals(normalizedEmail) && userRepository.findByEmail(normalizedEmail).isPresent()) {
             throw new BusinessException(ErrorCode.EMAIL_DUPLICATE);
         }
@@ -136,9 +151,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setEmail(normalizedEmail);
         employee.setSalary(dto.salary());
 
-        // Handle Office Reassignment if the employee is a Clerk
         if (employee instanceof OfficeClerk clerk && dto.officeId() != null) {
-            // Only fetch and assign if the office ID is actually different
             if (clerk.getOffice() == null || !clerk.getOffice().getId().equals(dto.officeId())) {
                 Office newOffice = officeRepository.findById(dto.officeId())
                         .orElseThrow(() -> new BusinessException(ErrorCode.OFFICE_NOT_FOUND));
@@ -161,10 +174,26 @@ public class EmployeeServiceImpl implements EmployeeService {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
 
-        employee.setActive(false);
-        employeeRepository.save(employee);
+        if (employee.isActive()) {
+            employee.setActive(false);
+            employeeRepository.save(employee);
+            log.info("Successfully deactivated employee with ID: {}", id);
+        }
+    }
 
-        log.info("Successfully deactivated employee with ID: {}", id);
+    @Override
+    @Transactional
+    public void activate(UUID id) {
+        log.debug("Attempting to activate employee with ID: {}", id);
+
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
+
+        if (!employee.isActive()) {
+            employee.setActive(true);
+            employeeRepository.save(employee);
+            log.info("Successfully activated employee with ID: {}", id);
+        }
     }
 
     @Override
@@ -204,7 +233,6 @@ public class EmployeeServiceImpl implements EmployeeService {
     private OfficeClerk createOfficeClerk(EmployeeCreationDto dto) {
         if (dto.officeId() == null) {
             log.warn("Attempted to create an OfficeClerk without specifying an Office ID.");
-            // We reuse VALIDATION_FAILED here, but it could be a specific business rule
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
 
@@ -217,7 +245,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     private Courier createCourier(EmployeeCreationDto dto) {
-        return new Courier(); // Couriers do not require an office mapping
+        return new Courier();
     }
 
     private EmployeeViewDto mapToViewDto(Employee employee) {

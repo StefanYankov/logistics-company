@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -28,7 +29,7 @@ import java.util.UUID;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/employees")
+@RequestMapping(value = "/api/employees", produces = MediaType.APPLICATION_JSON_VALUE)
 @PreAuthorize("hasRole('ADMIN')")
 @ApiStandardResponses
 @RequiredArgsConstructor
@@ -110,6 +111,20 @@ public class EmployeeController {
             @Parameter(description = "The UUID of the employee to deactivate") @PathVariable UUID id) {
         log.info("API DELETE request to deactivate employee ID: {}", id);
         employeeService.deactivate(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Activate an employee",
+            description = "Sets the employee's active status to true, allowing login."
+    )
+    @ApiResponse(responseCode = "204", description = "Employee successfully activated")
+    @ApiResponse(responseCode = "404", description = "Employee not found")
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<Void> activateEmployee(
+            @Parameter(description = "The UUID of the employee to activate") @PathVariable UUID id) {
+        log.info("API PATCH request to activate employee ID: {}", id);
+        employeeService.activate(id);
         return ResponseEntity.noContent().build();
     }
 

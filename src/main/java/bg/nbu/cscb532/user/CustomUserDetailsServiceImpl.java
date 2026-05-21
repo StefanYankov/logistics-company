@@ -35,6 +35,10 @@ public class CustomUserDetailsServiceImpl implements UserDetailsService {
      * @return a fully populated custom user record containing the UUID (never {@code null})
      * @throws UsernameNotFoundException if the user could not be found or the user has no GrantedAuthority
      */
+    // TODO: (Performance) Annotate this method with @Cacheable("users")
+    //  to cache user details and prevent redundant database queries for the same user during a single request
+    //  (e.g., one query for the JwtFilter, another for @PreAuthorize). This requires setting up a cache manager
+    //  (Caffeine/Redis) in the application configuration.
     @Override
     public @Nonnull UserDetails loadUserByUsername(@Nonnull String username) throws UsernameNotFoundException {
         log.debug("Attempting to load user by username: {}", username);

@@ -20,9 +20,9 @@ export interface PageEmployeeViewDto {
     number?: number;
     first?: boolean;
     last?: boolean;
-    pageable?: PageableObject;
     numberOfElements?: number;
     sort?: SortObject;
+    pageable?: PageableObject;
     empty?: boolean;
 }
 

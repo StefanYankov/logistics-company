@@ -13,6 +13,8 @@ import {authGuard} from './shared/auth.guard';
 import {ShipmentDetails} from './features/shipments/shipment-details/shipment-details';
 import {CourierDashboard} from './features/courier/dashboard/courier-dashboard';
 import {ShipmentEdit} from './features/shipments/shipment-edit/shipment-edit';
+import {adminGuard} from './shared/admin.guard';
+import {UserManagement} from './features/admin/user-management/user-management';
 
 export const routes: Routes = [
   {
@@ -38,7 +40,11 @@ export const routes: Routes = [
       { path: 'shipments/:id', component: ShipmentDetails },
       { path: 'shipments/:id/edit', component: ShipmentEdit },
       { path: 'my-tasks', component: CourierDashboard },
-      // TODO: Add a route for the admin dashboard, e.g., { path: 'admin', component: AdminDashboardComponent }
+      {
+        path: 'admin/user-management',
+        component: UserManagement,
+        canActivate: [adminGuard]
+      }
     ]
   },
   { path: 'track/:trackingNumber', component: Tracking }
