@@ -1,0 +1,48 @@
+<div class="form-container">
+  <div class="header">
+    <h2>Edit Employee</h2>
+    <p>Update the details for this staff member.</p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading">Loading employee details...</div>
+  } @else if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  } @else {
+    <form [formGroup]="editForm" (submit)="onSubmit()">
+      <fieldset class="form-section">
+        <legend>Personal & Employment Details</legend>
+        <div class="form-group half-width">
+          <label for="firstName">First Name</label>
+          <input id="firstName" type="text" formControlName="firstName">
+        </div>
+        <div class="form-group half-width">
+          <label for="lastName">Last Name</label>
+          <input id="lastName" type="text" formControlName="lastName">
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" type="email" formControlName="email">
+        </div>
+        <div class="form-group">
+          <label for="salary">Salary</label>
+          <input id="salary" type="number" formControlName="salary">
+        </div>
+        <div class="form-group">
+          <label for="officeId">Office</label>
+          <select id="officeId" formControlName="officeId">
+            <option [ngValue]="null">-- No Office Assigned --</option>
+            @for(office of offices(); track office.id) { <option [value]="office.id">{{office.fullAddress}}</option> }
+          </select>
+        </div>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" routerLink="/app/admin/user-management">Cancel</button>
+        <button type="submit" class="btn-submit" [disabled]="editForm.invalid || isSubmitting()">
+          {{ isSubmitting() ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

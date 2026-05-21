@@ -1,0 +1,78 @@
+<div class="form-container">
+  <div class="header">
+    <h2>Create New Employee</h2>
+    <p>Fill out the form to add a new staff member to the system.</p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading">Loading...</div>
+  } @else {
+    <form [formGroup]="createForm" (submit)="onSubmit()">
+      <fieldset class="form-section">
+        <legend>Account Credentials</legend>
+        <div class="form-group half-width">
+          <label for="username">Username</label>
+          <input id="username" type="text" formControlName="username">
+        </div>
+        <div class="form-group half-width">
+          <label for="email">Email</label>
+          <input id="email" type="email" formControlName="email">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" type="password" formControlName="password">
+        </div>
+      </fieldset>
+
+      <fieldset class="form-section">
+        <legend>Personal & Employment Details</legend>
+        <div class="form-group half-width">
+          <label for="firstName">First Name</label>
+          <input id="firstName" type="text" formControlName="firstName">
+        </div>
+        <div class="form-group half-width">
+          <label for="lastName">Last Name</label>
+          <input id="lastName" type="text" formControlName="lastName">
+        </div>
+        <div class="form-group half-width">
+          <label for="hireDate">Hire Date</label>
+          <input id="hireDate" type="date" formControlName="hireDate">
+        </div>
+        <div class="form-group half-width">
+          <label for="salary">Salary</label>
+          <input id="salary" type="number" formControlName="salary">
+        </div>
+      </fieldset>
+
+      <fieldset class="form-section">
+        <legend>Role & Assignment</legend>
+        <div class="form-group">
+          <label for="applicationRole">Role</label>
+          <select id="applicationRole" formControlName="applicationRole">
+            @for(role of roles; track role) { <option [value]="role">{{role}}</option> }
+          </select>
+        </div>
+        @if (createForm.get('applicationRole')?.value === 'CLERK') {
+          <div class="form-group">
+            <label for="officeId">Office</label>
+            <select id="officeId" formControlName="officeId">
+              <option [ngValue]="null" disabled>Select an office...</option>
+              @for(office of offices(); track office.id) { <option [value]="office.id">{{office.fullAddress}}</option> }
+            </select>
+          </div>
+        }
+      </fieldset>
+
+      @if (errorMessage()) {
+        <div class="error-banner">{{errorMessage()}}</div>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" routerLink="/app/admin/user-management">Cancel</button>
+        <button type="submit" class="btn-submit" [disabled]="createForm.invalid || isSubmitting()">
+          {{ isSubmitting() ? 'Creating...' : 'Create Employee' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

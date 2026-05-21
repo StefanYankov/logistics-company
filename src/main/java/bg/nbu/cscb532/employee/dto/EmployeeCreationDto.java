@@ -1,12 +1,7 @@
 package bg.nbu.cscb532.employee.dto;
 
-import bg.nbu.cscb532.shared.Constants;
 import bg.nbu.cscb532.user.ApplicationRole;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.Builder;
 
 import java.math.BigDecimal;
@@ -35,10 +30,6 @@ public record EmployeeCreationDto(
         @Size(max = 255, message = "{validation.user.lastname.toolong}")
         String lastName,
 
-        @NotBlank(message = "{validation.employee.number.notblank}")
-        @Size(max = Constants.Validation.MAX_REGISTRATION_NUMBER_LENGTH, message = "{validation.employee.number.toolong}")
-        String employeeNumber,
-
         @NotNull(message = "{validation.employee.hiredate.notnull}")
         LocalDate hireDate,
 
@@ -46,7 +37,7 @@ public record EmployeeCreationDto(
         @Positive(message = "{validation.employee.salary.positive}")
         BigDecimal salary,
 
-        @NotNull(message = "Application role must be specified")
+        @NotNull(message = "{validation.employee.role.notnull}")
         ApplicationRole applicationRole,
 
         Long officeId
