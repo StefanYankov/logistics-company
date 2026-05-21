@@ -2,6 +2,7 @@ package bg.nbu.cscb532.company;
 
 
 import bg.nbu.cscb532.company.dto.CompanyDto;
+import bg.nbu.cscb532.company.dto.CompanyUpdateDto;
 import bg.nbu.cscb532.company.dto.CompanyViewDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,7 +26,7 @@ public interface CompanyService {
      * @param dto the DTO containing the updated company data
      * @return the updated company's view DTO
      */
-    CompanyViewDto update(Long id, CompanyDto dto);
+    CompanyViewDto update(Long id, CompanyUpdateDto dto);
 
     /**
      * Deletes a company by ID.
@@ -56,4 +57,11 @@ public interface CompanyService {
      * @return A Page containing a slice of CompanyViewDto objects and total element metadata.
      */
     Page<CompanyViewDto> getAll(Pageable pageable);
+
+    /**
+     * Retrieves a company's details in a format suitable for updating.
+     * @param id the ID of the company
+     * @return the company's update DTO
+     */
+    CompanyUpdateDto getCompanyForUpdate(Long id);
 }

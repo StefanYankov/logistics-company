@@ -1,6 +1,7 @@
 package bg.nbu.cscb532.company;
 
 import bg.nbu.cscb532.company.dto.CompanyDto;
+import bg.nbu.cscb532.company.dto.CompanyUpdateDto;
 import bg.nbu.cscb532.company.dto.CompanyViewDto;
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +23,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/companies")
+@RequestMapping(value = "/api/companies", produces = MediaType.APPLICATION_JSON_VALUE)
 @ApiStandardResponses
 @RequiredArgsConstructor
 @Tag(name = "Company API", description = "Endpoints for managing logistics companies.")
@@ -101,7 +103,7 @@ public class CompanyController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CompanyViewDto> updateCompany(
             @PathVariable Long id,
-            @Valid @RequestBody CompanyDto dto) {
+            @Valid @RequestBody CompanyUpdateDto dto) {
 
         log.info("API PUT request to update company ID: {}", id);
 
@@ -110,17 +112,30 @@ public class CompanyController {
         return ResponseEntity.ok(updatedCompany);
     }
 
+    @Operation(
+            summary = "Get company details for update",
+            description = "Retrieves the full structured details of a company, suitable for populating an update form."
+    )
+    @ApiResponse(responseCode = "200", description = "Company details retrieved successfully")
+    @ApiResponse(responseCode = "404", description = "Company not found")
+    @GetMapping("/{id}/for-update")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CompanyUpdateDto> getCompanyForUpdate(@PathVariable Long id) {
+        log.info("API GET request for company ID: {} for update", id);
+        CompanyUpdateDto companyDetails = companyService.getCompanyForUpdate(id);
+        return ResponseEntity.ok(companyDetails);
+    }
+
     @Operation(summary = "Delete a company", description = "Permanently removes a company from the system.")
     @ApiResponse(responseCode = "204", description = "Company deleted successfully")
     @ApiResponse(responseCode = "404", description = "Company not found")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCompany(@PathVariable Long id) {
-        log.info("API DELETE request for company ID: {}", id);
+        log.info("API DELETE request for company with ID: {}", id);
 
         companyService.delete(id);
 
         return ResponseEntity.noContent().build();
     }
-
 }

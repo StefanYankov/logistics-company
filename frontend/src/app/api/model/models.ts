@@ -7,6 +7,7 @@ export * from './clientRegistrationDto';
 export * from './clientUpdateDto';
 export * from './clientViewDto';
 export * from './companyDto';
+export * from './companyUpdateDto';
 export * from './companyViewDto';
 export * from './employeeCreationDto';
 export * from './employeeUpdateDto';

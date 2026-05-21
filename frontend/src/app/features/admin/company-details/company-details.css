@@ -1,0 +1,104 @@
+.company-details-container {
+  max-width: 900px;
+  margin: 2rem auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.content-card {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.view-mode .detail-row {
+  display: flex;
+  padding: 1rem 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.view-mode .label {
+  font-weight: 600;
+  color: #495057;
+  width: 200px;
+}
+
+.view-mode .value {
+  color: #212529;
+}
+
+.view-mode .actions {
+  margin-top: 2rem;
+  text-align: right;
+}
+
+.btn-edit {
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+form .form-group {
+  margin-bottom: 1.5rem;
+}
+
+form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+form input[type="text"],
+form select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.form-section {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid #dee2e6;
+  padding: 1.5rem;
+  border-radius: 4px;
+}
+
+legend {
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 0 0.5rem;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.btn-submit, .btn-cancel {
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-submit {
+  background-color: #198754;
+  color: white;
+  border: none;
+}
+
+.btn-cancel {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+}

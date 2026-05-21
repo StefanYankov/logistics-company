@@ -1,7 +1,9 @@
 package bg.nbu.cscb532.user;
 
 import bg.nbu.cscb532.client.Client;
+import bg.nbu.cscb532.office.City;
 import bg.nbu.cscb532.shared.config.JpaConfig;
+import bg.nbu.cscb532.shared.location.AddressDetails;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -47,6 +49,13 @@ class UserRepositoryIntegrationTest {
         client.setLastName("User");
         client.setPhoneNumber("123456789");
         client.setApplicationRole(ApplicationRole.CLIENT);
+        
+        AddressDetails address = new AddressDetails();
+        City city = new City();
+        city.setId(1L);
+        address.setCity(city);
+        address.setStreet("Test Street");
+
         return client;
     }
 

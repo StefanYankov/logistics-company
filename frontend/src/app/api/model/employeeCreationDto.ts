@@ -15,7 +15,6 @@ export interface EmployeeCreationDto {
     password: string;
     firstName: string;
     lastName: string;
-    employeeNumber: string;
     hireDate: string;
     salary: number;
     applicationRole: EmployeeCreationDto.ApplicationRoleEnum;
