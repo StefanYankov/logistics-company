@@ -1,5 +1,4 @@
 <app-authenticated-header></app-authenticated-header>
-
 <div class="main-content-with-sidebar">
   <aside class="sidebar">
     <nav class="main-nav">
@@ -7,24 +6,25 @@
         @if (isClient()) {
           <li><a routerLink="/app" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a></li>
           <li><a routerLink="/app/send-package" routerLinkActive="active">Send Package</a></li>
-        } @else if (isStaff()) {
+        }
+        @if (isStaff()) {
           <li><a routerLink="/app/shipments" routerLinkActive="active">All Shipments</a></li>
           <li><a routerLink="/app/register-shipment" routerLinkActive="active">Register Shipment</a></li>
-          @if (isCourier()) {
-            <li><a routerLink="/app/my-tasks" routerLinkActive="active">My Tasks</a></li>
-          }
+        }
+        @if (isCourier()){
+          <li><a routerLink="/app/my-tasks" routerLinkActive="active">My Tasks</a></li>
+        }
+        @if (isAdmin()) {
+          <li><a routerLink="/app/admin/user-management" routerLinkActive="active">User Management</a></li>
         }
       </ul>
     </nav>
     <div class="user-info">
-      <!-- TODO: This is for presentation purposes and should be removed in a production environment -->
-      <span>Logged in as: {{ authService.getDecodedToken()?.sub }}</span>
+      <span >Logged in as: {{ authService.getDecodedToken()?.sub }}</span>
     </div>
   </aside>
-
   <main class="content">
     <router-outlet></router-outlet>
   </main>
 </div>
-
 <app-footer></app-footer>

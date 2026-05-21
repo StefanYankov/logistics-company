@@ -1,0 +1,93 @@
+<div class="management-container">
+  <div class="header">
+    <h2>User Management</h2>
+    <p>View, activate, or deactivate staff and client accounts.</p>
+  </div>
+
+  <div class="tab-navigation">
+    <button class="tab-button" [class.active]="activeTab() === 'staff'" (click)="selectTab('staff')">
+      Staff ({{ employees().length }})
+    </button>
+    <button class="tab-button" [class.active]="activeTab() === 'clients'" (click)="selectTab('clients')">
+      Clients ({{ clients().length }})
+    </button>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading">Loading user data...</div>
+  } @else if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  } @else {
+    <div class="tab-content">
+      <!-- Staff Table -->
+      @if (activeTab() === 'staff') {
+        <div class="table-responsive">
+          <table class="user-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Contact</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (employee of employees(); track employee.id) {
+                <tr>
+                  <td>{{ employee.firstName }} {{ employee.lastName }}</td>
+                  <td>{{ employee.applicationRole }}</td>
+                  <td>{{ employee.email }}</td>
+                  <td>
+                    <span class="status-badge" [class.active]="employee.isActive" [class.inactive]="!employee.isActive">
+                      {{ employee.isActive ? 'Active' : 'Inactive' }}
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <button class="btn-action" (click)="toggleEmployeeStatus(employee)">
+                      {{ employee.isActive ? 'Deactivate' : 'Activate' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <!-- Clients Table -->
+      @if (activeTab() === 'clients') {
+        <div class="table-responsive">
+          <table class="user-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (client of clients(); track client.id) {
+                <tr>
+                  <td>{{ client.firstName }} {{ client.lastName }}</td>
+                  <td>{{ client.email }}<br><small>{{ client.phoneNumber }}</small></td>
+                  <td>
+                    <span class="status-badge" [class.active]="client.isActive" [class.inactive]="!client.isActive">
+                      {{ client.isActive ? 'Active' : 'Inactive' }}
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <button class="btn-action" (click)="toggleClientStatus(client)">
+                      {{ client.isActive ? 'Deactivate' : 'Activate' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

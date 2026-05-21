@@ -54,6 +54,12 @@ class EmployeeServiceUnitTests {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private OfficeClerkRepository officeClerkRepository;
+
+    @Mock
+    private CourierRepository courierRepository;
+
     @InjectMocks
     private EmployeeServiceImpl employeeService;
 
@@ -280,8 +286,9 @@ class EmployeeServiceUnitTests {
             Courier courier = new Courier();
             courier.setId(UUID.randomUUID());
             
-            Page<Employee> page = new PageImpl<>(List.of(courier), pageRequest, 1);
-            given(employeeRepository.findAll(pageRequest)).willReturn(page);
+            Page<Courier> courierPage = new PageImpl<>(List.of(courier), pageRequest, 1);
+            given(courierRepository.findAll(pageRequest)).willReturn(courierPage);
+            given(officeClerkRepository.findAll(pageRequest)).willReturn(Page.empty());
 
             // Act
             Page<EmployeeViewDto> result = employeeService.getAll(pageRequest);
@@ -291,7 +298,8 @@ class EmployeeServiceUnitTests {
             assertThat(result.getTotalElements()).isEqualTo(1);
             assertThat(result.getContent()).hasSize(1);
 
-            verify(employeeRepository).findAll(pageRequest);
+            verify(courierRepository).findAll(pageRequest);
+            verify(officeClerkRepository).findAll(pageRequest);
         }
     }
 
@@ -474,6 +482,24 @@ class EmployeeServiceUnitTests {
 
             verify(employeeRepository, never()).save(any());
         }
+
+        @Test
+        @DisplayName("Idempotency: Should do nothing when deactivating an already inactive employee")
+        void shouldDoNothingWhenDeactivatingInactiveEmployee() {
+            // Arrange
+            UUID empId = UUID.randomUUID();
+            Courier employee = new Courier();
+            employee.setId(empId);
+            employee.setActive(false);
+
+            given(employeeRepository.findById(empId)).willReturn(Optional.of(employee));
+
+            // Act
+            employeeService.deactivate(empId);
+
+            // Assert
+            verify(employeeRepository, never()).save(any());
+        }
     }
 
     @Nested
@@ -567,6 +593,24 @@ class EmployeeServiceUnitTests {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMPLOYEE_NOT_FOUND);
 
+            verify(employeeRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Idempotency: Should do nothing when activating an already active employee")
+        void shouldDoNothingWhenActivatingActiveEmployee() {
+            // Arrange
+            UUID empId = UUID.randomUUID();
+            Courier employee = new Courier();
+            employee.setId(empId);
+            employee.setActive(true);
+
+            given(employeeRepository.findById(empId)).willReturn(Optional.of(employee));
+
+            // Act
+            employeeService.activate(empId);
+
+            // Assert
             verify(employeeRepository, never()).save(any());
         }
     }
