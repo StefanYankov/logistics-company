@@ -8,7 +8,9 @@ import bg.nbu.cscb532.office.Office;
 import bg.nbu.cscb532.office.OfficeRepository;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
-import bg.nbu.cscb532.user.*;
+import bg.nbu.cscb532.user.ApplicationRole;
+import bg.nbu.cscb532.user.User;
+import bg.nbu.cscb532.user.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,11 +33,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("EmployeeService Unit Tests")
@@ -526,6 +527,46 @@ class EmployeeServiceUnitTests {
                     .isEqualTo(ErrorCode.EMPLOYEE_NOT_FOUND);
 
             verifyNoInteractions(passwordEncoder);
+            verify(employeeRepository, never()).save(any());
+        }
+    }
+    
+    @Nested
+    @DisplayName("activate(UUID) Tests")
+    class ActivateTests {
+
+        @Test
+        @DisplayName("Happy Path: Should successfully activate a deactivated employee")
+        void shouldActivateEmployee() {
+            // Arrange
+            UUID empId = UUID.randomUUID();
+            Courier employee = new Courier();
+            employee.setId(empId);
+            employee.setActive(false);
+
+            given(employeeRepository.findById(empId)).willReturn(Optional.of(employee));
+
+            // Act
+            employeeService.activate(empId);
+
+            // Assert
+            verify(employeeRepository).save(employeeCaptor.capture());
+            assertThat(employeeCaptor.getValue().isActive()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Error Case: Should throw BusinessException when employee not found")
+        void shouldThrowExceptionWhenEmployeeNotFound() {
+            // Arrange
+            UUID empId = UUID.randomUUID();
+            given(employeeRepository.findById(empId)).willReturn(Optional.empty());
+
+            // Act & Assert
+            assertThatThrownBy(() -> employeeService.activate(empId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.EMPLOYEE_NOT_FOUND);
+
             verify(employeeRepository, never()).save(any());
         }
     }

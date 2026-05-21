@@ -114,6 +114,20 @@ public class EmployeeController {
     }
 
     @Operation(
+            summary = "Activate an employee",
+            description = "Sets the employee's active status to true, allowing login."
+    )
+    @ApiResponse(responseCode = "204", description = "Employee successfully activated")
+    @ApiResponse(responseCode = "404", description = "Employee not found")
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<Void> activateEmployee(
+            @Parameter(description = "The UUID of the employee to activate") @PathVariable UUID id) {
+        log.info("API PATCH request to activate employee ID: {}", id);
+        employeeService.activate(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
             summary = "Force a password reset",
             description = "Allows an administrator to immediately overwrite an employee's password."
     )

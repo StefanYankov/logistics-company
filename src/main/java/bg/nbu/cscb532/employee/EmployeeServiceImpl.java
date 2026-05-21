@@ -169,6 +169,20 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional
+    public void activate(UUID id) {
+        log.debug("Attempting to activate employee with ID: {}", id);
+
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
+
+        employee.setActive(true);
+        employeeRepository.save(employee);
+
+        log.info("Successfully activated employee with ID: {}", id);
+    }
+
+    @Override
+    @Transactional
     public void forcePasswordReset(UUID id, AdminPasswordResetDto dto) {
         log.debug("Admin attempting to force reset password for employee ID: {}", id);
         Objects.requireNonNull(dto, Constants.DeveloperErrors.DTO_NULL);
@@ -204,7 +218,6 @@ public class EmployeeServiceImpl implements EmployeeService {
     private OfficeClerk createOfficeClerk(EmployeeCreationDto dto) {
         if (dto.officeId() == null) {
             log.warn("Attempted to create an OfficeClerk without specifying an Office ID.");
-            // We reuse VALIDATION_FAILED here, but it could be a specific business rule
             throw new BusinessException(ErrorCode.VALIDATION_FAILED);
         }
 
@@ -217,7 +230,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     private Courier createCourier(EmployeeCreationDto dto) {
-        return new Courier(); // Couriers do not require an office mapping
+        return new Courier();
     }
 
     private EmployeeViewDto mapToViewDto(Employee employee) {
