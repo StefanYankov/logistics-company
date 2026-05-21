@@ -17,6 +17,7 @@ import {adminGuard} from './shared/admin.guard';
 import {UserManagement} from './features/admin/user-management/user-management';
 import {EmployeeCreate} from './features/admin/employee-create/employee-create';
 import {EmployeeEdit} from './features/admin/employee-edit/employee-edit';
+import {CompanyDetails} from './features/admin/company-details/company-details';
 
 export const routes: Routes = [
   {
@@ -55,6 +56,11 @@ export const routes: Routes = [
       {
         path: 'admin/employees/:id/edit',
         component: EmployeeEdit,
+        canActivate: [adminGuard]
+      },
+      {
+        path: 'admin/company',
+        component: CompanyDetails,
         canActivate: [adminGuard]
       }
     ]

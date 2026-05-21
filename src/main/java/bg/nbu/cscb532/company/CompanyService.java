@@ -57,4 +57,11 @@ public interface CompanyService {
      * @return A Page containing a slice of CompanyViewDto objects and total element metadata.
      */
     Page<CompanyViewDto> getAll(Pageable pageable);
+
+    /**
+     * Retrieves a company's details in a format suitable for updating.
+     * @param id the ID of the company
+     * @return the company's update DTO
+     */
+    CompanyUpdateDto getCompanyForUpdate(Long id);
 }

@@ -1,0 +1,77 @@
+<div class="company-details-container">
+  <div class="header">
+    <h2>Company Details</h2>
+    <p>Manage the core information for your logistics company.</p>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading">Loading company data...</div>
+  } @else if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  } @else if (!company()) {
+    <div class="info-message">No company data found. Please create one via API or DataSeeder.</div>
+  } @else {
+    <div class="content-card">
+      @if (!isEditMode()) {
+        <!-- View Mode -->
+        <div class="view-mode">
+          <div class="detail-row">
+            <span class="label">Company Name:</span>
+            <span class="value">{{ company()!.name }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Registration Number:</span>
+            <span class="value">{{ company()!.registrationNumber }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Address:</span>
+            <span class="value">{{ company()!.address }}</span>
+          </div>
+          <div class="actions">
+            <button class="btn-action btn-edit" (click)="toggleEditMode(true)">Edit Details</button>
+          </div>
+        </div>
+      } @else {
+        <!-- Edit Mode -->
+        <form [formGroup]="companyForm" (submit)="onSubmit()">
+          <div class="form-group">
+            <label for="name">Company Name</label>
+            <input id="name" type="text" formControlName="name">
+          </div>
+          <div class="form-group">
+            <label for="registrationNumber">Registration Number</label>
+            <input id="registrationNumber" type="text" formControlName="registrationNumber">
+          </div>
+
+          <fieldset formGroupName="addressDetails" class="form-section">
+            <legend>Company Address</legend>
+            <div class="form-group">
+              <label for="street">Street</label>
+              <input id="street" type="text" formControlName="street">
+            </div>
+            <div class="form-group">
+              <label for="cityId">City</label>
+              <select id="cityId" formControlName="cityId">
+                <option [ngValue]="null" disabled>Select a city...</option>
+                @for(city of cities(); track city.id) {
+                  <option [value]="city.id">{{city.name}} ({{city.postcode}})</option>
+                }
+              </select>
+            </div>
+          </fieldset>
+
+          @if (errorMessage()) {
+            <div class="error-banner">{{errorMessage()}}</div>
+          }
+
+          <div class="form-actions">
+            <button type="button" class="btn-cancel" (click)="toggleEditMode(false)">Cancel</button>
+            <button type="submit" class="btn-submit" [disabled]="companyForm.invalid || isSubmitting()">
+              {{ isSubmitting() ? 'Saving...' : 'Save Changes' }}
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  }
+</div>

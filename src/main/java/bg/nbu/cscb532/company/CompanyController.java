@@ -112,6 +112,20 @@ public class CompanyController {
         return ResponseEntity.ok(updatedCompany);
     }
 
+    @Operation(
+            summary = "Get company details for update",
+            description = "Retrieves the full structured details of a company, suitable for populating an update form."
+    )
+    @ApiResponse(responseCode = "200", description = "Company details retrieved successfully")
+    @ApiResponse(responseCode = "404", description = "Company not found")
+    @GetMapping("/{id}/for-update")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CompanyUpdateDto> getCompanyForUpdate(@PathVariable Long id) {
+        log.info("API GET request for company ID: {} for update", id);
+        CompanyUpdateDto companyDetails = companyService.getCompanyForUpdate(id);
+        return ResponseEntity.ok(companyDetails);
+    }
+
     @Operation(summary = "Delete a company", description = "Permanently removes a company from the system.")
     @ApiResponse(responseCode = "204", description = "Company deleted successfully")
     @ApiResponse(responseCode = "404", description = "Company not found")

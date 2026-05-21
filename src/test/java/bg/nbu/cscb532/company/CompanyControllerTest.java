@@ -64,6 +64,10 @@ class CompanyControllerTest {
         return new CompanyViewDto(id, name, reg, "Test Address");
     }
 
+    private CompanyUpdateDto createValidUpdateDto(Long id, String name, String reg) {
+        return new CompanyUpdateDto(name, reg, createValidAddressDto());
+    }
+
     private AddressDetailsDto createValidAddressDto() {
         return AddressDetailsDto.builder()
                 .cityId(1L)
@@ -225,6 +229,39 @@ class CompanyControllerTest {
                             .content(objectMapper.writeValueAsString(requestDto)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.name").value("New Name"));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/companies/{id}/for-update")
+    class GetCompanyForUpdateTests {
+
+        @Test
+        @DisplayName("Should return 200 OK with CompanyUpdateDto when company exists")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturnCompanyForUpdateWhenExists() throws Exception {
+            CompanyUpdateDto responseDto = createValidUpdateDto(1L, "Speedy Logistics", "BG12345");
+
+            given(companyService.getCompanyForUpdate(1L)).willReturn(responseDto);
+
+            mockMvc.perform(get("/api/companies/1/for-update")
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.name").value("Speedy Logistics"))
+                    .andExpect(jsonPath("$.addressDetails.street").value("Test Street"));
+        }
+
+        @Test
+        @DisplayName("Should return 404 Not Found when company does not exist")
+        @WithMockUser(roles = "ADMIN")
+        void shouldReturn404WhenCompanyForUpdateNotFound() throws Exception {
+            given(companyService.getCompanyForUpdate(99L))
+                    .willThrow(new BusinessException(ErrorCode.COMPANY_NOT_FOUND));
+
+            mockMvc.perform(get("/api/companies/99/for-update")
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.errorCode").value("E1001"));
         }
     }
 

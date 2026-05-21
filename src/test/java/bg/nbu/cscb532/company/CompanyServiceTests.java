@@ -79,13 +79,11 @@ class CompanyServiceTests {
         address.setCity(createMockCity(1L, "Sofia"));
         address.setStreet("Main Street 123");
 
-        Company company = Company.builder()
-                .name(name)
-                .registrationNumber(regNumber)
-                .addressDetails(address)
-                .build();
-
+        Company company = new Company();
         company.setId(id);
+        company.setName(name);
+        company.setRegistrationNumber(regNumber);
+        company.setAddressDetails(address);
 
         return company;
     }
@@ -385,6 +383,23 @@ class CompanyServiceTests {
             assertThat(result.getTotalElements()).isEqualTo(1);
             assertThat(result.getContent().getFirst().name()).isEqualTo("Test");
             assertThat(result.getContent().getFirst().address()).contains("Main Street 123");
+        }
+
+        @Test
+        @DisplayName("getCompanyForUpdate: Should return correct DTO for update")
+        void shouldReturnDtoForUpdate() {
+            // Arrange
+            Long companyId = 1L;
+            Company mockCompany = createMockCompany(companyId, "Test", "123");
+            given(companyRepository.findById(companyId)).willReturn(Optional.of(mockCompany));
+
+            // Act
+            CompanyUpdateDto result = companyService.getCompanyForUpdate(companyId);
+
+            // Assert
+            assertThat(result).isNotNull();
+            assertThat(result.name()).isEqualTo("Test");
+            assertThat(result.addressDetails().street()).isEqualTo("Main Street 123");
         }
     }
 }

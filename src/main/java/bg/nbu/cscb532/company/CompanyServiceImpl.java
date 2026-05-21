@@ -158,6 +158,14 @@ public class CompanyServiceImpl implements CompanyService {
         return companies.map(this::mapToViewDto);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    @Transactional(readOnly = true)
+    public CompanyUpdateDto getCompanyForUpdate(Long id) {
+        log.debug("Fetching company for update with ID: {}", id);
+        return mapToUpdateDto(findCompanyOrThrow(id));
+    }
+
     /**
      * Centralized lookup and exception logic to DRY up the service methods.
      */
@@ -182,6 +190,34 @@ public class CompanyServiceImpl implements CompanyService {
                 company.getRegistrationNumber(),
                 formatAddress(company.getAddressDetails())
         );
+    }
+
+    private CompanyUpdateDto mapToUpdateDto(Company company) {
+        if (company == null) {
+            return null;
+        }
+        return new CompanyUpdateDto(
+                company.getName(),
+                company.getRegistrationNumber(),
+                mapAddressToDto(company.getAddressDetails())
+        );
+    }
+
+    private AddressDetailsDto mapAddressToDto(AddressDetails address) {
+        if (address == null) {
+            return null;
+        }
+        return AddressDetailsDto.builder()
+                .cityId(address.getCity().getId())
+                .street(address.getStreet())
+                .district(address.getDistrict())
+                .building(address.getBuilding())
+                .entrance(address.getEntrance())
+                .floor(address.getFloor())
+                .apartment(address.getApartment())
+                .latitude(address.getLatitude())
+                .longitude(address.getLongitude())
+                .build();
     }
 
     private AddressDetails buildAddressDetails(AddressDetailsDto dto) {
