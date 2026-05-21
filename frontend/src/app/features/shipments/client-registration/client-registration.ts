@@ -1,12 +1,22 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
-import { forkJoin, of, EMPTY, Observable } from 'rxjs';
-import { catchError, startWith, concatMap, tap } from 'rxjs/operators';
-import { ShipmentAPIService, OfficeAPIService, CityAPIService, ClientAPIService, ServiceCatalogAPIService } from '../../../api';
-import { OfficeViewDto, CityViewDto, ShipmentCreationDto, ClientUpdateDto, ServiceCatalogViewDto } from '../../../api';
-import { AuthService } from '../../../shared/auth.service';
+import {Component, inject, OnInit, signal} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
+import {Router, RouterModule} from '@angular/router';
+import {EMPTY, forkJoin, Observable, of} from 'rxjs';
+import {catchError, concatMap, startWith, tap} from 'rxjs/operators';
+import {
+  CityAPIService,
+  CityViewDto,
+  ClientAPIService,
+  ClientUpdateDto,
+  OfficeAPIService,
+  OfficeViewDto,
+  ServiceCatalogAPIService,
+  ServiceCatalogViewDto,
+  ShipmentAPIService,
+  ShipmentCreationDto
+} from '../../../api';
+import {AuthService} from '../../../shared/auth.service';
 
 @Component({
   selector: 'app-client-registration',
@@ -44,9 +54,9 @@ export class ClientRegistration implements OnInit {
   selectedServiceIds = signal<Set<number>>(new Set());
 
   senderProfileForm = this.fb.group({
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
-      phoneNumber: ['', [Validators.required, Validators.pattern(/^\+?[0-9]{8,15}$/)]]
+    firstName: ['', Validators.required],
+    lastName: ['', Validators.required],
+    phoneNumber: ['', [Validators.required, Validators.pattern(/^\+?[0-9]{8,15}$/)]]
   });
 
   registerForm = this.fb.group({
@@ -242,70 +252,70 @@ export class ClientRegistration implements OnInit {
       this.errorMessage.set(null);
 
       const profileUpdate$: Observable<any> = this.senderProfileForm.dirty
-          ? this.clientApi.updateMyProfile(this.senderProfileForm.value as ClientUpdateDto)
-          : of(null);
+        ? this.clientApi.updateMyProfile(this.senderProfileForm.value as ClientUpdateDto)
+        : of(null);
 
       profileUpdate$.pipe(
-          concatMap(() => {
-              const v = this.registerForm.value;
-              const payload: ShipmentCreationDto = {
-                senderId: this.loggedInUserId,
-                type: v.type as ShipmentCreationDto.TypeEnum,
-                weight: v.weight!,
-                paidBy: v.paidBy as ShipmentCreationDto.PaidByEnum,
-                receiverName: v.receiverName!,
-                receiverPhone: v.receiverPhone!,
-                receiverEmail: v.receiverEmail || undefined,
-                selectedServiceIds: this.selectedServiceIds().size > 0 ? Array.from(this.selectedServiceIds()) as unknown as Set<number> : undefined
-              };
+        concatMap(() => {
+          const v = this.registerForm.value;
+          const payload: ShipmentCreationDto = {
+            senderId: this.loggedInUserId,
+            type: v.type as ShipmentCreationDto.TypeEnum,
+            weight: v.weight!,
+            paidBy: v.paidBy as ShipmentCreationDto.PaidByEnum,
+            receiverName: v.receiverName!,
+            receiverPhone: v.receiverPhone!,
+            receiverEmail: v.receiverEmail || undefined,
+            selectedServiceIds: this.selectedServiceIds().size > 0 ? Array.from(this.selectedServiceIds()) as unknown as Set<number> : undefined
+          };
 
-              // Origin
-              if (v.originType === 'OFFICE') {
-                payload.originOfficeId = v.originOfficeId!;
-              } else {
-                payload.originAddress = {
-                  cityId: v.originCityId!,
-                  street: v.originStreet!,
-                  district: v.originDistrict || undefined,
-                  building: v.originBuilding || undefined,
-                  entrance: v.originEntrance || undefined,
-                  floor: v.originFloor || undefined,
-                  apartment: v.originApartment || undefined
-                };
-              }
+          // Origin
+          if (v.originType === 'OFFICE') {
+            payload.originOfficeId = v.originOfficeId!;
+          } else {
+            payload.originAddress = {
+              cityId: v.originCityId!,
+              street: v.originStreet!,
+              district: v.originDistrict || undefined,
+              building: v.originBuilding || undefined,
+              entrance: v.originEntrance || undefined,
+              floor: v.originFloor || undefined,
+              apartment: v.originApartment || undefined
+            };
+          }
 
-              // Destination
-              if (v.destinationType === 'OFFICE') {
-                payload.deliveryOfficeId = v.deliveryOfficeId!;
-              } else {
-                payload.deliveryAddress = {
-                  cityId: v.deliveryCityId!,
-                  street: v.deliveryStreet!,
-                  district: v.deliveryDistrict || undefined,
-                  building: v.deliveryBuilding || undefined,
-                  entrance: v.deliveryEntrance || undefined,
-                  floor: v.deliveryFloor || undefined,
-                  apartment: v.deliveryApartment || undefined
-                };
-              }
+          // Destination
+          if (v.destinationType === 'OFFICE') {
+            payload.deliveryOfficeId = v.deliveryOfficeId!;
+          } else {
+            payload.deliveryAddress = {
+              cityId: v.deliveryCityId!,
+              street: v.deliveryStreet!,
+              district: v.deliveryDistrict || undefined,
+              building: v.deliveryBuilding || undefined,
+              entrance: v.deliveryEntrance || undefined,
+              floor: v.deliveryFloor || undefined,
+              apartment: v.deliveryApartment || undefined
+            };
+          }
 
-              return this.shipmentApi.registerShipment(payload);
-          }),
-          tap(() => {
-            this.isSubmitting.set(false);
-            this.router.navigate(['/app']).catch(console.error);
-          }),
-          catchError((err) => {
-            this.isSubmitting.set(false);
-            if (err.status === 409 && err.error?.errorCode === 'E3005') {
-                 this.errorMessage.set('The phone number you provided is already registered to another account.');
-            } else if (err.status === 400 && err.error?.detail) {
-                 this.errorMessage.set(err.error.detail);
-            } else {
-                 this.errorMessage.set('An unexpected error occurred while processing your request.');
-            }
-            return EMPTY;
-          })
+          return this.shipmentApi.registerShipment(payload);
+        }),
+        tap(() => {
+          this.isSubmitting.set(false);
+          this.router.navigate(['/app']).catch(console.error);
+        }),
+        catchError((err) => {
+          this.isSubmitting.set(false);
+          if (err.status === 409 && err.error?.errorCode === 'E3005') {
+            this.errorMessage.set('The phone number you provided is already registered to another account.');
+          } else if (err.status === 400 && err.error?.detail) {
+            this.errorMessage.set(err.error.detail);
+          } else {
+            this.errorMessage.set('An unexpected error occurred while processing your request.');
+          }
+          return EMPTY;
+        })
       ).subscribe();
 
     } else {
