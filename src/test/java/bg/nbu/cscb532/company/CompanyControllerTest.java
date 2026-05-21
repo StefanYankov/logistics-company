@@ -1,10 +1,12 @@
 package bg.nbu.cscb532.company;
 
 import bg.nbu.cscb532.company.dto.CompanyDto;
+import bg.nbu.cscb532.company.dto.CompanyUpdateDto;
 import bg.nbu.cscb532.company.dto.CompanyViewDto;
 import bg.nbu.cscb532.shared.config.SecurityConfig;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
+import bg.nbu.cscb532.shared.location.AddressDetailsDto;
 import bg.nbu.cscb532.shared.web.exception.GlobalExceptionHandler;
 import bg.nbu.cscb532.user.JwtService;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +60,17 @@ class CompanyControllerTest {
     @MockitoBean
     private UserDetailsService userDetailsService;
 
+    private CompanyViewDto createValidViewDto(Long id, String name, String reg) {
+        return new CompanyViewDto(id, name, reg, "Test Address");
+    }
+
+    private AddressDetailsDto createValidAddressDto() {
+        return AddressDetailsDto.builder()
+                .cityId(1L)
+                .street("Test Street")
+                .build();
+    }
+
     @Nested
     @DisplayName("POST /api/companies")
     class CreateCompanyTests {
@@ -70,9 +83,10 @@ class CompanyControllerTest {
             CompanyDto requestDto = CompanyDto.builder()
                     .name("Speedy Logistics")
                     .registrationNumber("BG12345")
+                    .addressDetails(createValidAddressDto())
                     .build();
 
-            CompanyViewDto responseDto = new CompanyViewDto(1L, "Speedy Logistics", "BG12345");
+            CompanyViewDto responseDto = createValidViewDto(1L, "Speedy Logistics", "BG12345");
 
             given(companyService.create(any(CompanyDto.class))).willReturn(responseDto);
 
@@ -93,6 +107,7 @@ class CompanyControllerTest {
             CompanyDto invalidDto = CompanyDto.builder()
                     .name("")
                     .registrationNumber("BG12345")
+                    .addressDetails(createValidAddressDto())
                     .build();
 
             // Act & Assert
@@ -113,6 +128,7 @@ class CompanyControllerTest {
             CompanyDto requestDto = CompanyDto.builder()
                     .name("Speedy")
                     .registrationNumber("DUPLICATE")
+                    .addressDetails(createValidAddressDto())
                     .build();
 
             given(companyService.create(any(CompanyDto.class)))
@@ -136,7 +152,7 @@ class CompanyControllerTest {
         @DisplayName("Should return 200 OK when company exists")
         @WithMockUser(roles = "ADMIN")
         void shouldReturn200WhenExists() throws Exception {
-            CompanyViewDto responseDto = new CompanyViewDto(1L, "Speedy Logistics", "BG12345");
+            CompanyViewDto responseDto = createValidViewDto(1L, "Speedy Logistics", "BG12345");
 
             given(companyService.getById(1L)).willReturn(responseDto);
 
@@ -169,7 +185,7 @@ class CompanyControllerTest {
         @WithMockUser(roles = "ADMIN")
         void shouldReturn200AndMapPageable() throws Exception {
             // Arrange
-            CompanyViewDto company = new CompanyViewDto(1L, "Speedy", "BG123");
+            CompanyViewDto company = createValidViewDto(1L, "Speedy", "BG123");
             Page<CompanyViewDto> page = new PageImpl<>(List.of(company), PageRequest.of(0, 10), 1);
 
             // We use 'any' because Spring constructs the Pageable dynamically from query params
@@ -194,14 +210,15 @@ class CompanyControllerTest {
         @DisplayName("Should return 200 OK when update is successful")
         @WithMockUser(roles = "ADMIN")
         void shouldUpdateSuccessfully() throws Exception {
-            CompanyDto requestDto = CompanyDto.builder()
+            CompanyUpdateDto requestDto = CompanyUpdateDto.builder()
                     .name("New Name")
                     .registrationNumber("BG123")
+                    .addressDetails(createValidAddressDto())
                     .build();
 
-            CompanyViewDto responseDto = new CompanyViewDto(1L, "New Name", "BG123");
+            CompanyViewDto responseDto = createValidViewDto(1L, "New Name", "BG123");
 
-            given(companyService.update(eq(1L), any(CompanyDto.class))).willReturn(responseDto);
+            given(companyService.update(eq(1L), any(CompanyUpdateDto.class))).willReturn(responseDto);
 
             mockMvc.perform(put("/api/companies/1")
                             .contentType(MediaType.APPLICATION_JSON)

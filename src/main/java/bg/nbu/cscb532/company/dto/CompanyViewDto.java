@@ -9,6 +9,7 @@ import lombok.Builder;
 public record CompanyViewDto(
         Long id,
         String name,
-        String registrationNumber
+        String registrationNumber,
+        String address // Formatted address string
 ) {
 }

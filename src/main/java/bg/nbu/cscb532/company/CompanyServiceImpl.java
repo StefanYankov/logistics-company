@@ -1,10 +1,14 @@
 package bg.nbu.cscb532.company;
 
 import bg.nbu.cscb532.company.dto.CompanyDto;
+import bg.nbu.cscb532.company.dto.CompanyUpdateDto;
 import bg.nbu.cscb532.company.dto.CompanyViewDto;
+import bg.nbu.cscb532.office.CityRepository;
 import bg.nbu.cscb532.shared.Constants;
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
+import bg.nbu.cscb532.shared.location.AddressDetails;
+import bg.nbu.cscb532.shared.location.AddressDetailsDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -15,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Core business logic implementation for the Company domain.
@@ -26,6 +31,7 @@ import java.util.Optional;
 public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
+    private final CityRepository cityRepository;
 
     /** {@inheritDoc} */
     @Override
@@ -48,6 +54,7 @@ public class CompanyServiceImpl implements CompanyService {
         Company company = Company.builder()
                 .name(dto.name().trim())
                 .registrationNumber(dto.registrationNumber().trim())
+                .addressDetails(buildAddressDetails(dto.addressDetails()))
                 .build();
 
         Company savedCompany = companyRepository.save(company);
@@ -61,7 +68,7 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     @Transactional
     @PreAuthorize("hasRole('ADMIN')")
-    public CompanyViewDto update(Long id, CompanyDto dto) {
+    public CompanyViewDto update(Long id, CompanyUpdateDto dto) {
         log.debug("Attempting to update company with ID: {}", id);
 
         Objects.requireNonNull(id, Constants.DeveloperErrors.ENTITY_ID_NULL);
@@ -76,7 +83,7 @@ public class CompanyServiceImpl implements CompanyService {
                 throw new BusinessException(ErrorCode.COMPANY_NAME_DUPLICATE);
             }
         });
-        
+
         // Check for registration number duplication before updating
         companyRepository.findByRegistrationNumber(dto.registrationNumber().trim()).ifPresent(existing -> {
             if (!existing.getId().equals(id)) {
@@ -87,6 +94,7 @@ public class CompanyServiceImpl implements CompanyService {
 
         company.setName(dto.name().trim());
         company.setRegistrationNumber(dto.registrationNumber().trim());
+        company.setAddressDetails(buildAddressDetails(dto.addressDetails()));
 
         company = companyRepository.save(company);
 
@@ -137,7 +145,7 @@ public class CompanyServiceImpl implements CompanyService {
 
         return mapToViewDto(company.get());
     }
-    
+
     /** {@inheritDoc} */
     @Override
     @Transactional(readOnly = true)
@@ -171,7 +179,48 @@ public class CompanyServiceImpl implements CompanyService {
         return new CompanyViewDto(
                 company.getId(),
                 company.getName(),
-                company.getRegistrationNumber()
+                company.getRegistrationNumber(),
+                formatAddress(company.getAddressDetails())
         );
+    }
+
+    private AddressDetails buildAddressDetails(AddressDetailsDto dto) {
+        return cityRepository.findById(dto.cityId())
+                .map(city -> AddressDetails.builder()
+                        .city(city)
+                        .street(dto.street().trim())
+                        .district(dto.district() != null ? dto.district().trim() : null)
+                        .building(dto.building() != null ? dto.building().trim() : null)
+                        .entrance(dto.entrance() != null ? dto.entrance().trim() : null)
+                        .floor(dto.floor() != null ? dto.floor().trim() : null)
+                        .apartment(dto.apartment() != null ? dto.apartment().trim() : null)
+                        .latitude(dto.latitude())
+                        .longitude(dto.longitude())
+                        .build())
+                .orElseThrow(() -> new BusinessException(ErrorCode.CITY_NOT_FOUND));
+    }
+
+    private String formatAddress(AddressDetails address) {
+        if (address == null) {
+            return "";
+        }
+        return Stream.of(
+                        address.getStreet(),
+                        address.getDistrict(),
+                        formatOptionalPart("bl. ", address.getBuilding()),
+                        formatOptionalPart("ent. ", address.getEntrance()),
+                        formatOptionalPart("fl. ", address.getFloor()),
+                        formatOptionalPart("ap. ", address.getApartment()),
+                        address.getCity().getName() + " " + address.getCity().getPostcode()
+                )
+                .filter(part -> part != null && !part.isBlank())
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    private String formatOptionalPart(String prefix, String value) {
+        if (value != null && !value.isBlank()) {
+            return prefix + value;
+        }
+        return null;
     }
 }

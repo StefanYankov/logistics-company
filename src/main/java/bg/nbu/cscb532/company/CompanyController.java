@@ -1,6 +1,7 @@
 package bg.nbu.cscb532.company;
 
 import bg.nbu.cscb532.company.dto.CompanyDto;
+import bg.nbu.cscb532.company.dto.CompanyUpdateDto;
 import bg.nbu.cscb532.company.dto.CompanyViewDto;
 import bg.nbu.cscb532.shared.web.ApiStandardResponses;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +23,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/companies")
+@RequestMapping(value = "/api/companies", produces = MediaType.APPLICATION_JSON_VALUE)
 @ApiStandardResponses
 @RequiredArgsConstructor
 @Tag(name = "Company API", description = "Endpoints for managing logistics companies.")
@@ -101,7 +103,7 @@ public class CompanyController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CompanyViewDto> updateCompany(
             @PathVariable Long id,
-            @Valid @RequestBody CompanyDto dto) {
+            @Valid @RequestBody CompanyUpdateDto dto) {
 
         log.info("API PUT request to update company ID: {}", id);
 
@@ -116,11 +118,10 @@ public class CompanyController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCompany(@PathVariable Long id) {
-        log.info("API DELETE request for company ID: {}", id);
+        log.info("API DELETE request for company with ID: {}", id);
 
         companyService.delete(id);
 
         return ResponseEntity.noContent().build();
     }
-
 }
