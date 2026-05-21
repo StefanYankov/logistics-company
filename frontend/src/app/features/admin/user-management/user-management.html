@@ -21,6 +21,10 @@
     <div class="tab-content">
       <!-- Staff Table -->
       @if (activeTab() === 'staff') {
+        <div class="header-with-actions">
+          <h3>All Staff Members</h3>
+          <button class="btn-action btn-create" routerLink="/app/admin/employees/new">Create New Employee</button>
+        </div>
         <div class="table-responsive">
           <table class="user-table">
             <thead>
@@ -44,9 +48,11 @@
                     </span>
                   </td>
                   <td class="actions-cell">
+                    <button class="btn-action btn-edit" [routerLink]="['/app/admin/employees', employee.id, 'edit']">Edit</button>
                     <button class="btn-action" (click)="toggleEmployeeStatus(employee)">
                       {{ employee.isActive ? 'Deactivate' : 'Activate' }}
                     </button>
+                    <button class="btn-action btn-reset-pass" (click)="openResetPasswordModal(employee)">Reset Pass</button>
                   </td>
                 </tr>
               }
@@ -57,6 +63,7 @@
 
       <!-- Clients Table -->
       @if (activeTab() === 'clients') {
+        <h3>All Clients</h3>
         <div class="table-responsive">
           <table class="user-table">
             <thead>

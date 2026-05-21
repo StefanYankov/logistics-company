@@ -44,10 +44,10 @@ public class EmployeeController {
     )
     @ApiResponse(responseCode = "201", description = "Employee created successfully")
     @ApiResponse(responseCode = "400", description = "Validation failed (e.g., missing fields, invalid role, missing officeId for clerk)")
-    @ApiResponse(responseCode = "409", description = "Conflict - Username, email, or employee number is already taken")
+    @ApiResponse(responseCode = "409", description = "Conflict - Username or email is already taken")
     @PostMapping
     public ResponseEntity<EmployeeViewDto> createEmployee(@Valid @RequestBody EmployeeCreationDto request) {
-        log.info("API POST request to create new employee with number: {}", request.employeeNumber());
+        log.info("API POST request to create new employee with username: {}", request.username());
 
         EmployeeViewDto createdEmployee = employeeService.create(request);
 

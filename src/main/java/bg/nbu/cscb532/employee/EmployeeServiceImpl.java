@@ -49,7 +49,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional
     public EmployeeViewDto create(EmployeeCreationDto dto) {
-        log.debug("Attempting to create new employee with number: {}", dto.employeeNumber());
+        log.debug("Attempting to create new employee");
 
         Objects.requireNonNull(dto, Constants.DeveloperErrors.DTO_NULL);
 
@@ -67,6 +67,11 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new BusinessException(ErrorCode.INVALID_EMPLOYEE_ROLE);
         }
 
+        // TODO: (Refactor) This generation logic should be moved to a dedicated, configurable EmployeeNumberGenerator service.
+        // The service would use a database sequence for the numeric part and a configurable prefix (e.g., from application.yaml)
+        // to ensure uniqueness and flexibility. For now, a UUID-based approach is a safe, temporary solution.
+        String employeeNumber = "E-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        
         // Common Fields Setup
         boolean isEmailVerified = true;
         newEmployee.setUsername(dto.username().trim());
@@ -74,7 +79,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         newEmployee.setPassword(passwordEncoder.encode(dto.password()));
         newEmployee.setFirstName(dto.firstName().trim());
         newEmployee.setLastName(dto.lastName().trim());
-        newEmployee.setEmployeeNumber(dto.employeeNumber().trim());
+        newEmployee.setEmployeeNumber(employeeNumber);
         newEmployee.setHireDate(dto.hireDate());
         newEmployee.setSalary(dto.salary());
         newEmployee.setApplicationRole(dto.applicationRole());
@@ -217,16 +222,12 @@ public class EmployeeServiceImpl implements EmployeeService {
     private void validateDuplicates(EmployeeCreationDto dto) {
         String username = dto.username().trim();
         String email = dto.email().trim().toLowerCase();
-        String empNumber = dto.employeeNumber().trim();
 
         if (userRepository.findByUsername(username).isPresent()) {
             throw new BusinessException(ErrorCode.USERNAME_DUPLICATE);
         }
         if (userRepository.findByEmail(email).isPresent()) {
             throw new BusinessException(ErrorCode.EMAIL_DUPLICATE);
-        }
-        if (employeeRepository.findByEmployeeNumber(empNumber).isPresent()) {
-            throw new BusinessException(ErrorCode.EMPLOYEE_NUMBER_DUPLICATE);
         }
     }
 
@@ -244,7 +245,8 @@ public class EmployeeServiceImpl implements EmployeeService {
         return clerk;
     }
 
-    private Courier createCourier(EmployeeCreationDto dto) {
+    // future-proof if we expand courier
+    private Courier createCourier(@SuppressWarnings("unused") EmployeeCreationDto dto) {
         return new Courier();
     }
 

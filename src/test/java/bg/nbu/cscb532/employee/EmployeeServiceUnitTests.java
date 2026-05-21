@@ -74,7 +74,6 @@ class EmployeeServiceUnitTests {
                 .password("rawPassword123")
                 .firstName("John")
                 .lastName("Doe")
-                .employeeNumber("EMP-123")
                 .hireDate(LocalDate.now())
                 .salary(BigDecimal.valueOf(2000.00));
     }
@@ -106,7 +105,6 @@ class EmployeeServiceUnitTests {
 
             given(userRepository.findByUsername(dto.username())).willReturn(Optional.empty());
             given(userRepository.findByEmail(dto.email())).willReturn(Optional.empty());
-            given(employeeRepository.findByEmployeeNumber(dto.employeeNumber())).willReturn(Optional.empty());
             given(officeRepository.findById(1L)).willReturn(Optional.of(mockOffice));
             given(passwordEncoder.encode(dto.password())).willReturn("hashed-pwd");
 
@@ -138,13 +136,11 @@ class EmployeeServiceUnitTests {
 
             given(userRepository.findByUsername(anyString())).willReturn(Optional.empty());
             given(userRepository.findByEmail(anyString())).willReturn(Optional.empty());
-            given(employeeRepository.findByEmployeeNumber(anyString())).willReturn(Optional.empty());
             given(passwordEncoder.encode(anyString())).willReturn("hashed");
 
             Courier savedCourier = new Courier();
             savedCourier.setId(UUID.randomUUID());
             savedCourier.setApplicationRole(ApplicationRole.COURIER);
-            savedCourier.setEmployeeNumber(dto.employeeNumber());
             given(employeeRepository.save(any(Employee.class))).willReturn(savedCourier);
 
             // Act
@@ -158,6 +154,8 @@ class EmployeeServiceUnitTests {
             verify(employeeRepository).save(employeeCaptor.capture());
             Employee capturedEmployee = employeeCaptor.getValue();
             assertThat(capturedEmployee).isInstanceOf(Courier.class);
+            assertThat(capturedEmployee.getUsername()).isEqualTo(dto.username());
+            assertThat(capturedEmployee.getEmail()).isEqualTo(dto.email());
             verifyNoInteractions(officeRepository);
         }
 
@@ -172,7 +170,6 @@ class EmployeeServiceUnitTests {
 
             given(userRepository.findByUsername(anyString())).willReturn(Optional.empty());
             given(userRepository.findByEmail(anyString())).willReturn(Optional.empty());
-            given(employeeRepository.findByEmployeeNumber(anyString())).willReturn(Optional.empty());
 
             // Act & Assert
             assertThatThrownBy(() -> employeeService.create(dto))
@@ -201,30 +198,6 @@ class EmployeeServiceUnitTests {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.EMAIL_DUPLICATE);
-
-            verifyNoInteractions(passwordEncoder, officeRepository);
-            verify(employeeRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Error Case: Should throw BusinessException on duplicate employee number")
-        void shouldThrowExceptionOnDuplicateEmployeeNumber() {
-            // Arrange
-            EmployeeCreationDto dto = createBaseDtoBuilder()
-                    .applicationRole(ApplicationRole.COURIER)
-                    .build();
-
-            given(userRepository.findByUsername(anyString())).willReturn(Optional.empty());
-            given(userRepository.findByEmail(anyString())).willReturn(Optional.empty());
-            
-            Courier existingCourier = new Courier();
-            given(employeeRepository.findByEmployeeNumber(dto.employeeNumber())).willReturn(Optional.of(existingCourier));
-
-            // Act & Assert
-            assertThatThrownBy(() -> employeeService.create(dto))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.EMPLOYEE_NUMBER_DUPLICATE);
 
             verifyNoInteractions(passwordEncoder, officeRepository);
             verify(employeeRepository, never()).save(any());

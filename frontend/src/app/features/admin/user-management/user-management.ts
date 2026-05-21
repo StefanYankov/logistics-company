@@ -2,12 +2,20 @@ import {Component, inject, OnInit, signal} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {forkJoin, of} from 'rxjs';
 import {catchError, tap} from 'rxjs/operators';
-import {ClientAPIService, ClientViewDto, EmployeeManagementAPIService, EmployeeViewDto, Pageable} from '../../../api';
+import {
+  AdminPasswordResetDto,
+  ClientAPIService,
+  ClientViewDto,
+  EmployeeManagementAPIService,
+  EmployeeViewDto,
+  Pageable
+} from '../../../api';
+import {RouterModule} from '@angular/router';
 
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './user-management.html',
   styleUrl: './user-management.css',
 })
@@ -41,7 +49,7 @@ export class UserManagement implements OnInit {
         this.clients.set(response.clients.content || []);
         this.isLoading.set(false);
       }),
-      catchError(err => {
+      catchError(_err => {
         this.errorMessage.set('Failed to load user data.');
         this.isLoading.set(false);
         return of(null);
@@ -77,5 +85,21 @@ export class UserManagement implements OnInit {
       next: () => this.loadAllUsers(),
       error: () => alert('Failed to update client status.')
     });
+  }
+
+  openResetPasswordModal(employee: EmployeeViewDto): void {
+    if (!employee.id) return;
+
+    const newPassword = prompt(`Enter new temporary password for ${employee.firstName} ${employee.lastName}:`);
+
+    if (newPassword && newPassword.length >= 8) {
+      const payload: AdminPasswordResetDto = { newPassword };
+      this.employeeApi.forcePasswordReset(employee.id, payload).subscribe({
+        next: () => alert('Password has been reset successfully.'),
+        error: () => alert('Failed to reset password.')
+      });
+    } else if (newPassword) {
+      alert('Password must be at least 8 characters long.');
+    }
   }
 }
