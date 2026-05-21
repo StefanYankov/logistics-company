@@ -1,0 +1,74 @@
+<div class="form-container">
+  <h2>Create New Office</h2>
+
+  @if (isLoading()) {
+    <div class="loading">Loading data...</div>
+  } @else {
+    <form [formGroup]="officeForm" (submit)="onSubmit()">
+      <fieldset formGroupName="address">
+        <legend>Address</legend>
+        <div class="form-group">
+          <label for="cityId">City</label>
+          <select id="cityId" formControlName="cityId">
+            <option [ngValue]="null" disabled>Select a city</option>
+            @for(city of cities(); track city.id) {
+              <option [value]="city.id">{{city.name}}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="street">Street</label>
+          <input id="street" type="text" formControlName="street">
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Company</legend>
+        <div class="form-group">
+          <label for="companyId">Company</label>
+          <select id="companyId" formControlName="companyId">
+            <option [ngValue]="null" disabled>Select a company</option>
+            @for(company of companies(); track company.id) {
+              <option [value]="company.id">{{company.name}}</option>
+            }
+          </select>
+        </div>
+      </fieldset>
+
+      <fieldset formArrayName="operatingHours">
+        <legend>Operating Hours</legend>
+        @for(hour of operatingHours.controls; track $index) {
+          <div [formGroupName]="$index" class="hour-row">
+            <select formControlName="dayOfWeek">
+              <option value="MONDAY">Monday</option>
+              <option value="TUESDAY">Tuesday</option>
+              <option value="WEDNESDAY">Wednesday</option>
+              <option value="THURSDAY">Thursday</option>
+              <option value="FRIDAY">Friday</option>
+              <option value="SATURDAY">Saturday</option>
+              <option value="SUNDAY">Sunday</option>
+            </select>
+            <input type="time" formControlName="openTime">
+            <input type="time" formControlName="closeTime">
+            <label>
+              <input type="checkbox" formControlName="isClosed"> Closed
+            </label>
+            <button type="button" (click)="removeOperatingHour($index)">Remove</button>
+          </div>
+        }
+        <button type="button" (click)="addOperatingHour()">Add Hour</button>
+      </fieldset>
+
+      @if (errorMessage()) {
+        <div class="error-banner">{{errorMessage()}}</div>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" routerLink="/app/admin/offices">Cancel</button>
+        <button type="submit" class="btn-submit" [disabled]="officeForm.invalid || isSubmitting()">
+          {{ isSubmitting() ? 'Creating...' : 'Create Office' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

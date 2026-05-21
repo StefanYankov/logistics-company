@@ -1,0 +1,43 @@
+<div class="list-container">
+  <div class="header-with-actions">
+    <h2>Office Management</h2>
+    <button class="btn-action btn-create" routerLink="/app/admin/offices/new">Create New Office</button>
+  </div>
+  <p>View, create, edit, or delete company offices.</p>
+
+  @if (isLoading()) {
+    <div class="loading">Loading offices...</div>
+  } @else if (errorMessage()) {
+    <div class="error-banner">{{ errorMessage() }}</div>
+  } @else {
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>City</th>
+            <th>Full Address</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (office of offices(); track office.id) {
+            <tr>
+              <td>{{ office.id }}</td>
+              <td>{{ office.cityName }}</td>
+              <td>{{ office.fullAddress }}</td>
+              <td class="actions-cell">
+                <button class="btn-action btn-edit" [routerLink]="['/app/admin/offices', office.id, 'edit']">Edit</button>
+                <button class="btn-action btn-delete" (click)="deleteOffice(office.id)">Delete</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" class="text-center">No offices found.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

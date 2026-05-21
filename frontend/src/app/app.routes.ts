@@ -18,6 +18,9 @@ import {UserManagement} from './features/admin/user-management/user-management';
 import {EmployeeCreate} from './features/admin/employee-create/employee-create';
 import {EmployeeEdit} from './features/admin/employee-edit/employee-edit';
 import {CompanyDetails} from './features/admin/company-details/company-details';
+import {OfficeList} from './features/admin/office-list/office-list';
+import {OfficeCreate} from './features/admin/office-create/office-create';
+import {OfficeEdit} from './features/admin/office-edit/office-edit';
 
 export const routes: Routes = [
   {
@@ -61,6 +64,21 @@ export const routes: Routes = [
       {
         path: 'admin/company',
         component: CompanyDetails,
+        canActivate: [adminGuard]
+      },
+      {
+        path: 'admin/offices',
+        component: OfficeList,
+        canActivate: [adminGuard]
+      },
+      {
+        path: 'admin/offices/new',
+        component: OfficeCreate,
+        canActivate: [adminGuard]
+      },
+      {
+        path: 'admin/offices/:id/edit',
+        component: OfficeEdit,
         canActivate: [adminGuard]
       }
     ]

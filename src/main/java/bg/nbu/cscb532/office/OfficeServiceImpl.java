@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +32,6 @@ import java.util.stream.Stream;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-// TODO: (Security) Add @PreAuthorize("hasRole('ADMIN')") to mutating methods once JWT is implemented
 public class OfficeServiceImpl implements OfficeService {
 
     private final OfficeRepository officeRepository;
@@ -44,6 +44,7 @@ public class OfficeServiceImpl implements OfficeService {
      */
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public OfficeViewDto create(OfficeDto dto) {
         log.debug("Attempting to create a new office");
 
@@ -103,6 +104,7 @@ public class OfficeServiceImpl implements OfficeService {
      */
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public OfficeViewDto update(Long id, OfficeDto dto) {
         log.debug("Attempting to update office with ID: {}", id);
 
@@ -111,7 +113,6 @@ public class OfficeServiceImpl implements OfficeService {
 
         var office = findOfficeOrThrow(id);
 
-        // Check if Company changed
         if (!office.getCompany().getId().equals(dto.companyId())) {
             var newCompany = companyRepository.findById(dto.companyId())
                     .orElseThrow(() -> {
@@ -121,7 +122,6 @@ public class OfficeServiceImpl implements OfficeService {
             office.setCompany(newCompany);
         }
 
-        // Check if City changed
         var currentCityId = office.getAddressDetails().getCity().getId();
         if (!currentCityId.equals(dto.address().cityId())) {
             var newCity = cityRepository.findById(dto.address().cityId())
@@ -132,7 +132,6 @@ public class OfficeServiceImpl implements OfficeService {
             office.getAddressDetails().setCity(newCity);
         }
 
-        // 3. Update Address Details (blind overwrite is safest for value objects)
         AddressDetails address = office.getAddressDetails();
         address.setStreet(dto.address().street().trim());
         address.setDistrict(dto.address().district() != null ? dto.address().district().trim() : null);
@@ -143,7 +142,6 @@ public class OfficeServiceImpl implements OfficeService {
         address.setLatitude(dto.address().latitude());
         address.setLongitude(dto.address().longitude());
 
-        // 4. Update Operating Hours (Overwrite collection)
         var newOperatingHours = dto.operatingHours().stream()
                 .map(hourDto -> OperatingHour.builder()
                         .dayOfWeek(hourDto.dayOfWeek())
@@ -167,6 +165,7 @@ public class OfficeServiceImpl implements OfficeService {
      */
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public void delete(Long id) {
         log.debug("Attempting to delete office with ID: {}", id);
 
@@ -247,14 +246,9 @@ public class OfficeServiceImpl implements OfficeService {
     public Page<EmployeeViewDto> getClerksByOfficeId(Long officeId, Pageable pageable) {
         log.debug("Fetching paginated clerks for Office ID: {}", officeId);
         Objects.requireNonNull(officeId, Constants.DeveloperErrors.ENTITY_ID_NULL);
-
-        // First verify the office exists. We don't want to return an empty list if the office is invalid.
         Office office = findOfficeOrThrow(officeId);
-
-        // Execute cross-domain query
         Page<OfficeClerk> clerksPage = officeClerkRepository.findOfficeClerksByOfficeId(office.getId(), pageable);
 
-        // Translate the employee entity to the employee view DTO locally
         return clerksPage.map(this::mapClerkToEmployeeViewDto);
     }
 
@@ -277,10 +271,8 @@ public class OfficeServiceImpl implements OfficeService {
             return null;
         }
 
-        // 1. Build the flattened full address string using the functional Stream approach
         String fullAddress = formatAddress(office.getAddressDetails());
 
-        // 2. Map the Set of OperatingHour entities to OperatingHourViewDto records
         Set<OperatingHourViewDto> mappedHours = office.getOperatingHours().stream()
                 .map(hour -> new OperatingHourViewDto(
                         hour.getDayOfWeek(),
@@ -290,7 +282,6 @@ public class OfficeServiceImpl implements OfficeService {
                 ))
                 .collect(Collectors.toSet());
 
-        // 3. Create the temporary view DTO entity
         OfficeViewDto viewDto = new OfficeViewDto(
                 office.getId(),
                 office.getCompany().getId(),
@@ -300,7 +291,6 @@ public class OfficeServiceImpl implements OfficeService {
                 mappedHours
         );
 
-        // 4. Return the temporary entity
         return viewDto;
     }
 
