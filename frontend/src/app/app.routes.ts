@@ -21,6 +21,7 @@ import {CompanyDetails} from './features/admin/company-details/company-details';
 import {OfficeList} from './features/admin/office-list/office-list';
 import {OfficeCreate} from './features/admin/office-create/office-create';
 import {OfficeEdit} from './features/admin/office-edit/office-edit';
+import {ReportsDashboard} from './features/admin/reports-dashboard/reports-dashboard';
 
 export const routes: Routes = [
   {
@@ -79,6 +80,11 @@ export const routes: Routes = [
       {
         path: 'admin/offices/:id/edit',
         component: OfficeEdit,
+        canActivate: [adminGuard]
+      },
+      {
+        path: 'admin/reports',
+        component: ReportsDashboard,
         canActivate: [adminGuard]
       }
     ]

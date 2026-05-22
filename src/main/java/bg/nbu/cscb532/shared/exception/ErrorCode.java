@@ -31,6 +31,7 @@ public enum ErrorCode {
     INVALID_TOKEN("E3003", "The provided token is invalid or has already been used.", HttpStatus.BAD_REQUEST),
     EXPIRED_TOKEN("E3004", "The provided token has expired. Please request a new one.", HttpStatus.BAD_REQUEST),
     PHONE_DUPLICATE("E3005", "This phone number is already registered.", HttpStatus.CONFLICT),
+    USER_NOT_FOUND("E3006", "User not found.", HttpStatus.NOT_FOUND), // Added USER_NOT_FOUND
 
     // --- Employee Domain (E4000 - E4999) ---
     EMPLOYEE_NUMBER_DUPLICATE("E4001", "This employee number is already assigned.", HttpStatus.CONFLICT),

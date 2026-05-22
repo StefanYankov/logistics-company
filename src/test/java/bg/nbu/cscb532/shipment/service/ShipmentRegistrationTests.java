@@ -11,6 +11,7 @@ import bg.nbu.cscb532.shared.location.AddressDetailsDto;
 import bg.nbu.cscb532.shipment.*;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.StaffShipmentViewDto;
+import bg.nbu.cscb532.user.ApplicationRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,43 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Shipment Service: Registration Logic Tests")
 public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
+
+    @Test
+    @DisplayName("Happy Path: Should successfully register a shipment as a Client")
+    void shouldRegisterShipmentAsClient() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        Long destOfficeId = 10L;
+
+        ShipmentCreationDto dto = baseCreationDtoBuilder(senderId, receiverId)
+                .deliveryOfficeId(destOfficeId)
+                .build();
+
+        Client sender = createMockClient(senderId, "Sender", "One");
+        sender.setApplicationRole(ApplicationRole.CLIENT);
+        Client receiver = createMockClient(receiverId, "Receiver", "Two");
+        City city = createMockCity(1L, "Sofia", "1000");
+        Office destOffice = createMockOffice(destOfficeId, city);
+        Office originOffice = createMockOffice(5L, city);
+
+        given(clientRepository.findById(senderId)).willReturn(Optional.of(sender));
+        given(clientRepository.findById(receiverId)).willReturn(Optional.of(receiver));
+        given(userRepository.findById(senderId)).willReturn(Optional.of(sender)); // Mock user repository
+        given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
+        given(officeRepository.findById(5L)).willReturn(Optional.of(originOffice));
+        given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
+
+        Shipment savedShipment = createValidShipment();
+        savedShipment.setDeliveryOffice(destOffice);
+        savedShipment.setOriginOffice(originOffice);
+
+        given(shipmentRepository.save(any(Shipment.class))).willReturn(savedShipment);
+
+        shipmentService.registerShipment(dto, senderId);
+
+        verify(shipmentRepository).save(shipmentCaptor.capture());
+        assertThat(shipmentCaptor.getValue().getRegisteredBy()).isNull();
+    }
 
     @Test
     @DisplayName("Happy Path: Should successfully register a shipment destined for an Office (Registered Receiver)")
@@ -54,7 +92,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
 
         given(clientRepository.findById(senderId)).willReturn(Optional.of(sender));
         given(clientRepository.findById(receiverId)).willReturn(Optional.of(receiver));
-        given(employeeRepository.findById(employeeId)).willReturn(Optional.of(employee));
+        given(userRepository.findById(employeeId)).willReturn(Optional.of(employee));
         given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
         given(officeRepository.findById(originOfficeId)).willReturn(Optional.of(originOffice));
         given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
@@ -108,7 +146,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
         Office originOffice = createMockOffice(5L, createMockCity(1L, "Sofia", "1000"));
 
         given(clientRepository.findById(senderId)).willReturn(Optional.of(sender));
-        given(employeeRepository.findById(employeeId)).willReturn(Optional.of(employee));
+        given(userRepository.findById(employeeId)).willReturn(Optional.of(employee));
         given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
         given(officeRepository.findById(5L)).willReturn(Optional.of(originOffice));
         given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
@@ -153,7 +191,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
         Office destOffice = createMockOffice(destOfficeId, city);
 
         given(clientRepository.findById(senderId)).willReturn(Optional.of(sender));
-        given(employeeRepository.findById(employeeId)).willReturn(Optional.of(employee));
+        given(userRepository.findById(employeeId)).willReturn(Optional.of(employee));
         given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
         given(cityRepository.findById(cityId)).willReturn(Optional.of(city));
         given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(15.00));
@@ -203,7 +241,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
 
         given(clientRepository.findById(senderId)).willReturn(Optional.of(sender));
         given(clientRepository.findById(receiverId)).willReturn(Optional.of(receiver));
-        given(employeeRepository.findById(employeeId)).willReturn(Optional.of(employee));
+        given(userRepository.findById(employeeId)).willReturn(Optional.of(employee));
         given(cityRepository.findById(cityId)).willReturn(Optional.of(city));
         given(officeRepository.findById(originOfficeId)).willReturn(Optional.of(originOffice));
         given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(20.00));
@@ -246,7 +284,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
 
         given(clientRepository.findById(senderId)).willReturn(Optional.of(sender));
         given(clientRepository.findById(receiverId)).willReturn(Optional.of(receiver));
-        given(employeeRepository.findById(employeeId)).willReturn(Optional.of(employee));
+        given(userRepository.findById(employeeId)).willReturn(Optional.of(employee));
         given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
         given(officeRepository.findById(5L)).willReturn(Optional.of(originOffice));
         given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(25.00));
@@ -298,7 +336,7 @@ public class  ShipmentRegistrationTests extends AbstractShipmentUnitTestBase {
 
         given(clientRepository.findById(senderId)).willReturn(Optional.of(sender));
         given(clientRepository.findById(receiverId)).willReturn(Optional.of(receiver));
-        given(employeeRepository.findById(employeeId)).willReturn(Optional.of(employee));
+        given(userRepository.findById(employeeId)).willReturn(Optional.of(employee));
         given(officeRepository.findById(destOfficeId)).willReturn(Optional.of(destOffice));
         given(officeRepository.findById(5L)).willReturn(Optional.of(originOffice));
         given(pricingService.calculatePrice(dto)).willReturn(BigDecimal.valueOf(25.00));

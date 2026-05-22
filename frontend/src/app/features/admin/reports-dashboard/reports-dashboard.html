@@ -1,0 +1,36 @@
+<div class="reports-container">
+  <div class="header">
+    <h2>Reports Dashboard</h2>
+    <p>Generate and view key business intelligence reports.</p>
+  </div>
+
+  <div class="tab-navigation">
+    <button
+      class="tab-button"
+      [class.active]="activeTab() === 'revenue'"
+      (click)="selectTab('revenue')">
+      Revenue Report
+    </button>
+    <button
+      class="tab-button"
+      [class.active]="activeTab() === 'shipments'"
+      (click)="selectTab('shipments')">
+      Shipment Reports
+    </button>
+  </div>
+
+  <div class="tab-content">
+    @if (activeTab() === 'revenue') {
+      <div class="report-section">
+        <!-- Revenue Report Component will go here -->
+        <p>Revenue Report UI coming soon...</p>
+      </div>
+    }
+    @if (activeTab() === 'shipments') {
+      <div class="report-section">
+        <!-- Shipment Filter Report Component will go here -->
+        <p>Shipment Filter Report UI coming soon...</p>
+      </div>
+    }
+  </div>
+</div>

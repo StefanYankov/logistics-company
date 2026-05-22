@@ -15,9 +15,11 @@ import bg.nbu.cscb532.shared.exception.ErrorCode;
 import bg.nbu.cscb532.shared.location.AddressDetails;
 import bg.nbu.cscb532.shared.location.AddressDetailsDto;
 import bg.nbu.cscb532.shipment.dto.*;
-import bg.nbu.cscb532.shipment.dto.mapper.ShipmentMapper; // Import the new mapper
+import bg.nbu.cscb532.shipment.dto.mapper.ShipmentMapper;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
+import bg.nbu.cscb532.user.User;
+import bg.nbu.cscb532.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -51,6 +53,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final ServiceCatalogRepository serviceCatalogRepository;
     private final ShipmentAddonRepository shipmentAddonRepository;
     private final ShipmentMapper shipmentMapper;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -85,8 +88,14 @@ public class ShipmentServiceImpl implements ShipmentService {
             }
         }
 
-        Employee registeredBy = employeeRepository.findById(registeredById)
-                .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
+        User registeringUser = userRepository.findById(registeredById)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        Employee registeredBy = null;
+        if (registeringUser.getApplicationRole() == ApplicationRole.CLERK || registeringUser.getApplicationRole() == ApplicationRole.ADMIN) {
+            registeredBy = employeeRepository.findById(registeredById)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.EMPLOYEE_NOT_FOUND));
+        }
 
         // --- XOR Validation for Origin ---
         boolean hasOriginOfficeId = request.originOfficeId() != null;
@@ -149,7 +158,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .receiverName(receiver == null ? request.receiverName() : null)
                 .receiverPhone(receiver == null ? request.receiverPhone() : null)
                 .receiverEmail(receiver == null ? request.receiverEmail() : null)
-                .registeredBy(registeredBy)
+                .registeredBy(registeredBy) // This will now be null for clients
                 .packageDetails(packageDetails)
                 .financials(financials)
                 .status(ShipmentStatus.REGISTERED)
@@ -178,7 +187,8 @@ public class ShipmentServiceImpl implements ShipmentService {
                 if (service.getPricingType() == PricingType.FIXED_AMOUNT) {
                     appliedCost = service.getPricingValue();
                 } else if (service.getPricingType() == PricingType.PERCENTAGE_OF_BASE) {
-                    appliedCost = service.getPricingValue();
+                    BigDecimal surcharge = totalPrice.multiply(service.getPricingValue()); // Use totalPrice for percentage calculation
+                    appliedCost = surcharge;
                 }
                 addon.setAppliedCost(appliedCost);
                 shipmentAddonRepository.save(addon);
@@ -282,7 +292,8 @@ public class ShipmentServiceImpl implements ShipmentService {
                     if (service.getPricingType() == PricingType.FIXED_AMOUNT) {
                         appliedCost = service.getPricingValue();
                     } else if (service.getPricingType() == PricingType.PERCENTAGE_OF_BASE) {
-                        appliedCost = service.getPricingValue();
+                        BigDecimal surcharge = newTotalPrice.multiply(service.getPricingValue()); // Use newTotalPrice for percentage calculation
+                        appliedCost = surcharge;
                     }
                     addon.setAppliedCost(appliedCost);
                     shipment.getAddons().add(addon);

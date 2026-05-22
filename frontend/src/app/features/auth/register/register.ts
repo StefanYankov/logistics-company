@@ -1,11 +1,10 @@
-import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { RouterModule } from '@angular/router';
-import { catchError, tap } from 'rxjs/operators';
-import { of } from 'rxjs';
-import { ClientRegistrationDto } from '../../../api';
-import { ClientAPIService } from '../../../api';
+import {Component, inject} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
+import {Router, RouterModule} from '@angular/router';
+import {catchError, tap} from 'rxjs/operators';
+import {of} from 'rxjs';
+import {ClientAPIService, ClientRegistrationDto} from '../../../api';
 
 @Component({
   selector: 'app-register',
@@ -16,6 +15,7 @@ import { ClientAPIService } from '../../../api';
 })
 export class Register {
   private clientApi = inject(ClientAPIService);
+  private router = inject(Router);
 
   registerForm = inject(FormBuilder).group({
     username: ['', [Validators.required, Validators.minLength(3)]],
@@ -42,6 +42,10 @@ export class Register {
           // On success, set a flag to show a success message.
           this.isLoading = false;
           this.isSuccess = true;
+
+          setTimeout(() => {
+            this.router.navigate(['/login']);
+          }, 4000);
         }),
         catchError(err => {
           // On error, handle the ProblemDetail response from the backend.

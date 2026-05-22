@@ -1,8 +1,19 @@
 <div class="shipment-list-container">
-  <!-- TODO (Future Feature): Implement an in-page filter bar for this table. -->
   <div class="header">
     <h2>All Shipments</h2>
     <p>Monitor and manage all packages in the network.</p>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label for="employeeFilter">Filter by Registered Employee:</label>
+      <select id="employeeFilter" [(ngModel)]="selectedEmployeeId" (ngModelChange)="onFilterChange()">
+        <option [ngValue]="null">All Employees</option>
+        @for (employee of availableEmployees(); track employee.id) {
+          <option [value]="employee.id">{{ employee.firstName }} {{ employee.lastName }}</option>
+        }
+      </select>
+    </div>
   </div>
 
   @if (errorMessage()) {
@@ -12,7 +23,7 @@
   @if (isLoading()) {
     <div class="loading">Loading shipments...</div>
   } @else if (shipments().length === 0) {
-    <div class="no-data">No shipments found in the system.</div>
+    <div class="no-data">No shipments found for the selected filter.</div>
   } @else {
     <div class="table-responsive">
       <table class="shipment-table">

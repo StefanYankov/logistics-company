@@ -1,154 +1,58 @@
-.list-container {
-  background-color: white;
-  border-radius: 8px;
-  padding: 2rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+.shipment-list-container {
+  max-width: 1600px;
+  margin: 2rem auto;
 }
 
 .header {
-  margin-bottom: 2rem;
-  border-bottom: 1px solid #e9ecef;
-  padding-bottom: 1rem;
-}
-
-.header h2 {
-  color: #343a40;
-  margin: 0 0 0.5rem 0;
-}
-
-.header p {
-  color: #6c757d;
-  margin: 0;
-}
-
-.table-stats {
-  font-size: 0.9rem;
-  color: #6c757d;
   margin-bottom: 1rem;
-  text-align: right;
 }
 
-/* Data Table Styles */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.data-table th {
+.filter-bar {
   background-color: #f8f9fa;
   padding: 1rem;
-  color: #495057;
-  font-weight: 600;
-  border-bottom: 2px solid #dee2e6;
-}
-
-.data-table td {
-  padding: 1rem;
-  border-bottom: 1px solid #e9ecef;
-  vertical-align: middle;
-}
-
-.uuid-truncate {
-  display: inline-block;
-  max-width: 100px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-family: monospace;
-  color: #6c757d;
-}
-
-/* Status Badges */
-.status-badge {
-  padding: 0.35rem 0.65rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: bold;
-  color: white;
-  text-transform: uppercase;
-}
-
-.status-badge.registered { background-color: #0d6efd; }
-.status-badge.in_transit { background-color: #ffc107; color: #212529; }
-.status-badge.delivered { background-color: #198754; }
-
-/* Action Buttons */
-.actions-cell {
-  min-width: 150px;
-}
-
-.btn-action {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 0.85rem;
-  cursor: pointer;
-  color: white;
-  transition: background-color 0.2s;
-  margin-bottom: 4px;
-}
-
-.btn-transit {
-  background-color: #ffc107;
-  color: #212529;
-}
-.btn-transit:hover { background-color: #e0a800; }
-
-.btn-office {
-  background-color: #17a2b8;
-}
-.btn-office:hover { background-color: #138496; }
-
-.btn-out {
-  background-color: #fd7e14;
-}
-.btn-out:hover { background-color: #e26b0a; }
-
-.btn-delivered {
-  background-color: #28a745;
-}
-.btn-delivered:hover { background-color: #218838; }
-
-.btn-pickup {
-  background-color: #0dcaf0;
-  color: #000;
-}
-.btn-pickup:hover { background-color: #31d2f2; }
-
-.btn-assign {
-  background-color: #6f42c1;
-}
-.btn-assign:hover { background-color: #59339d; }
-
-.text-success {
-  color: #198754;
-  font-weight: bold;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 3rem !important;
-  color: #6c757d;
-  font-style: italic;
-}
-
-/* Addon Badges */
-.addon-badges {
-  margin-top: 5px;
+  border-radius: 8px;
+  margin-bottom: 2rem;
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  gap: 1.5rem;
+  align-items: center;
 }
 
-.addon-badge {
-  background-color: #e9ecef;
-  color: #495057;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.8em;
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  font-weight: 500;
+}
+
+.filter-group select {
+  padding: 0.5rem;
   border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.shipment-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.shipment-table th, .shipment-table td {
+  border: 1px solid #dee2e6;
+  padding: 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.shipment-table thead {
+  background-color: #f8f9fa;
 }
 
 .clickable-row {
@@ -159,31 +63,79 @@
   background-color: #f1f3f5;
 }
 
-/* Assign Pickup Form Styles */
+.status-badge {
+  padding: 0.25em 0.6em;
+  border-radius: 10px;
+  font-weight: bold;
+  color: white;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.status-badge.registered { background-color: #6c757d; }
+.status-badge.in_transit { background-color: #0d6efd; }
+.status-badge.at_delivery_office { background-color: #fd7e14; }
+.status-badge.out_for_delivery { background-color: #ffc107; color: #000; }
+.status-badge.delivered { background-color: #198754; }
+.status-badge.cancelled { background-color: #dc3545; }
+
+.payment-badge {
+  padding: 0.2em 0.5em;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.payment-badge.paid {
+  background-color: #d1e7dd;
+  color: #0f5132;
+}
+
+.payment-badge.unpaid {
+  background-color: #f8d7da;
+  color: #842029;
+}
+
+.addon-badges {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.addon-badge {
+  background-color: #e9ecef;
+  color: #495057;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
+
+.actions-col {
+  min-width: 150px;
+}
+
+.btn-action {
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+  display: block;
+  width: 100%;
+}
+
+.btn-assign { background-color: #0dcaf0; color: white; }
+.btn-transit { background-color: #0d6efd; color: white; }
+.btn-office { background-color: #fd7e14; color: white; }
+.btn-out { background-color: #ffc107; color: #000; }
+.btn-pickup { background-color: #198754; color: white; }
+.btn-delivered { background-color: #198754; color: white; }
+
 .assign-pickup-form {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background-color: #f8f9fa;
-  padding: 0.5rem;
-  border-radius: 4px;
-  border: 1px solid #dee2e6;
 }
-
-.courier-select {
-  padding: 0.3rem;
-  border-radius: 4px;
-  border: 1px solid #ced4da;
-  font-size: 0.9rem;
-}
-
-.btn-confirm {
-  background-color: #28a745;
-}
-.btn-confirm:hover { background-color: #218838; }
-.btn-confirm:disabled { background-color: #a5d8b2; cursor: not-allowed; }
-
-.btn-cancel {
-  background-color: #dc3545;
-}
-.btn-cancel:hover { background-color: #c82333; }

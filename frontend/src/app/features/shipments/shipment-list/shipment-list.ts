@@ -28,6 +28,7 @@ export class ShipmentList implements OnInit {
 
   shipments = signal<StaffShipmentViewDto[]>([]);
   availableCouriers = signal<EmployeeViewDto[]>([]);
+  availableEmployees = signal<EmployeeViewDto[]>([]);
   isLoading = signal(true);
   errorMessage = signal<string | null>(null);
 
@@ -35,13 +36,16 @@ export class ShipmentList implements OnInit {
   pageSize = 50;
   totalElements = signal(0);
 
+  // Filters
+  selectedEmployeeId = signal<string | null>(null);
+
   // State for Assign Pickup modal
   showAssignPickupModal = signal<string | null>(null);
   selectedCourierForAssignment = signal<string | null>(null);
 
   ngOnInit(): void {
     this.loadShipments();
-    this.loadCouriers();
+    this.loadEmployees();
   }
 
   loadShipments(): void {
@@ -49,8 +53,13 @@ export class ShipmentList implements OnInit {
     this.errorMessage.set(null);
 
     const pageParams = {page: this.currentPage, size: this.pageSize};
+    const employeeId = this.selectedEmployeeId();
 
-    this.shipmentApi.getAllShipments(pageParams).pipe(
+    const apiCall = employeeId
+      ? this.shipmentApi.getShipmentsRegisteredByEmployee(employeeId, pageParams)
+      : this.shipmentApi.getAllShipments(pageParams);
+
+    apiCall.pipe(
       tap(response => {
         this.shipments.set(response.content || []);
         this.totalElements.set(response.totalElements || 0);
@@ -64,17 +73,24 @@ export class ShipmentList implements OnInit {
     ).subscribe();
   }
 
-  loadCouriers(): void {
+  loadEmployees(): void {
     const pageable: Pageable = { page: 0, size: 500 };
     this.employeeApi.getAllEmployees(pageable).pipe(
       tap(response => {
-        this.availableCouriers.set(response.content?.filter(emp => emp.applicationRole === EmployeeViewDto.ApplicationRoleEnum.Courier) || []);
+        const employees = response.content || [];
+        this.availableEmployees.set(employees);
+        this.availableCouriers.set(employees.filter(emp => emp.applicationRole === EmployeeViewDto.ApplicationRoleEnum.Courier));
       }),
       catchError(err => {
-        console.error('Failed to load couriers:', err);
+        console.error('Failed to load employees:', err);
         return of(null);
       })
     ).subscribe();
+  }
+
+  onFilterChange(): void {
+    this.currentPage = 0;
+    this.loadShipments();
   }
 
   updateStatus(shipmentId: string, newStatus: ShipmentStatusUpdateDto.NewStatusEnum): void {

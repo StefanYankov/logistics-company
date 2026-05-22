@@ -15,6 +15,7 @@ import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import bg.nbu.cscb532.shipment.dto.mapper.ShipmentMapper;
 import bg.nbu.cscb532.user.ApplicationRole;
 import bg.nbu.cscb532.user.CustomUserDetails;
+import bg.nbu.cscb532.user.UserRepository;
 import org.mockito.*;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
@@ -34,6 +35,7 @@ public abstract class AbstractShipmentUnitTestBase {
     @Mock protected PricingService pricingService;
     @Mock protected ServiceCatalogRepository serviceCatalogRepository;
     @Mock protected ShipmentAddonRepository shipmentAddonRepository;
+    @Mock protected UserRepository userRepository;
     
     @Spy protected ShipmentMapper shipmentMapper = new ShipmentMapper();
 
