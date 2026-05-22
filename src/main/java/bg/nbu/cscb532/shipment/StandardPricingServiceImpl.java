@@ -2,6 +2,7 @@ package bg.nbu.cscb532.shipment;
 
 import bg.nbu.cscb532.shared.exception.BusinessException;
 import bg.nbu.cscb532.shared.exception.ErrorCode;
+import bg.nbu.cscb532.shipment.dto.PricingConfigViewDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -77,5 +78,18 @@ public class StandardPricingServiceImpl implements PricingService {
         }
 
         return finalPrice;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PricingConfigViewDto getActiveConfig() {
+        PricingConfig activeConfig = pricingConfigRepository.findByActiveToIsNull()
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
+
+        return PricingConfigViewDto.builder()
+                .basePrice(activeConfig.getBasePrice())
+                .pricePerKg(activeConfig.getPricePerKg())
+                .addressSurcharge(activeConfig.getAddressSurcharge())
+                .build();
     }
 }

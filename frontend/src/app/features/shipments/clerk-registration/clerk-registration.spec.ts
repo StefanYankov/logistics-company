@@ -1,7 +1,14 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ClerkRegistration } from './clerk-registration';
-import { provideRouter } from '@angular/router';
-import { ClientAPIService, OfficeAPIService, CityAPIService, ShipmentAPIService, ServiceCatalogAPIService } from '../../../api';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {ClerkRegistration} from './clerk-registration';
+import {provideRouter} from '@angular/router';
+import {
+  CityAPIService,
+  ClientAPIService,
+  OfficeAPIService,
+  PricingAPIService,
+  ServiceCatalogAPIService,
+  ShipmentAPIService
+} from '../../../api';
 import {delay, of, throwError} from 'rxjs';
 
 describe('ClerkRegistration', () => {
@@ -13,6 +20,7 @@ describe('ClerkRegistration', () => {
   let mockCityApi: any;
   let mockShipmentApi: any;
   let mockServiceCatalogApi: any;
+  let mockPricingApi: any;
 
   beforeEach(async () => {
     mockClientApi = {
@@ -23,6 +31,7 @@ describe('ClerkRegistration', () => {
     mockCityApi = { getAllCities: vi.fn().mockReturnValue(of({ content: [] })) };
     mockShipmentApi = { registerShipment: vi.fn() };
     mockServiceCatalogApi = { getAllServices: vi.fn().mockReturnValue(of([])) };
+    mockPricingApi = { getActivePricingConfig: vi.fn().mockReturnValue(of({ basePrice: 5, pricePerKg: 1, addressSurcharge: 3 })) };
 
     await TestBed.configureTestingModule({
       imports: [ClerkRegistration],
@@ -32,7 +41,8 @@ describe('ClerkRegistration', () => {
         { provide: OfficeAPIService, useValue: mockOfficeApi },
         { provide: CityAPIService, useValue: mockCityApi },
         { provide: ShipmentAPIService, useValue: mockShipmentApi },
-        { provide: ServiceCatalogAPIService, useValue: mockServiceCatalogApi }
+        { provide: ServiceCatalogAPIService, useValue: mockServiceCatalogApi },
+        { provide: PricingAPIService, useValue: mockPricingApi }
       ]
     }).compileComponents();
 

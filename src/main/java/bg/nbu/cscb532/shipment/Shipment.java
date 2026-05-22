@@ -1,18 +1,14 @@
 package bg.nbu.cscb532.shipment;
 
+import bg.nbu.cscb532.client.Client;
+import bg.nbu.cscb532.employee.Courier;
+import bg.nbu.cscb532.employee.Employee;
 import bg.nbu.cscb532.office.Office;
 import bg.nbu.cscb532.shared.Constants;
 import bg.nbu.cscb532.shared.base.BaseUUIDEntity;
 import bg.nbu.cscb532.shared.location.AddressDetails;
-import bg.nbu.cscb532.client.Client;
-import bg.nbu.cscb532.employee.Courier;
-import bg.nbu.cscb532.employee.Employee;
 import jakarta.persistence.*;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -50,7 +46,7 @@ public class Shipment extends BaseUUIDEntity {
     private String receiverEmail;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "registered_by_id", nullable = false)
+    @JoinColumn(name = "registered_by_id", nullable = true)
     private Employee registeredBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -80,7 +76,7 @@ public class Shipment extends BaseUUIDEntity {
     })
     private AddressDetails originAddressSnapshot;
 
-    // Destination (Where the package is going)
+    // Destination
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delivery_office_id")
     private Office deliveryOffice;
@@ -101,7 +97,7 @@ public class Shipment extends BaseUUIDEntity {
     })
     private AddressDetails deliveryAddressSnapshot;
 
-    // Current Physical Location (For fast querying)
+    // Current Physical Location
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "current_office_id")
     private Office currentOffice;

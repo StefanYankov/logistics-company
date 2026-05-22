@@ -27,6 +27,7 @@ export * from './pageOfficeViewDto';
 export * from './pageStaffShipmentViewDto';
 export * from './pageable';
 export * from './pageableObject';
+export * from './pricingConfigViewDto';
 export * from './problemDetail';
 export * from './publicShipmentViewDto';
 export * from './resetPasswordRequestDto';

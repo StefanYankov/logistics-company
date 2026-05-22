@@ -1,9 +1,16 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ClientRegistration } from './client-registration';
-import { provideRouter } from '@angular/router';
-import { ClientAPIService, OfficeAPIService, CityAPIService, ShipmentAPIService, ServiceCatalogAPIService } from '../../../api';
-import { AuthService } from '../../../shared/auth.service';
-import { of } from 'rxjs';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {ClientRegistration} from './client-registration';
+import {provideRouter} from '@angular/router';
+import {
+  CityAPIService,
+  ClientAPIService,
+  OfficeAPIService,
+  PricingAPIService,
+  ServiceCatalogAPIService,
+  ShipmentAPIService
+} from '../../../api';
+import {AuthService} from '../../../shared/auth.service';
+import {of} from 'rxjs';
 
 describe('ClientRegistration', () => {
   let component: ClientRegistration;
@@ -14,6 +21,7 @@ describe('ClientRegistration', () => {
   let mockCityApi: any;
   let mockShipmentApi: any;
   let mockServiceCatalogApi: any;
+  let mockPricingApi: any;
   let mockAuthService: any;
 
   const createMockBlobResponse = (data: any): Blob => {
@@ -26,6 +34,7 @@ describe('ClientRegistration', () => {
     mockCityApi = { getAllCities: vi.fn() };
     mockShipmentApi = { registerShipment: vi.fn() };
     mockServiceCatalogApi = { getAllServices: vi.fn() };
+    mockPricingApi = { getActivePricingConfig: vi.fn() };
     mockAuthService = { getDecodedToken: vi.fn().mockReturnValue({ userId: 'client-123', role: 'ROLE_CLIENT' }) };
 
     await TestBed.configureTestingModule({
@@ -37,6 +46,7 @@ describe('ClientRegistration', () => {
         { provide: CityAPIService, useValue: mockCityApi },
         { provide: ShipmentAPIService, useValue: mockShipmentApi },
         { provide: ServiceCatalogAPIService, useValue: mockServiceCatalogApi },
+        { provide: PricingAPIService, useValue: mockPricingApi },
         { provide: AuthService, useValue: mockAuthService }
       ]
     }).compileComponents();
@@ -47,9 +57,10 @@ describe('ClientRegistration', () => {
 
   const setupDefaultMockResponses = () => {
     mockClientApi.getMyProfile.mockReturnValue(of({ firstName: 'Stefan', lastName: 'Yankov', phoneNumber: '+359888111222' }));
-    mockOfficeApi.getAllOffices.mockReturnValue(of(createMockBlobResponse({ content: [] })));
-    mockCityApi.getAllCities.mockReturnValue(of(createMockBlobResponse({ content: [] })));
-    mockServiceCatalogApi.getAllServices.mockReturnValue(of(createMockBlobResponse([])));
+    mockOfficeApi.getAllOffices.mockReturnValue(of({ content: [] }));
+    mockCityApi.getAllCities.mockReturnValue(of({ content: [] }));
+    mockServiceCatalogApi.getAllServices.mockReturnValue(of([]));
+    mockPricingApi.getActivePricingConfig.mockReturnValue(of({ basePrice: 5, pricePerKg: 1, addressSurcharge: 3 }));
   };
 
   it('should initialize profile and unpack backend blobs into signals', async () => {
@@ -59,7 +70,7 @@ describe('ClientRegistration', () => {
     fixture.detectChanges();
 
     // 2. Allow a macroscopic frame tick for the async Blob.text() promises to resolve
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await fixture.whenStable();
 
     // 3. Inform the Zoneless engine to run change detection on the newly set Signals
     fixture.detectChanges();

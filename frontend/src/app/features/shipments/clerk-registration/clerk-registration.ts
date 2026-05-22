@@ -1,4 +1,4 @@
-import {Component, inject, OnInit, signal} from '@angular/core';
+import {Component, computed, inject, OnInit, signal} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {Router, RouterModule} from '@angular/router';
@@ -12,6 +12,8 @@ import {
   ClientViewDto,
   OfficeAPIService,
   OfficeViewDto,
+  PricingAPIService,
+  PricingConfigViewDto,
   ServiceCatalogAPIService,
   ServiceCatalogViewDto,
   ShipmentAPIService,
@@ -32,6 +34,7 @@ export class ClerkRegistration implements OnInit {
   private officeApi = inject(OfficeAPIService);
   private cityApi = inject(CityAPIService);
   private serviceCatalogApi = inject(ServiceCatalogAPIService);
+  private pricingApi = inject(PricingAPIService);
   private router = inject(Router);
 
   isLoadingLookups = signal(true);
@@ -51,6 +54,7 @@ export class ClerkRegistration implements OnInit {
   allOffices: OfficeViewDto[] = [];
   cities = signal<CityViewDto[]>([]);
   availableServices = signal<ServiceCatalogViewDto[]>([]);
+  pricingConfig = signal<PricingConfigViewDto | null>(null);
 
   // Filtered lists for the UI
   filteredDeliveryOffices = signal<OfficeViewDto[]>([]);
@@ -61,7 +65,9 @@ export class ClerkRegistration implements OnInit {
   // Hardcoded for now. In reality, get this from the Clerk's profile.
   originOfficeId = 1;
 
-  // Track selected addon IDs
+  // Signals to drive the computed price
+  weight = signal(0.1);
+  destinationType = signal('OFFICE');
   selectedServiceIds = signal<number[]>([]);
 
   registerForm = this.fb.group({
@@ -96,12 +102,45 @@ export class ClerkRegistration implements OnInit {
     email: ['', Validators.email]
   });
 
+  estimatedPrice = computed(() => {
+    const config = this.pricingConfig();
+    if (!config) return 0;
+
+    let total = config.basePrice ?? 0;
+
+    total += this.weight() * (config.pricePerKg ?? 0);
+
+    if (this.destinationType() === 'ADDRESS') {
+      total += config.addressSurcharge ?? 0;
+    }
+
+    this.selectedServiceIds().forEach(serviceId => {
+      const service = this.availableServices().find(s => s.id === serviceId);
+      if (service) {
+        const pricingValue = service.pricingValue ?? 0;
+        if (service.pricingType === 'FIXED_AMOUNT') {
+          total += pricingValue;
+        } else if (service.pricingType === 'PERCENTAGE_OF_BASE') {
+          total += total * pricingValue;
+        }
+      }
+    });
+
+    return total;
+  });
+
   ngOnInit() {
     this.setupDynamicValidations();
     this.setupCascadingDropdowns();
     this.setupSenderAutocomplete();
+    this.setupPriceCalculationTriggers();
 
     queueMicrotask(() => this.loadDropdownData());
+  }
+
+  private setupPriceCalculationTriggers() {
+    this.registerForm.get('weight')?.valueChanges.subscribe(value => this.weight.set(value || 0));
+    this.registerForm.get('destinationType')?.valueChanges.subscribe(value => this.destinationType.set(value || 'OFFICE'));
   }
 
   private setupSenderAutocomplete() {
@@ -258,7 +297,8 @@ export class ClerkRegistration implements OnInit {
     forkJoin({
       officesRes: this.officeApi.getAllOffices(pageParams),
       citiesRes: this.cityApi.getAllCities(pageParams),
-      servicesRes: this.serviceCatalogApi.getAllServices()
+      servicesRes: this.serviceCatalogApi.getAllServices(),
+      pricingRes: this.pricingApi.getActivePricingConfig()
     }).pipe(
       catchError((err) => {
         console.error("Failed to load initial form data", err);
@@ -272,6 +312,7 @@ export class ClerkRegistration implements OnInit {
         this.filteredDeliveryOffices.set(this.allOffices);
         this.cities.set(result.citiesRes.content || []);
         this.availableServices.set(Array.isArray(result.servicesRes) ? result.servicesRes : []);
+        this.pricingConfig.set(result.pricingRes);
         this.isLoadingLookups.set(false);
       }
     });

@@ -158,7 +158,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .receiverName(receiver == null ? request.receiverName() : null)
                 .receiverPhone(receiver == null ? request.receiverPhone() : null)
                 .receiverEmail(receiver == null ? request.receiverEmail() : null)
-                .registeredBy(registeredBy) // This will now be null for clients
+                .registeredBy(registeredBy)
                 .packageDetails(packageDetails)
                 .financials(financials)
                 .status(ShipmentStatus.REGISTERED)
@@ -187,7 +187,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 if (service.getPricingType() == PricingType.FIXED_AMOUNT) {
                     appliedCost = service.getPricingValue();
                 } else if (service.getPricingType() == PricingType.PERCENTAGE_OF_BASE) {
-                    BigDecimal surcharge = totalPrice.multiply(service.getPricingValue()); // Use totalPrice for percentage calculation
+                    BigDecimal surcharge = totalPrice.multiply(service.getPricingValue());
                     appliedCost = surcharge;
                 }
                 addon.setAppliedCost(appliedCost);
@@ -292,7 +292,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                     if (service.getPricingType() == PricingType.FIXED_AMOUNT) {
                         appliedCost = service.getPricingValue();
                     } else if (service.getPricingType() == PricingType.PERCENTAGE_OF_BASE) {
-                        BigDecimal surcharge = newTotalPrice.multiply(service.getPricingValue()); // Use newTotalPrice for percentage calculation
+                        BigDecimal surcharge = newTotalPrice.multiply(service.getPricingValue());
                         appliedCost = surcharge;
                     }
                     addon.setAppliedCost(appliedCost);

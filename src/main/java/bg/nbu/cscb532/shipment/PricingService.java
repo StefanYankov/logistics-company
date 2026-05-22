@@ -1,5 +1,6 @@
 package bg.nbu.cscb532.shipment;
 
+import bg.nbu.cscb532.shipment.dto.PricingConfigViewDto;
 import bg.nbu.cscb532.shipment.dto.ShipmentCreationDto;
 
 import java.math.BigDecimal;
@@ -17,4 +18,11 @@ public interface PricingService {
      * @return The final calculated price in BGN.
      */
     BigDecimal calculatePrice(ShipmentCreationDto request);
+
+    /**
+     * Retrieves the currently active pricing configuration.
+     *
+     * @return A DTO containing the active pricing rules.
+     */
+    PricingConfigViewDto getActiveConfig();
 }
