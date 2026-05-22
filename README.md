@@ -1,5 +1,5 @@
 > [!IMPORTANT]
-> **Project Status: Active Development**
+> **Project Status: Nearing Completion**
 > This repository contains the final project for the CSCB532 Practicum in Programming and Internet Technologies course (Autumn Semester 2021/2022).
 
 ---
@@ -26,7 +26,7 @@ The **Logistics Company System** is a Java-based web application developed as a 
 
 ## Architecture and Technologies
 - **Backend**: Spring Boot 4.0 / Java 25 (utilizing Virtual Threads)
-- **Frontend**: Angular 19+ (Standalone Architecture)
+- **Frontend**: Angular 19+ (Standalone Architecture, Zoneless, Signals)
 - **Database**: PostgreSQL 17
 - **Migrations**: Flyway (Seeds reference data on startup)
 - **Containerization**: Docker & Docker Compose
@@ -46,7 +46,7 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
     *   CRUD operations for the core `Company` entity.
     *   Data integrity checks (Unique registration numbers).
 *   **Office & City Domain**:
-    *   Hierarchical office management (Cities -> Offices).
+    *   Full CRUD API for `Office` and `City` entities.
     *   Geospatial integration (Latitude/Longitude on addresses).
 *   **Identity & Access Management (IAM)**:
     *   Full Spring Security integration.
@@ -71,6 +71,7 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
     *   Client-specific access to their sent and received shipments.
 *   **Reporting Domain**:
     *   Aggregate revenue reporting for administrators over custom date ranges.
+    *   Filtering shipments by the registering employee.
 
 ## Frontend Application Structure & Features
 
@@ -79,24 +80,28 @@ The Angular frontend is built with a standalone component architecture and follo
 *   **Core Authentication:**
     *   `AuthService`: Manages JWT tokens, user login/logout, and token decoding.
     *   `AuthInterceptor`: Automatically attaches JWT to all outgoing API requests.
-    *   `AuthGuard`: Protects authenticated routes.
+    *   `AuthGuard` & `AdminGuard`: Protects authenticated and admin-only routes.
 *   **Public Zone (`features/public` & `features/auth`):**
     *   `PublicLayout`: Provides a shared `PublicHeader` (with Login/Register links) and footer for unauthenticated users.
     *   `Home`: Landing page with a public shipment tracking search bar.
-    *   `Login`: User authentication form.
-    *   `Register`: New client registration form.
+    *   `Login` & `Register`: User authentication and client registration forms.
     *   `Tracking`: Displays public shipment details by tracking number.
 *   **Authenticated Zone (`layouts/authenticated-layout`):**
-    *   `AuthenticatedLayout`: Provides a shared sidebar navigation and a smart `AuthenticatedHeader` (with conditional navigation and Logout) for authenticated users.
+    *   `AuthenticatedLayout`: Provides a shared sidebar navigation and a smart `AuthenticatedHeader` for authenticated users.
 *   **Role-Based Feature Modules:**
     *   **Client (`features/client`):**
         *   `ClientDashboard`: Client-specific view displaying sent and received shipments.
     *   **Courier (`features/courier`):**
         *   `CourierDashboard`: Dedicated view showing assigned "My Deliveries" and "My Pickups".
     *   **Shipments & Operations (`features/shipments`):**
-        *   `ClientRegistration` & `ClerkRegistration`: Role-specific forms for registering new shipments, including sender lookup and addon selection.
-        *   `ShipmentList`: Master operational view for staff to see all shipments, apply addons, assign pickups to couriers, and update lifecycle statuses.
+        *   `ClientRegistration` & `ClerkRegistration`: Role-specific forms for registering new shipments, including real-time price estimation.
+        *   `ShipmentList`: Master operational view for staff to see all shipments, apply addons, assign pickups, and update lifecycle statuses. Includes filtering by employee.
         *   `ShipmentEdit`: Form for editing the details of a `REGISTERED` shipment.
+    *   **Admin (`features/admin`):**
+        *   `UserManagement`: UI for listing, activating/deactivating Staff and Clients.
+        *   `EmployeeCreate` & `EmployeeEdit`: Forms for managing employee details.
+        *   `CompanyDetails`: View/edit component for managing company information.
+        *   `OfficeList`, `OfficeCreate`, `OfficeEdit`: Full CRUD interface for managing company offices.
 
 ## Project Structure
 The project follows a **Package-by-Feature** (Modular Monolith) structure to ensure high cohesion and prepare for potential future microservice extraction.
@@ -106,7 +111,7 @@ LogisticsCompany/
 ├── 📂 .github/                   # GitHub Actions (CI/CD workflows)
 ├── 📂 frontend/                  # Angular 19+ Application Root
 │   ├── 📂 src/app/api/          # Auto-generated OpenAPI client services and models
-│   ├── 📂 src/app/features/     # Role-based feature modules (client, courier, public, shipments)
+│   ├── 📂 src/app/features/     # Role-based feature modules (client, courier, public, shipments, admin)
 │   ├── 📂 src/app/layouts/      # Shared layout components (public, authenticated)
 │   ├── 📂 src/app/shared/       # Cross-cutting concerns (auth.service, auth.guard, ui components)
 │   └── ...
