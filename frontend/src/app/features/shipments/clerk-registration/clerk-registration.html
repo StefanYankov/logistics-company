@@ -272,6 +272,11 @@
         </div>
       </fieldset>
 
+      <!-- ================= PRICE SUMMARY ================= -->
+      <div class="price-summary">
+        <h3>Estimated Price: <span>{{ estimatedPrice() | currency:'BGN' }}</span></h3>
+      </div>
+
       @if (errorMessage(); as error) {
         <div class="error server-error" role="alert">
           {{ error }}

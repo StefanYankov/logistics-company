@@ -1,4 +1,4 @@
-import {Component, inject, OnInit, signal} from '@angular/core';
+import {Component, computed, inject, OnInit, signal} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {Router, RouterModule} from '@angular/router';
@@ -11,6 +11,8 @@ import {
   ClientUpdateDto,
   OfficeAPIService,
   OfficeViewDto,
+  PricingAPIService,
+  PricingConfigViewDto,
   ServiceCatalogAPIService,
   ServiceCatalogViewDto,
   ShipmentAPIService,
@@ -32,6 +34,7 @@ export class ClientRegistration implements OnInit {
   private officeApi = inject(OfficeAPIService);
   private cityApi = inject(CityAPIService);
   private serviceCatalogApi = inject(ServiceCatalogAPIService);
+  private pricingApi = inject(PricingAPIService);
   private authService = inject(AuthService);
   private router = inject(Router);
 
@@ -42,6 +45,7 @@ export class ClientRegistration implements OnInit {
   allOffices: OfficeViewDto[] = [];
   cities = signal<CityViewDto[]>([]);
   availableServices = signal<ServiceCatalogViewDto[]>([]);
+  pricingConfig = signal<PricingConfigViewDto | null>(null);
 
   filteredOriginOffices = signal<OfficeViewDto[]>([]);
   filteredDeliveryOffices = signal<OfficeViewDto[]>([]);
@@ -52,6 +56,10 @@ export class ClientRegistration implements OnInit {
   loggedInUserId: string = '';
 
   selectedServiceIds = signal<Set<number>>(new Set());
+
+  // Signals to drive the computed price
+  weight = signal(0.1);
+  destinationType = signal('OFFICE');
 
   senderProfileForm = this.fb.group({
     firstName: ['', Validators.required],
@@ -94,6 +102,33 @@ export class ClientRegistration implements OnInit {
     paidBy: [ShipmentCreationDto.PaidByEnum.Sender, Validators.required]
   });
 
+  estimatedPrice = computed(() => {
+    const config = this.pricingConfig();
+    if (!config) return 0;
+
+    let total = config.basePrice ?? 0;
+
+    total += this.weight() * (config.pricePerKg ?? 0);
+
+    if (this.destinationType() === 'ADDRESS') {
+      total += config.addressSurcharge ?? 0;
+    }
+
+    this.selectedServiceIds().forEach(serviceId => {
+      const service = this.availableServices().find(s => s.id === serviceId);
+      if (service) {
+        const pricingValue = service.pricingValue ?? 0;
+        if (service.pricingType === 'FIXED_AMOUNT') {
+          total += pricingValue;
+        } else if (service.pricingType === 'PERCENTAGE_OF_BASE') {
+          total += total * pricingValue;
+        }
+      }
+    });
+
+    return total;
+  });
+
   ngOnInit() {
     const token = this.authService.getDecodedToken();
     if (!token || !token.userId) {
@@ -104,8 +139,14 @@ export class ClientRegistration implements OnInit {
 
     this.setupDynamicValidations();
     this.setupCascadingDropdowns();
+    this.setupPriceCalculationTriggers();
 
     queueMicrotask(() => this.loadDropdownData());
+  }
+
+  private setupPriceCalculationTriggers() {
+    this.registerForm.get('weight')?.valueChanges.subscribe(value => this.weight.set(value || 0));
+    this.registerForm.get('destinationType')?.valueChanges.subscribe(value => this.destinationType.set(value || 'OFFICE'));
   }
 
   private setupCascadingDropdowns() {
@@ -202,7 +243,8 @@ export class ClientRegistration implements OnInit {
       profileRes: this.clientApi.getMyProfile(),
       officesRes: this.officeApi.getAllOffices(pageParams),
       citiesRes: this.cityApi.getAllCities(pageParams),
-      servicesRes: this.serviceCatalogApi.getAllServices()
+      servicesRes: this.serviceCatalogApi.getAllServices(),
+      pricingRes: this.pricingApi.getActivePricingConfig()
     }).pipe(
       catchError((err) => {
         console.error("Failed to load initial form data", err);
@@ -225,6 +267,7 @@ export class ClientRegistration implements OnInit {
 
         const services = Array.isArray(result.servicesRes) ? result.servicesRes : [];
         this.availableServices.set(services);
+        this.pricingConfig.set(result.pricingRes);
 
         this.isLoadingLookups.set(false);
       }

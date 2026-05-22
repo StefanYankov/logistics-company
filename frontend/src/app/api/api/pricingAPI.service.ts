@@ -14,9 +14,9 @@ import {HttpClient, HttpContext, HttpEvent, HttpResponse} from '@angular/common/
 import {Observable} from 'rxjs';
 
 // @ts-ignore
-import {ProblemDetail} from '../model/problemDetail';
+import {PricingConfigViewDto} from '../model/pricingConfigViewDto';
 // @ts-ignore
-import {ServiceCatalogViewDto} from '../model/serviceCatalogViewDto';
+import {ProblemDetail} from '../model/problemDetail';
 
 // @ts-ignore
 import {BASE_PATH, COLLECTION_FORMATS} from '../variables';
@@ -27,24 +27,24 @@ import {BaseService} from '../api.base.service';
 @Injectable({
   providedIn: 'root'
 })
-export class ServiceCatalogAPIService extends BaseService {
+export class PricingAPIService extends BaseService {
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
     }
 
     /**
-     * Get all available services
-     * Retrieves a list of all active shipment addons and their pricing rules.
-     * @endpoint get /api/services
+     * Get the active pricing configuration
+     * Retrieves the currently active pricing rules (base price, price per kg, surcharges).
+     * @endpoint get /api/pricing/active
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getAllServices(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<Array<ServiceCatalogViewDto>>;
-    public getAllServices(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<ServiceCatalogViewDto>>>;
-    public getAllServices(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<ServiceCatalogViewDto>>>;
-    public getAllServices(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getActivePricingConfig(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<PricingConfigViewDto>;
+    public getActivePricingConfig(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PricingConfigViewDto>>;
+    public getActivePricingConfig(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PricingConfigViewDto>>;
+    public getActivePricingConfig(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarHeaders = this.defaultHeaders;
 
@@ -71,9 +71,9 @@ export class ServiceCatalogAPIService extends BaseService {
             }
         }
 
-        let localVarPath = `/api/services`;
+        let localVarPath = `/api/pricing/active`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<Array<ServiceCatalogViewDto>>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<PricingConfigViewDto>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,

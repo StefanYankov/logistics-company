@@ -1,6 +1,6 @@
-import { HttpHeaders, HttpParameterCodec } from '@angular/common/http';
-import { Param } from './param';
-import { OpenApiHttpParams } from './query.params';
+import {HttpHeaders, HttpParameterCodec} from '@angular/common/http';
+import {Param} from './param';
+import {OpenApiHttpParams} from './query.params';
 
 export interface ConfigurationParameters {
     /**
