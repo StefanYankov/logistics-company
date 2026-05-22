@@ -19,6 +19,7 @@ The **Logistics Company System** is a Java-based web application developed as a 
 - [Installation & Setup](#installation-and-setup)
 - [Implemented Features](#implemented-features)
 - [Project Structure](#project-structure)
+- [API Testing Guide](#api-testing-guide)
 - [Test Credentials](#test-credentials)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
@@ -44,7 +45,6 @@ The project is being developed using a strict **Domain-Driven Design (DDD)** app
     *   Automated Flyway database migrations (including Cities, Offices, and Service Catalog seed data).
 *   **Company Domain**:
     *   CRUD operations for the core `Company` entity.
-    *   Data integrity checks (Unique registration numbers).
 *   **Office & City Domain**:
     *   Full CRUD API for `Office` and `City` entities.
     *   Geospatial integration (Latitude/Longitude on addresses).
@@ -161,6 +161,11 @@ LogisticsCompany/
     *   Navigate to the `frontend/` directory in your terminal.
     *   Run `npm start`.
     *   Open your browser to `http://localhost:4200`.
+
+## API Testing Guide
+A comprehensive guide for end-to-end API testing using Postman is available. This guide provides a sequential set of requests that cover all major features and business logic, from user registration to advanced shipment operations.
+
+**[View the API Testing Guide](./docs/API_TESTING.md)**
 
 ## Test Credentials
 

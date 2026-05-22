@@ -1,0 +1,1664 @@
+{
+  "info": {
+    "_postman_id": "682a6606-a4a6-4538-991b-13a2b7566f64",
+    "name": "Logistics API - Integration flow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "7200801",
+    "_collection_link": "https://go.postman.co/collection/7200801-682a6606-a4a6-4538-991b-13a2b7566f64?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "01-IAM and Auth",
+      "item": [
+        {
+          "name": "1. Register Sender Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {\r",
+                  "    pm.environment.set(\"client_sender_id\", pm.response.json().id);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"sender_client_from_postman\",\r\n    \"email\": \"sender@logistics.com\",\r\n    \"password\": \"SecurePassword123!\",\r\n    \"firstName\": \"Alice\",\r\n    \"lastName\": \"Smith\",\r\n    \"phoneNumber\": \"0888111222\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clients/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clients",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Verify Sender Client Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clients/verify?token=ecbd3049-fa0b-4013-b252-82ee18848d59",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clients",
+                "verify"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "ecbd3049-fa0b-4013-b252-82ee18848d59"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Register Receiver Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {\r",
+                  "    pm.environment.set(\"client_receiver_id\", pm.response.json().id);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"receiver_client_from_postman\",\r\n    \"email\": \"receiver@logistics.com\",\r\n    \"password\": \"SecurePassword123!\",\r\n    \"firstName\": \"Bob\",\r\n    \"lastName\": \"Jones\",\r\n    \"phoneNumber\": \"0888333444\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clients/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clients",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Login as Client (Sender)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {\r",
+                  "    pm.environment.set(\"client_token\", pm.response.json().token);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"sender_client_from_postman\",\r\n    \"password\": \"SecurePassword123!\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Request Password Reset",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {\r",
+                  "    pm.environment.set(\"client_token\", pm.response.json().token);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\": \"sender@logistics.com\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6. Execute Password Reset",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"token\": \"7d55af4e-1d6e-4617-8491-3560e4a82576\",\r\n    \"newPassword\": \"NewStrongPassword123!\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02-System Setup (Admin)",
+      "item": [
+        {
+          "name": "7. Login As Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200){\r",
+                  "     pm.environment.set(\"admin_token\", pm.response.json().token);\r",
+                  "}\r",
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"admin\",\r\n    \"password\": \"password123\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "8. Create Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {\r",
+                  "    pm.environment.set(\"company_id\", pm.response.json().id);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"name\": \"Fast Delivery OOD\",\r\n    \"registrationNumber\": \"BG987654321\",\r\n    \"addressDetails\": {\r\n        \"cityId\": 1,\r\n        \"street\": \"Tsarigradsko Shose 115\",\r\n        \"district\": \"Mladost\",\r\n        \"building\": \"G\",\r\n        \"entrance\": \"1\",\r\n        \"floor\": \"3\",\r\n        \"apartment\": \"12\",\r\n        \"latitude\": 42.6610,\r\n        \"longitude\": 23.3855\r\n    }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/companies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "companies"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "9. Create Office",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { \r",
+                  "    pm.environment.set(\"office_id\", pm.response.json().id);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"companyId\": {{company_id}},\r\n    \"address\": {\r\n        \"cityId\": 1,\r\n        \"street\": \"Main Blvd 10\",\r\n        \"district\": \"Center\",\r\n        \"building\": \"10A\",\r\n        \"entrance\": \"A\",\r\n        \"floor\": \"1\",\r\n        \"apartment\": null,\r\n        \"latitude\": 42.6977,\r\n        \"longitude\": 23.3219\r\n    },\r\n    \"operatingHours\": [\r\n        {\r\n            \"dayOfWeek\": \"MONDAY\",\r\n            \"openTime\": \"09:00:00\",\r\n            \"closeTime\": \"18:00:00\",\r\n            \"isClosed\": false\r\n        },\r\n        {\r\n            \"dayOfWeek\": \"TUESDAY\",\r\n            \"openTime\": \"09:00:00\",\r\n            \"closeTime\": \"18:00:00\",\r\n            \"isClosed\": false\r\n        }\r\n    ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/offices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "offices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "10. Register Office Clerk",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { \r",
+                  "    pm.environment.set(\"clerk_id\", pm.response.json().id);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"clerk_from_postman1\",\r\n    \"email\": \"clerk1@logistics.com\",\r\n    \"password\": \"SecurePassword123!\",\r\n    \"firstName\": \"Ivan\",\r\n    \"lastName\": \"Ivanov\",\r\n    \"hireDate\": \"2026-01-01\",\r\n    \"salary\": 2000.00,\r\n    \"applicationRole\": \"CLERK\",\r\n    \"officeId\": {{office_id}}\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employees"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11. Register Courier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {\r",
+                  "    pm.environment.set(\"courier_id\", pm.response.json().id);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"courier_from_postman1\",\r\n    \"email\": \"courier1@logistics.com\",\r\n    \"password\": \"SecurePassword123!\",\r\n    \"firstName\": \"Ivan\",\r\n    \"lastName\": \"Ivanov\",\r\n    \"hireDate\": \"2026-01-01\",\r\n    \"salary\": 2500.00,\r\n    \"applicationRole\": \"COURIER\",\r\n    \"officeId\": null\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employees"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03-Operations - Employees",
+      "item": [
+        {
+          "name": "12. Authenticate Clerk",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {\r",
+                  "    pm.environment.set(\"clerk_token\", pm.response.json().token);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"clerk_from_postman1\",\r\n    \"password\": \"SecurePassword123!\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "13. Authenticate Courier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {\r",
+                  "    pm.environment.set(\"courier_token\", pm.response.json().token);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"courier_from_postman1\",\r\n    \"password\": \"SecurePassword123!\"\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "14. Register Shipment (Clerk)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {\r",
+                  "    pm.environment.set(\"shipment_id\", pm.response.json().id);\r",
+                  "    pm.environment.set(\"tracking_number\", pm.response.json().trackingNumber);\r",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"senderId\": \"{{client_sender_id}}\",\r\n    \"receiverId\": \"{{client_receiver_id}}\",\r\n    \"originOfficeId\": 1,\r\n    \"type\": \"PARCEL\",\r\n    \"weight\": 2.5,\r\n    \"length\": 10.0,\r\n    \"width\": 10.0,\r\n    \"height\": 10.0,\r\n    \"deliveryOfficeId\": {{office_id}},\r\n    \"paidBy\": \"SENDER\",\r\n    \"selectedServiceIds\": []\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "15. Update Status to Transit (Clerk)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"newStatus\": \"IN_TRANSIT\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/{{shipment_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "{{shipment_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "16. Update Status to Out for Delivery (Courier)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{courier_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"newStatus\": \"OUT_FOR_DELIVERY\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/{{shipment_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "{{shipment_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "17. Update Status to Delivered (Courier)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{courier_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"newStatus\": \"DELIVERED\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/{{shipment_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "{{shipment_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "18. Remote Doorstep Pickup -> Bound for an Office (Courier)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{courier_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"senderId\": \"{{client_sender_id}}\",\r\n    \"receiverId\": \"{{client_receiver_id}}\",\r\n    \"originAddress\": {\r\n        \"cityId\": 1,\r\n        \"street\": \"Remote Pickup Street 44\",\r\n        \"district\": \"Lozenets\"\r\n    },\r\n    \"type\": \"PARCEL\",\r\n    \"weight\": 3.5,\r\n    \"deliveryOfficeId\": {{office_id}},\r\n    \"paidBy\": \"SENDER\",\r\n    \"selectedServiceIds\": []\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "19. Remote Doorstep Pickup -> Bound for guest (Door-to-Door)(Courier)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{courier_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"senderId\": \"{{client_sender_id}}\",\r\n    \"receiverId\": null,\r\n    \"receiverName\": \"Grandma Maria\",\r\n    \"receiverPhone\": \"+359888123456\",\r\n    \"receiverEmail\": null,\r\n    \"originAddress\": {\r\n        \"cityId\": 1,\r\n        \"street\": \"Your Doorstep St 44\",\r\n        \"district\": \"Lozenets\"\r\n    },\r\n    \"type\": \"PARCEL\",\r\n    \"weight\": 3.80,\r\n    \"deliveryAddress\": {\r\n        \"cityId\": 1,\r\n        \"street\": \"Grandma Quiet Village St 12\",\r\n        \"district\": \"North Region\"\r\n    },\r\n    \"paidBy\": \"SENDER\",\r\n    \"selectedServiceIds\": []\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04-Reporting (Admin)",
+      "item": [
+        {
+          "name": "Req 5a. All Employees",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employees"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Req 5b. All Clients",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clients"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Req 5c. All Shipments",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Req 5d. By Employee",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shipments/registered-by/{{clerk_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "registered-by",
+                "{{clerk_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Req 5e. Pending",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shipments/pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "pending"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Req 5h. Revenue",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shipments/revenue?startDate=2026-01-01&endDate=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "revenue"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05-Client Portal & Security",
+      "item": [
+        {
+          "name": "20. Client Track Own Shipment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shipments/track/{{tracking_number}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "track",
+                "{{tracking_number}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "21: View Sent Shipments (Req 5f)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{client_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shipments/sender/{{client_sender_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "sender",
+                "{{client_sender_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "22. Security Validation (Forbidden Report Access)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/shipments/revenue?startDate=2026-01-01&endDate=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "revenue"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06-Advanced Operations (Addons, Guest Receivers, Office Pickup)",
+      "item": [
+        {
+          "name": "23. Quick Register Walk-in Client",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"firstName\": \"Walkin\",\r\n    \"lastName\": \"Customer\",\r\n    \"phoneNumber\": \"0888999000\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clients/quick-register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clients",
+                "quick-register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "24. Register Shipment with Addons & Guest Receiver",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.environment.set(\"pickup_shipment_id\", pm.response.json().id);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"senderId\": \"{{client_sender_id}}\",\r\n    \"receiverName\": \"Guest Receiver\",\r\n    \"receiverPhone\": \"0888777666\",\r\n    \"originOfficeId\": 1,\r\n    \"type\": \"PARCEL\",\r\n    \"weight\": 5.0,\r\n    \"deliveryOfficeId\": 1,\r\n    \"paidBy\": \"SENDER\",\r\n    \"selectedServiceIds\": [1, 2]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "25a. Deliver via Office Pickup (Clerk) - In Transit",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n      \"newStatus\": \"IN_TRANSIT\",\r\n      \"locationOfficeId\": 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/{{pickup_shipment_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "{{pickup_shipment_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "25b. Deliver via Office Pickup (Clerk) - At Delivery Office",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n      \"newStatus\": \"AT_DELIVERY_OFFICE\",\r\n      \"locationOfficeId\": 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/{{pickup_shipment_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "{{pickup_shipment_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "25c. Deliver via Office Pickup (Clerk) - Delivered",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"newStatus\": \"DELIVERED\",\r\n    \"locationOfficeId\": 1,\r\n    \"notes\": \"Handed over directly to guest customer at counter.\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/{{pickup_shipment_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "{{pickup_shipment_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "26. Transition from REGISTERED -> IN_TRANSIT (Clerk)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n      \"newStatus\": \"AT_DELIVERY_OFFICE\",\r\n      \"locationOfficeId\": 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/{{pickup_shipment_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "{{pickup_shipment_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "27. Transition from IN_TRANSIT -> AT_DELIVERY_OFFICE (Clerk)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"newStatus\": \"DELIVERED\",\r\n    \"locationOfficeId\": 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/{{pickup_shipment_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "{{pickup_shipment_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "28a. Price calculation - Light Package base",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"senderId\": \"{{client_sender_id}}\",\r\n    \"receiverName\": \"Guest Receiver One\",\r\n    \"receiverPhone\": \"0888111222\",\r\n    \"originOfficeId\": 1,\r\n    \"type\": \"PARCEL\",\r\n    \"weight\": 1.5,\r\n    \"length\": 15.0,\r\n    \"width\": 15.0,\r\n    \"height\": 10.0,\r\n    \"deliveryOfficeId\": 1,\r\n    \"paidBy\": \"SENDER\",\r\n    \"selectedServiceIds\": []\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "28b. Price calculation - Heavy Package (Same Dimensions)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"senderId\": \"{{client_sender_id}}\",\r\n    \"receiverName\": \"Guest Receiver One\",\r\n    \"receiverPhone\": \"0888111222\",\r\n    \"originOfficeId\": 1,\r\n    \"type\": \"PARCEL\",\r\n    \"weight\": 15.5,\r\n    \"length\": 15.0,\r\n    \"width\": 15.0,\r\n    \"height\": 10.0,\r\n    \"deliveryOfficeId\": 1,\r\n    \"paidBy\": \"SENDER\",\r\n    \"selectedServiceIds\": []\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "29a. Price calculation - Destination to Office pickup",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"senderId\": \"{{client_sender_id}}\",\r\n    \"receiverName\": \"Office Guest\",\r\n    \"receiverPhone\": \"0888555666\",\r\n    \"originOfficeId\": 1,\r\n    \"type\": \"PARCEL\",\r\n    \"weight\": 3.0,\r\n    \"length\": 20.0,\r\n    \"width\": 20.0,\r\n    \"height\": 15.0,\r\n    \"deliveryOfficeId\": 1,\r\n    \"paidBy\": \"SENDER\",\r\n    \"selectedServiceIds\": []\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "29b. Price calculation - Destination to Client Address (Door-to-Door)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"senderId\": \"{{client_sender_id}}\",\r\n    \"receiverName\": \"Address Guest\",\r\n    \"receiverPhone\": \"0888777888\",\r\n    \"originOfficeId\": 1,\r\n    \"type\": \"PARCEL\",\r\n    \"weight\": 3.0,\r\n    \"length\": 20.0,\r\n    \"width\": 20.0,\r\n    \"height\": 15.0,\r\n    \"deliveryAddress\": {\r\n        \"cityId\": 1,\r\n        \"street\": \"Residential St 45\",\r\n        \"district\": \"Mladost\"\r\n    },\r\n    \"paidBy\": \"SENDER\",\r\n    \"selectedServiceIds\": []\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07-Edge Cases & Defense in Depth",
+      "item": [
+        {
+          "name": "28. Registration Duplicate Conflict (409)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"username\": \"sender_client_from_postman\",\r\n    \"email\": \"sender@logistics.com\",\r\n    \"password\": \"SecurePassword123!\",\r\n    \"firstName\": \"Alice\",\r\n    \"lastName\": \"Smith\",\r\n    \"phoneNumber\": \"0888111222\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clients/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clients",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "29. Negative Weight Validation (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"senderId\": \"{{client_sender_id}}\",\r\n    \"receiverId\": \"{{client_receiver_id}}\",\r\n    \"originOfficeId\": 1,\r\n    \"type\": \"PARCEL\",\r\n    \"weight\": -5.0,\r\n    \"length\": 10.0,\r\n    \"width\": 10.0,\r\n    \"height\": 10.0,\r\n    \"deliveryOfficeId\": 1,\r\n    \"paidBy\": \"SENDER\",\r\n    \"selectedServiceIds\": []\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "30. State Machine Violation (400)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"newStatus\": \"IN_TRANSIT\",\r\n    \"notes\": \"Attempting to reverse status on a package that is already delivered.\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/{{shipment_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "{{shipment_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "31. ID Enumeration Protection (404)",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{client_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"newStatus\": \"IN_TRANSIT\",\r\n    \"notes\": \"Attempting to reverse status on a package that is already delivered.\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipments/track/TRK-UNKNOWN-123",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipments",
+                "track",
+                "TRK-UNKNOWN-123"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
